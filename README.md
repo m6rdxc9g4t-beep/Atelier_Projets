@@ -10,7 +10,7 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 
 | Étape | Contenu | État |
 | :--- | :--- | :--- |
-| **Phase 1 — Socle** | Monorepo (npm workspaces), design system (tokens officiels + thèmes clair/sombre), backend Fastify + TypeScript + Prisma/SQLite, migration initiale, seed de démo « App E-Commerce v2 » | ✅ Livrée |
+| **Phase 1 — Socle** | Monorepo (npm workspaces), design system (tokens officiels + thèmes clair/sombre), backend Fastify + TypeScript + Prisma/SQLite, migration initiale, seed de démo « App E-Commerce v2 » | ✅ Terminée — en attente de validation |
 | Phases suivantes | API REST métier, frontend React, `git-engine`, `ai-bridge` | ⏳ À venir |
 
 ## ⚡ Démarrage rapide
@@ -28,7 +28,7 @@ npm run dev:backend    # API Fastify sur http://127.0.0.1:3000 — santé : GET 
 | `npm run setup` | `prisma generate` → `prisma migrate deploy` → seed de démo |
 | `npm run dev:backend` | Serveur Fastify en mode watch (`tsx`) |
 | `npm run build:backend` | Compilation TypeScript → `backend/dist/` (`npm start -w @atelier/backend` pour lancer) |
-| `npm run db:migrate` | Nouvelle migration après modification du schéma (`prisma migrate dev`) + régénération du client |
+| `npm run db:migrate -- --name <nom>` | Nouvelle migration après modification du schéma (`prisma migrate dev`), puis régénération du client |
 | `npm run db:seed` | Réinsère le projet de démo « App E-Commerce v2 » (idempotent) |
 | `npm run db:reset` | Réinitialise la base, rejoue les migrations puis le seed |
 | `npm run db:studio` | Ouvre Prisma Studio sur la base locale |
@@ -154,12 +154,18 @@ Chaque projet est lié à un dépôt Git local et un dépôt GitHub distant :
 - **Unités :** toutes les durées sont stockées en **heures** ; la conversion en jours utilise `Project.hoursPerDay` (1 jour = 8 h par défaut).
 - **Statuts et types** sont des enums Prisma (`WorkItemStatus`, `WorkItemType`) dont les valeurs correspondent exactement à `CLAUDE.md`.
 - **Suppression :** en cascade le long de la hiérarchie ; un jalon dont la phase est supprimée reste rattaché au projet.
+- **Agrégats :** Phases, Epics et Stories ne stockent ni statut ni avancement ; le backend les calcule à partir de leurs WorkItems (budget, temps réalisé, avancement).
 
 ---
 
 ## 🖥️ 4. Maquettes Visuelles des Interfaces
 
-> Le seed de démo (`npm run db:seed`) reproduit les données de ces maquettes : budget 45.0 j (360 h), réalisé 28.5 j (228 h), les éléments #101 à #205 et la fiche #12345 avec ses commits.
+> Le seed de démo (`npm run db:seed`) reproduit les données de ces maquettes : budget 45.0 j (360 h), réalisé 28.5 j (228 h), Gantt (phases de 15 j et 20 j, jalons du 15 oct. et du 2 nov.), tableau des temps (#101, #102, #103, #12345, #205 : 12 j budgétés, 72 h réalisées) et fiche #12345 avec ses deux commits. La Pull Request #42 de la fiche arrivera avec la synchronisation GitHub (modèle à ajouter dans la phase `git-engine`).
+>
+> Indicateurs du tableau de bord, tels que le seed les reproduit :
+> - **Progression budget** = temps réalisé / budget initial du projet → 228 h / 360 h = **63 %** ;
+> - **Avancement réel** = Σ (estimation × avancement) / Σ estimations, éléments rejetés exclus → 198 h / 280 h = **71 %** ;
+> - **En avance ✨** lorsque l'avancement réel dépasse la progression budget.
 
 ### A. Vue Dashboard : Santé du Budget & Histogramme des 8 Statuts
 
