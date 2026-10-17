@@ -1,0 +1,259 @@
+// =============================================================================
+// Atelier_Projets — Schéma de données (Prisma 7 · SQLite 100 % local)
+//
+// Hiérarchie stricte : Project > Phase > Epic > Story > WorkItem (FEATURE | TASK | BUG)
+// Milestone : toujours rattaché à un Project, et optionnellement à une Phase.
+//
+// Unités : toutes les durées sont stockées en HEURES (Float). La conversion en
+// jours se fait côté backend avec Project.hoursPerDay (1 jour = 8 h par défaut).
+// Dates calendaires (startDate, dueDate, spentOn, date) : stockées à 00:00 UTC.
+// L'URL de la base est définie dans prisma.config.ts (Prisma 7).
+// =============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// -----------------------------------------------------------------------------
+// Énumérations (valeurs identiques à CLAUDE.md §2 et §3)
+// -----------------------------------------------------------------------------
+
+/// Types de WorkItem — Phase, Epic, Story et Milestone ont leurs propres modèles.
+enum WorkItemType {
+  FEATURE
+  TASK
+  BUG
+}
+
+/// Les 8 statuts officiels du workflow.
+enum WorkItemStatus {
+  OPEN
+  IN_PROGRESS
+  IN_REVIEW
+  ON_HOLD
+  BLOCKED
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+/// Priorité d'un WorkItem (échelle OpenProject : Basse, Normale, Haute, Immédiate).
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  IMMEDIATE
+}
+
+// -----------------------------------------------------------------------------
+// Hiérarchie du projet
+// -----------------------------------------------------------------------------
+
+/// Projet, lié à un dépôt Git local et à un dépôt GitHub distant.
+model Project {
+  id            Int       @id @default(autoincrement())
+  name          String
+  /// Identifiant lisible et unique (URL, seed idempotent).
+  slug          String    @unique
+  description   String    @default("")
+  /// Chemin absolu du dépôt Git local analysé par le git-engine.
+  localRepoPath String?
+  /// Dépôt GitHub distant : github.com/<githubOwner>/<githubRepo>.
+  githubOwner   String?
+  githubRepo    String?
+  defaultBranch String    @default("main")
+  /// Paramètre de conversion : 1 jour = hoursPerDay heures.
+  hoursPerDay   Float     @default(8)
+  /// Budget initial du projet, en heures.
+  budgetHours   Float?
+  startDate     DateTime?
+  dueDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  phases     Phase[]
+  milestones Milestone[]
+  workItems  WorkItem[]
+  gitCommits GitCommit[]
+}
+
+/// Découpage macroscopique du projet (barre orange du Gantt).
+model Phase {
+  id          Int       @id @default(autoincrement())
+  projectId   Int
+  title       String
+  description String    @default("")
+  /// Ordre d'affichage parmi les phases du projet.
+  position    Int       @default(0)
+  startDate   DateTime?
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  epics      Epic[]
+  milestones Milestone[]
+
+  @@index([projectId, position])
+}
+
+/// Jalon (◆ sur le Gantt). phaseId null = jalon de niveau projet.
+model Milestone {
+  id          Int       @id @default(autoincrement())
+  projectId   Int
+  phaseId     Int?
+  title       String
+  description String    @default("")
+  /// Date cible du jalon.
+  date        DateTime
+  /// Date d'atteinte effective (null = pas encore atteint).
+  reachedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Si la phase est supprimée, le jalon reste rattaché au projet.
+  phase   Phase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, date])
+  @@index([phaseId])
+}
+
+/// Grand ensemble fonctionnel d'une phase.
+model Epic {
+  id          Int       @id @default(autoincrement())
+  phaseId     Int
+  title       String
+  description String    @default("")
+  position    Int       @default(0)
+  startDate   DateTime?
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  phase   Phase   @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  stories Story[]
+
+  @@index([phaseId, position])
+}
+
+/// Récit utilisateur d'un epic, qui regroupe les WorkItems.
+model Story {
+  id          Int       @id @default(autoincrement())
+  epicId      Int
+  title       String
+  /// Markdown : « En tant que …, je veux …, afin de … ».
+  description String    @default("")
+  position    Int       @default(0)
+  startDate   DateTime?
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  epic      Epic       @relation(fields: [epicId], references: [id], onDelete: Cascade)
+  workItems WorkItem[]
+
+  @@index([epicId, position])
+}
+
+/// Élément de travail : FEATURE, TASK ou BUG. Son id est le #ID public cité dans les commits.
+model WorkItem {
+  /// #ID public (ex. « feature #12345 » dans un message de commit).
+  id                Int            @id @default(autoincrement())
+  /// Dénormalisé (= story → epic → phase → projectId) pour les requêtes par projet.
+  projectId         Int
+  storyId           Int
+  type              WorkItemType
+  status            WorkItemStatus @default(OPEN)
+  priority          Priority       @default(NORMAL)
+  title             String
+  /// Onglet 1 « Description (À faire) » — Markdown : objectif + critères d'acceptation.
+  description       String         @default("")
+  /// Onglet 2 « Journal d'avancement » — Markdown, entrées horodatées.
+  implementationLog String         @default("")
+  /// Budget estimé, en heures (null = non estimé).
+  estimatedHours    Float?
+  /// Avancement déclaré, de 0 à 100 %.
+  progress          Int            @default(0)
+  position          Int            @default(0)
+  startDate         DateTime?
+  dueDate           DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  story       Story           @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  timeEntries TimeEntry[]
+  commitLinks GitCommitLink[]
+
+  @@index([projectId, status])
+  @@index([projectId, type])
+  @@index([storyId, position])
+}
+
+// -----------------------------------------------------------------------------
+// Temps passé
+// -----------------------------------------------------------------------------
+
+/// Saisie de temps sur un WorkItem (« + Saisir Temps »).
+model TimeEntry {
+  id         Int      @id @default(autoincrement())
+  workItemId Int
+  /// Jour travaillé (date calendaire, 00:00 UTC).
+  spentOn    DateTime
+  /// Durée en heures.
+  hours      Float
+  comment    String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+
+  @@index([workItemId, spentOn])
+}
+
+// -----------------------------------------------------------------------------
+// Git & GitHub
+// -----------------------------------------------------------------------------
+
+/// Commit détecté dans le dépôt du projet par le git-engine.
+model GitCommit {
+  id          Int      @id @default(autoincrement())
+  projectId   Int
+  /// SHA complet (40 caractères) ; l'affichage court utilise les 7 premiers.
+  hash        String
+  authorName  String
+  authorEmail String
+  committedAt DateTime
+  message     String
+  /// Branche sur laquelle le commit a été détecté.
+  branch      String?
+  /// Date de détection par le git-engine.
+  createdAt   DateTime @default(now())
+
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  links   GitCommitLink[]
+
+  @@unique([projectId, hash])
+  @@index([projectId, committedAt])
+}
+
+/// Liaison commit ↔ WorkItem : un commit peut citer plusieurs #ID, un #ID peut avoir plusieurs commits.
+model GitCommitLink {
+  commitId   Int
+  workItemId Int
+  /// Mot-clé capturé par la regex (feature | task | bug | fix | feat | ref), null pour un « #ID » seul.
+  keyword    String?
+  createdAt  DateTime @default(now())
+
+  commit   GitCommit @relation(fields: [commitId], references: [id], onDelete: Cascade)
+  workItem WorkItem  @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+
+  @@id([commitId, workItemId])
+  @@index([workItemId])
+}
