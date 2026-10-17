@@ -17,10 +17,10 @@
     "setup": "npm run db:setup --workspace=@atelier/backend",
     "dev:backend": "npm run dev --workspace=@atelier/backend",
     "build:backend": "npm run build --workspace=@atelier/backend",
-    "db:migrate": "npm run db:migrate --workspace=@atelier/backend",
+    "db:migrate": "npm run db:migrate --workspace=@atelier/backend --",
     "db:seed": "npm run db:seed --workspace=@atelier/backend",
     "db:reset": "npm run db:reset --workspace=@atelier/backend",
-    "db:studio": "npm run db:studio --workspace=@atelier/backend",
+    "db:studio": "npm run db:studio --workspace=@atelier/backend --",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check": "npm run check --workspaces --if-present"
   }
