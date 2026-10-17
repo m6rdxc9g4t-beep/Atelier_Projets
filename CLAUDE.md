@@ -1,0 +1,72 @@
+# 🧠 Instruction_Atelier_Projets.md — Règles d'Architecture & Directives pour Atelier_Projets
+
+Tu es l'architecte principal du projet **Atelier_Projets**. Tu dois systématiquement consulter `README.md` pour les spécifications fonctionnelles et visuelles, et respecter **strictement** les règles ci-dessous à chaque modification de code.
+
+---
+
+## 🏛️ 1. Séparation Stricte des 3 Piliers (Règle d'Or)
+
+Le dépôt est un Monorepo divisé en 3 espaces hermétiques. **Ne mélange jamais les responsabilités** :
+
+1. **`/design-system`** :
+   - Contient UNIQUEMENT les variables CSS (`tokens/`), les thèmes (`themes/light.css`, `themes/dark.css`) et les composants UI purs.
+   - **Règle d'exportabilité :** Les fichiers de thèmes (`light.css` et `dark.css`) doivent être écrits en CSS natif pur (Custom Properties `--var`), sans dépendance métier, afin de pouvoir être copiés-collés et réutilisés tels quels dans d'autres applications externes.
+   - Aucune couleur en dur (`#hex`) n'est autorisée dans `/frontend` : tout doit passer par les variables CSS de `/design-system`.
+
+2. **`/backend`** :
+   - Stack : **Node.js + Fastify + TypeScript + Prisma (SQLite)**.
+   - Gère toute la logique métier, les calculs de budget (1 jour = X heures paramétrables, défaut 8h), l'analyse Git locale (`simple-git`), la synchronisation GitHub API (`@octokit/rest`) et le pont IA local (`ollama` pour Qwen/Gemma).
+   - Aucune logique d'affichage ici. Expose une API REST propre et typée.
+
+3. **`/frontend`** :
+   - Stack : **React + TypeScript + Vite + Tailwind CSS + Zustand + Lucide Icons**.
+   - Consomme le `/design-system` pour le style et appelle `/backend` via des services dédiés (`src/services/`).
+   - Ne fait aucun calcul métier complexe (les agrégations de temps, d'écarts de budget et d'histogrammes viennent du backend).
+
+---
+
+## 🎨 2. Respect Absolu des Couleurs & Statuts
+
+Tu dois utiliser **exactement** ces codes hexadécimaux dans `design-system/tokens/colors.css` :
+
+### Types d'éléments (Hiérarchie & Gantt)
+- `PHASE` : `#FF8F2B` (`--type-phase`)
+- `MILESTONE` : `#2A9A30` (`--type-milestone`)
+- `EPIC` : `#8250DF` (`--type-epic`)
+- `STORY` : `#6F42C1` (`--type-story`)
+- `FEATURE` : `#2A9A30` (`--type-feature`)
+- `TASK` : `#1B66A3` (`--type-task`)
+- `BUG` : `#D64545` (`--type-bug`)
+
+### Statuts du Workflow (8 statuts obligatoires)
+- `OPEN` (À faire) : `#64748B` (`--status-open`)
+- `IN_PROGRESS` (En cours) : `#2563EB` (`--status-progress`)
+- `IN_REVIEW` (En revue) : `#8B5CF6` (`--status-review`)
+- `ON_HOLD` (En attente) : `#F59E0B` (`--status-hold`)
+- `BLOCKED` (Bloquée) : `#EA580C` (`--status-blocked`)
+- `RESOLVED` (Résolue) : `#0D9488` (`--status-resolved`)
+- `CLOSED` (Terminée) : `#16A34A` (`--status-closed`)
+- `REJECTED` (Rejetée) : `#DC2626` (`--status-rejected`)
+
+---
+
+## 🔗 3. Spécificités Métier Obligatoires
+
+1. **Hiérarchie stricte :** `Project` > `Phase` > `Epic` > `Story` > `WorkItem` (`FEATURE` | `TASK` | `BUG`). Les `Milestone` sont rattachés à une `Phase` ou un `Project`.
+2. **Double onglet sur chaque WorkItem :**
+   - Champ `description` (Markdown) : Ce qu'il faut faire + critères d'acceptation.
+   - Champ `implementationLog` (Markdown + entrées horodatées) : Comment la tâche a été réalisée techniquement.
+3. **Moteur Git & GitHub (`git-engine`) :**
+   - Scanner les commits du dépôt local lié au projet.
+   - Détecter par Regex les patterns `(feature|task|bug|fix|feat|ref)?\s*#(\d+)` (insensible à la casse) pour lier automatiquement le commit (hash, auteur, date, message, branche) au `WorkItem` `#ID`.
+4. **Pont IA Locale (`ai-bridge`) :**
+   - Connexion par défaut sur `http://localhost:11434` (Ollama) avec support des modèles configurables (ex: `qwen2.5-coder`, `gemma3`).
+   - 2 endpoints IA : `/api/ai/breakdown-story` (découpe une Story en Features/Tasks avec budget en jours) et `/api/ai/summarize-commits` (génère le texte de l'onglet "Journal d'avancement" à partir des `git diff` des commits liés au `#ID`).
+
+---
+
+## 🛠️ 4. Méthode de Travail de Claude CLI
+
+- **Procède toujours par étapes validées.** Ne génère pas tout le projet d'un seul coup sans tester.
+- Après chaque étape, vérifie que le code compile (`tsc --noEmit`) et qu'il n'y a aucune erreur.
+- Écris des commits Git propres en suivant la convention : `feat(scope): description #ID` ou `chore(setup): initial architecture`.

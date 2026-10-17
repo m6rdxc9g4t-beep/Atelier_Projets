@@ -1,0 +1,25 @@
+# Dépendances
+node_modules/
+
+# Builds
+dist/
+*.tsbuildinfo
+
+# Environnement local (le modèle .env.example reste versionné)
+.env
+.env.*
+!.env.example
+
+# Base SQLite locale et journaux
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Client Prisma généré (npm run setup / prisma generate)
+backend/src/generated/
+
+# Divers
+.DS_Store
+*.log
+coverage/

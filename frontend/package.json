@@ -1,0 +1,6 @@
+{
+  "name": "@atelier/frontend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Client web d'Atelier_Projets (React + TypeScript + Vite + Tailwind CSS + Zustand + Lucide Icons) — initialisé dans une phase ultérieure."
+}
