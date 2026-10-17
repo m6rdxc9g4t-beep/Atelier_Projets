@@ -1,0 +1,7 @@
+/* Atelier_Projets · Design System — point d'entrée
+   Usage : @import "@atelier/design-system";
+   Thème clair par défaut ; data-theme="dark" sur <html> pour le thème sombre. */
+
+@import "./tokens/colors.css";
+@import "./themes/light.css";
+@import "./themes/dark.css";

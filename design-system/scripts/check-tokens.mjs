@@ -1,0 +1,113 @@
+#!/usr/bin/env node
+// Atelier_Projets · Design System — contrôle de conformité avec la spécification
+// (CLAUDE.md §2, README.md §2). Sans dépendance : node scripts/check-tokens.mjs
+//
+// Vérifie que :
+//  - tokens/colors.css déclare exactement les 7 types et les 8 statuts, avec les codes hex officiels ;
+//  - themes/light.css et themes/dark.css déclarent exactement les 6 variables de fondation ;
+//  - les thèmes restent du CSS natif pur, sans dépendance métier (ni @import, ni url(), ni var(),
+//    ni variable --type-* / --status-*), donc copiables tels quels dans une autre application.
+
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+const TYPES = {
+  '--type-phase': '#FF8F2B',
+  '--type-milestone': '#2A9A30',
+  '--type-epic': '#8250DF',
+  '--type-story': '#6F42C1',
+  '--type-feature': '#2A9A30',
+  '--type-task': '#1B66A3',
+  '--type-bug': '#D64545',
+}
+
+const STATUSES = {
+  '--status-open': '#64748B',
+  '--status-progress': '#2563EB',
+  '--status-review': '#8B5CF6',
+  '--status-hold': '#F59E0B',
+  '--status-blocked': '#EA580C',
+  '--status-resolved': '#0D9488',
+  '--status-closed': '#16A34A',
+  '--status-rejected': '#DC2626',
+}
+
+const THEMES = {
+  'themes/light.css': {
+    '--bg-main': '#F8FAFC',
+    '--bg-surface': '#FFFFFF',
+    '--bg-elevated': '#F1F5F9',
+    '--text-primary': '#0F172A',
+    '--text-muted': '#64748B',
+    '--border-color': '#E2E8F0',
+  },
+  'themes/dark.css': {
+    '--bg-main': '#0B0F19',
+    '--bg-surface': '#111827',
+    '--bg-elevated': '#1E293B',
+    '--text-primary': '#F8FAFC',
+    '--text-muted': '#94A3B8',
+    '--border-color': '#1E293B',
+  },
+}
+
+const errors = []
+
+function stripComments(css) {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/** Extrait les déclarations de custom properties d'un fichier CSS (hors commentaires). */
+function readCustomProperties(file, css) {
+  const declarations = new Map()
+  for (const [, name, value] of stripComments(css).matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+    if (declarations.has(name)) errors.push(`${file} : ${name} est déclarée plusieurs fois`)
+    declarations.set(name, value.trim())
+  }
+  return declarations
+}
+
+function expectExactly(file, declarations, expected) {
+  for (const [name, hex] of Object.entries(expected)) {
+    const actual = declarations.get(name)
+    if (actual === undefined) errors.push(`${file} : ${name} manquante (attendu ${hex})`)
+    else if (actual.toUpperCase() !== hex.toUpperCase()) errors.push(`${file} : ${name} = ${actual}, attendu ${hex}`)
+  }
+  for (const name of declarations.keys()) {
+    if (!(name in expected)) errors.push(`${file} : ${name} n'appartient pas à la spécification`)
+  }
+}
+
+async function load(relativePath) {
+  return readFile(path.join(ROOT, relativePath), 'utf8')
+}
+
+// 1. Tokens métier : 7 types + 8 statuts
+const colorsFile = 'tokens/colors.css'
+const colors = readCustomProperties(colorsFile, await load(colorsFile))
+expectExactly(colorsFile, colors, { ...TYPES, ...STATUSES })
+
+// 2. Thèmes : 6 variables de fondation, CSS natif pur et exportable
+for (const [file, expected] of Object.entries(THEMES)) {
+  const css = await load(file)
+  expectExactly(file, readCustomProperties(file, css), expected)
+  const code = stripComments(css)
+  if (/@import/i.test(code)) errors.push(`${file} : @import interdit (le thème doit être autonome)`)
+  if (/url\(/i.test(code)) errors.push(`${file} : url() interdit (aucune ressource externe)`)
+  if (/var\(/i.test(code)) errors.push(`${file} : var() interdit (valeurs littérales uniquement)`)
+  if (/--(type|status)-/i.test(code)) errors.push(`${file} : variable métier --type-*/--status-* interdite dans un thème`)
+}
+
+if (errors.length > 0) {
+  console.error(`✘ Design system NON conforme (${errors.length} écart${errors.length > 1 ? 's' : ''}) :`)
+  for (const error of errors) console.error(`  - ${error}`)
+  process.exit(1)
+}
+
+console.log(
+  `✔ Design system conforme : ${Object.keys(TYPES).length} types, ${Object.keys(STATUSES).length} statuts, ` +
+    `${Object.keys(THEMES).length} thèmes × ${Object.keys(THEMES['themes/light.css']).length} variables (codes hex officiels).`,
+)
