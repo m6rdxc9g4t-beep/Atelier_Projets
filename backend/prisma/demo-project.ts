@@ -2,7 +2,7 @@
 // Projet de démonstration « App E-Commerce v2 » — données et insertion
 //
 // Reproduit les maquettes du README (§4) : budget initial 45 j (360 h), temps réalisé
-// 28.5 j (228 h), éléments #101 → #211 et fiche #12345 avec ses commits Git.
+// 28.5 j (228 h), éléments #101 → #211 et fiche #12345 avec ses commits Git et la PR #42.
 // Couvre les 3 types de WorkItem, les 8 statuts, et les jalons de phase et de projet.
 //
 // Idempotent : le projet de démo (slug « app-ecommerce-v2 ») est supprimé puis recréé.
@@ -10,7 +10,7 @@
 // Utilisé par le seed (prisma/seed.ts → npm run db:seed) et par les tests de l'API.
 // =============================================================================
 import type { PrismaClient } from '../src/db/client.ts'
-import { Priority, WorkItemStatus, WorkItemType } from '../src/generated/prisma/client.ts'
+import { Priority, PullRequestState, WorkItemStatus, WorkItemType } from '../src/generated/prisma/client.ts'
 
 export const DEMO_PROJECT_SLUG = 'app-ecommerce-v2'
 const HOURS_PER_DAY = 8
@@ -649,6 +649,25 @@ const COMMITS: CommitSeed[] = [
 ]
 
 // -----------------------------------------------------------------------------
+// Pull Requests GitHub (fiche #12345 : « PR #42 … — En revue »)
+// -----------------------------------------------------------------------------
+
+const PULL_REQUESTS = [
+  {
+    number: 42,
+    title: 'Feature/12345 git sync engine',
+    body: 'Moteur de synchronisation Git local / GitHub : parseur des références `#ID` et table des liens commit ↔ tâche.',
+    state: PullRequestState.OPEN,
+    draft: false,
+    headBranch: 'feature/12345-git-sync-engine',
+    baseBranch: 'main',
+    authorLogin: 'camille-martin',
+    openedAt: '2026-10-18T10:00:00+02:00',
+    links: [[12345, 'branch']] as Array<[workItemId: number, source: string]>,
+  },
+]
+
+// -----------------------------------------------------------------------------
 // Insertion
 // -----------------------------------------------------------------------------
 
@@ -779,6 +798,25 @@ export async function seedDemoProject(prisma: PrismaClient): Promise<number> {
             links: {
               create: commit.refs.map(([workItemId, keyword]) => ({ workItemId, keyword })),
             },
+          },
+        })
+      }
+
+      for (const pr of PULL_REQUESTS) {
+        await tx.pullRequest.create({
+          data: {
+            projectId: project.id,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            state: pr.state,
+            draft: pr.draft,
+            url: `https://github.com/user/ecom/pull/${pr.number}`,
+            headBranch: pr.headBranch,
+            baseBranch: pr.baseBranch,
+            authorLogin: pr.authorLogin,
+            openedAt: at(pr.openedAt),
+            links: { create: pr.links.map(([workItemId, source]) => ({ workItemId, source })) },
           },
         })
       }

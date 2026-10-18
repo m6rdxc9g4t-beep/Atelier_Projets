@@ -7,7 +7,7 @@ import { createPrismaClient, type PrismaClient } from '../src/db/client.ts'
 import { seedDemoProject } from './demo-project.ts'
 
 async function printSummary(prisma: PrismaClient, projectId: number): Promise<void> {
-  const [project, phases, epics, stories, workItems, milestones, timeEntries, commits] = await Promise.all([
+  const [project, phases, epics, stories, workItems, milestones, timeEntries, commits, pullRequests] = await Promise.all([
     prisma.project.findUniqueOrThrow({ where: { id: projectId } }),
     prisma.phase.count({ where: { projectId } }),
     prisma.epic.count({ where: { phase: { projectId } } }),
@@ -16,6 +16,7 @@ async function printSummary(prisma: PrismaClient, projectId: number): Promise<vo
     prisma.milestone.count({ where: { projectId } }),
     prisma.timeEntry.count({ where: { workItem: { projectId } } }),
     prisma.gitCommit.count({ where: { projectId } }),
+    prisma.pullRequest.count({ where: { projectId } }),
   ])
   const spent = await prisma.timeEntry.aggregate({ where: { workItem: { projectId } }, _sum: { hours: true } })
   const spentHours = spent._sum.hours ?? 0
@@ -25,7 +26,7 @@ async function printSummary(prisma: PrismaClient, projectId: number): Promise<vo
   console.log(`✔ Projet de démo « ${project.name} » inséré (id ${projectId})`)
   console.log(
     `  ${phases} phases · ${epics} epics · ${stories} stories · ${workItems} work items · ${milestones} jalons · ` +
-      `${timeEntries} saisies de temps · ${commits} commits`,
+      `${timeEntries} saisies de temps · ${commits} commits · ${pullRequests} pull request(s)`,
   )
   console.log(
     `  Budget initial ${days(budgetHours)} j (${budgetHours} h) · Temps réalisé ${days(spentHours)} j (${spentHours} h) · ` +

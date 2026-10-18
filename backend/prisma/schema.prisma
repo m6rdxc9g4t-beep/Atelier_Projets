@@ -42,6 +42,13 @@ enum WorkItemStatus {
   REJECTED
 }
 
+/// État d'une Pull Request GitHub (fermée sans fusion = CLOSED).
+enum PullRequestState {
+  OPEN
+  MERGED
+  CLOSED
+}
+
 /// Priorité d'un WorkItem (échelle OpenProject : Basse, Normale, Haute, Immédiate).
 enum Priority {
   LOW
@@ -56,30 +63,35 @@ enum Priority {
 
 /// Projet, lié à un dépôt Git local et à un dépôt GitHub distant.
 model Project {
-  id            Int       @id @default(autoincrement())
-  name          String
+  id             Int       @id @default(autoincrement())
+  name           String
   /// Identifiant lisible et unique (URL, seed idempotent).
-  slug          String    @unique
-  description   String    @default("")
+  slug           String    @unique
+  description    String    @default("")
   /// Chemin absolu du dépôt Git local analysé par le git-engine.
-  localRepoPath String?
+  localRepoPath  String?
   /// Dépôt GitHub distant : github.com/<githubOwner>/<githubRepo>.
-  githubOwner   String?
-  githubRepo    String?
-  defaultBranch String    @default("main")
+  githubOwner    String?
+  githubRepo     String?
+  defaultBranch  String    @default("main")
   /// Paramètre de conversion : 1 jour = hoursPerDay heures.
-  hoursPerDay   Float     @default(8)
+  hoursPerDay    Float     @default(8)
   /// Budget initial du projet, en heures.
-  budgetHours   Float?
-  startDate     DateTime?
-  dueDate       DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  budgetHours    Float?
+  startDate      DateTime?
+  dueDate        DateTime?
+  /// Dernière analyse du dépôt local par le git-engine.
+  gitScannedAt   DateTime?
+  /// Dernière synchronisation des Pull Requests GitHub.
+  githubSyncedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  phases     Phase[]
-  milestones Milestone[]
-  workItems  WorkItem[]
-  gitCommits GitCommit[]
+  phases       Phase[]
+  milestones   Milestone[]
+  workItems    WorkItem[]
+  gitCommits   GitCommit[]
+  pullRequests PullRequest[]
 }
 
 /// Découpage macroscopique du projet (barre orange du Gantt).
@@ -186,10 +198,11 @@ model WorkItem {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  story       Story           @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  timeEntries TimeEntry[]
-  commitLinks GitCommitLink[]
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  story            Story             @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  timeEntries      TimeEntry[]
+  commitLinks      GitCommitLink[]
+  pullRequestLinks PullRequestLink[]
 
   @@index([projectId, status])
   @@index([projectId, type])
@@ -255,5 +268,47 @@ model GitCommitLink {
   workItem WorkItem  @relation(fields: [workItemId], references: [id], onDelete: Cascade)
 
   @@id([commitId, workItemId])
+  @@index([workItemId])
+}
+
+/// Pull Request GitHub du dépôt du projet, synchronisée via @octokit/rest.
+model PullRequest {
+  id          Int              @id @default(autoincrement())
+  projectId   Int
+  /// Numéro GitHub (« PR #42 »), unique dans le projet.
+  number      Int
+  title       String
+  body        String           @default("")
+  state       PullRequestState
+  draft       Boolean          @default(false)
+  url         String
+  headBranch  String
+  baseBranch  String
+  authorLogin String?
+  openedAt    DateTime
+  closedAt    DateTime?
+  mergedAt    DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  links   PullRequestLink[]
+
+  @@unique([projectId, number])
+  @@index([projectId, state])
+}
+
+/// Liaison Pull Request ↔ WorkItem, détectée dans le titre, le corps ou le nom de branche.
+model PullRequestLink {
+  pullRequestId Int
+  workItemId    Int
+  /// Origine de la détection : title | body | branch.
+  source        String
+  createdAt     DateTime @default(now())
+
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  workItem    WorkItem    @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+
+  @@id([pullRequestId, workItemId])
   @@index([workItemId])
 }
