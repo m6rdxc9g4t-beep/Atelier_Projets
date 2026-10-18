@@ -12,8 +12,9 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 | :--- | :--- | :--- |
 | **Phase 1 — Socle** | Monorepo (npm workspaces), design system (tokens officiels + thèmes clair/sombre), backend Fastify + TypeScript + Prisma/SQLite, migration initiale, seed de démo « App E-Commerce v2 » | ✅ Validée |
 | **Phase 2 — API REST métier** | CRUD de la hiérarchie, temps et jalons, journal d'avancement horodaté, vues calculées (dashboard, arborescence/Gantt, tableau des temps, fiche tâche), OpenAPI, tests | ✅ Validée |
-| **Phase 3 — `git-engine`** | Analyse du dépôt local (`simple-git`, regex `#ID`), hook `post-commit`, synchronisation des Pull Requests GitHub (`@octokit/rest`), modèle `PullRequest` | ✅ Terminée — en attente de validation |
-| Phases suivantes | `ai-bridge` (Ollama, Claude CLI), frontend React | ⏳ À venir |
+| **Phase 3 — `git-engine`** | Analyse du dépôt local (`simple-git`, regex `#ID`), hook `post-commit`, synchronisation des Pull Requests GitHub (`@octokit/rest`), modèle `PullRequest` | ✅ Validée |
+| **Phase 4 — Frontend** | Client React (Vite, Tailwind CSS, Zustand, Lucide) : tableau de bord, Gantt, tableau des temps, fiche tâche, paramètres et dépôts ; composants UI purs du design system ; types de l'API générés depuis le contrat OpenAPI | ✅ Terminée — en attente de validation |
+| Phase suivante | `ai-bridge` : Ollama (Qwen, Gemma) et Claude CLI | ⏳ À venir |
 
 ## ⚡ Démarrage rapide
 
@@ -22,20 +23,25 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 ```bash
 npm install            # installe les 3 workspaces
 npm run setup          # génère le client Prisma, crée la base SQLite (migrations) et insère la démo
-npm run dev:backend    # API Fastify sur http://127.0.0.1:3000 — documentation : http://127.0.0.1:3000/api/docs
+npm run dev            # API (port 3000) + interface (port 5173)
 ```
+
+Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : http://127.0.0.1:3000/api/docs.
 
 | Commande (racine) | Effet |
 | :--- | :--- |
 | `npm run setup` | `prisma generate` → `prisma migrate deploy` → seed de démo |
-| `npm run dev:backend` | Serveur Fastify en mode watch (`tsx`) |
-| `npm run build:backend` | Compilation TypeScript → `backend/dist/` (`npm start -w @atelier/backend` pour lancer) |
+| `npm run dev` | API et interface ensemble (Ctrl+C arrête les deux) |
+| `npm run dev:backend` | Serveur Fastify seul, en mode watch (`tsx`) |
+| `npm run dev:frontend` | Interface seule (Vite, http://127.0.0.1:5173) ; `/api` est relayé vers le backend |
+| `npm run build` | Compilation du backend (`backend/dist/`) et de l'interface (`frontend/dist/`) |
+| `npm run openapi` | Après une modification de l'API : régénère `backend/openapi.json` puis les types du frontend |
 | `npm test` | Tests du backend (domaine, CRUD, vues calculées sur la démo), sur une base SQLite temporaire |
 | `npm run db:migrate -- --name <nom>` | Nouvelle migration après modification du schéma (`prisma migrate dev`), puis régénération du client |
 | `npm run db:seed` | Réinsère le projet de démo « App E-Commerce v2 » (idempotent) |
 | `npm run db:reset` | Réinitialise la base, rejoue les migrations puis le seed |
 | `npm run db:studio` | Ouvre Prisma Studio sur la base locale |
-| `npm run check` | Contrôle des tokens du design system + `tsc --noEmit` du backend |
+| `npm run check` | Tokens du design system, `tsc --noEmit` du backend et du frontend, contrat OpenAPI à jour, aucune couleur en dur dans le frontend |
 
 La configuration est facultative : sans fichier `.env`, la base est créée dans `backend/prisma/dev.db` et l'API écoute sur `127.0.0.1:3000`. Pour changer ces valeurs, copier `backend/.env.example` en `backend/.env`.
 
@@ -48,14 +54,15 @@ Le développement d'**Atelier_Projets** est strictement découpé en **3 piliers
 ```text
 Atelier_Projets/
 ├── 📁 design-system/          # PILIER 1 : UI/UX, Tokens CSS, Thèmes (Clair/Sombre), Composants isolés
-│   ├── tokens/                # ✅ colors.css : 7 types + 8 statuts (codes hex officiels)
+│   ├── tokens/                # ✅ colors.css : 7 types + 8 statuts (codes hex officiels) · ui.css : jetons dérivés
 │   ├── themes/                # ✅ light.css, dark.css (CSS natif pur, exportables vers toutes tes applications)
-│   └── components/            # ⏳ Boutons, Badges, Modales, Cartes, Barres de progression, Tableaux
+│   └── components/            # ✅ Boutons, Badges, Cartes, Barres de progression et de Gantt, Onglets, Champs, Tableaux, Markdown
 │
-├── 📁 frontend/               # PILIER 2 : Client Web (React + TypeScript + Vite + Tailwind CSS) — ⏳
-│   ├── src/views/             # DashboardView, GanttView, HierarchyView, TimeSheetView, TaskSlideOver
-│   ├── src/store/             # Gestion d'état (Zustand)
-│   └── src/services/          # Client API REST/WebSocket vers le backend
+├── 📁 frontend/               # PILIER 2 : Client Web (React + TypeScript + Vite + Tailwind CSS + Zustand + Lucide)
+│   ├── src/views/             # ✅ DashboardView, GanttView, TimeSheetView, TaskSlideOver, SettingsView
+│   ├── src/components/        # ✅ Cadre (en-tête, rail, onglets), carte Santé, dialogues, briques React des composants ds-*
+│   ├── src/store/             # ✅ État d'interface (Zustand) : thème, projet, vue, élément ouvert
+│   └── src/services/          # ✅ Client REST typé (openapi-fetch) : types générés depuis backend/openapi.json
 │
 ├── 📁 backend/                # PILIER 3 : API & Logique Métier (Node.js + Fastify + TypeScript)
 │   ├── prisma/                # ✅ Schéma SQLite (100% local), migrations, projet de démo et seed
@@ -169,6 +176,8 @@ Chaque projet est lié à un dépôt Git local et un dépôt GitHub distant :
 
 ## 🖥️ 4. Maquettes Visuelles des Interfaces
 
+> **Implémentation :** onglets « Tableau de bord » (A), « Gantt & Avancement du projet » (B), « Tableau des temps » (D) et fiche élément à droite (C), plus « Paramètres du projet » (dépôts Git/GitHub). Les boutons IA (`🤖 IA Locale`, `Résumer mes commits`) sont présents mais désactivés jusqu'à l'`ai-bridge`.
+>
 > Le seed de démo (`npm run db:seed`) reproduit les données de ces maquettes : budget 45.0 j (360 h), réalisé 28.5 j (228 h), Gantt (phases de 15 j et 20 j, jalons du 15 oct. et du 2 nov.), tableau des temps (#101, #102, #103, #12345, #205 : 12 j budgétés, 72 h réalisées) et fiche #12345 avec ses deux commits et la Pull Request #42 « En revue ».
 >
 > Indicateurs du tableau de bord, tels que le seed les reproduit :
@@ -315,6 +324,12 @@ Les commits contenant `feature #12345`, `task #12345` ou `bug #12345` sont autom
 - **Contrat d'API :** schémas TypeBox 1.3 (`backend/src/schemas/`) → validation des requêtes, types des handlers (`@fastify/type-provider-typebox`) et OpenAPI 3.1 (`@fastify/swagger`, interface sur `/api/docs`, JSON sur `/api/docs/json`).
 - **Tests :** `node:test` + `tsx`, chaque fichier sur sa propre base SQLite temporaire construite en appliquant le SQL des migrations versionnées (aucun moteur Prisma requis), puis le projet de démo.
 - **Fuseau horaire :** les entrées du journal et la date du jour par défaut d'une saisie utilisent `APP_TIMEZONE` (défaut : fuseau du système).
+- **Frontend :**
+  - React 19, Vite 8, Tailwind CSS 4, Zustand 5, Lucide ; `/api` est relayé par Vite vers `http://127.0.0.1:3000` (variable `ATELIER_API_URL` pour un autre port) : même origine, aucune configuration CORS ;
+  - **couleurs** : la palette par défaut de Tailwind est retirée (`--color-*: initial`) ; les seules couleurs utilisables sont les variables du design system (`bg-surface`, `text-muted`, `bg-phase`…). Un composant porte `data-type`, `data-status`, `data-priority` ou `data-balance` et le design system lui donne sa teinte (`--kind-color`, `--kind-ink` lisible en clair comme en sombre) ;
+  - **contrat d'API** : `backend/openapi.json` (exporté par `npm run openapi`) → `frontend/src/services/api.gen.ts` (openapi-typescript, exécuté via `npx` car il dépend de TypeScript 5). `npm run check` signale un contrat ou des types périmés ;
+  - **aucun calcul métier** côté client : jours, pourcentages, bilans, histogramme et statuts des conteneurs viennent de l'API ; le frontend ne fait que de la mise en forme (et la mise en page du calendrier du Gantt) ;
+  - préférences (thème, projet, vue) mémorisées dans le navigateur (`localStorage`, facultatif).
 - **Scripts d'installation (npm 11.16+ / 12) :** `allowScripts` (package.json racine) autorise uniquement les dépendances qui en ont besoin : `better-sqlite3` (module natif SQLite), `prisma` et `@prisma/engines` (moteurs Prisma), `esbuild` (utilisé par `tsx`) et `fsevents` (surveillance des fichiers sous macOS). Toute nouvelle dépendance à script d'installation devra y être ajoutée (`npm install-scripts ls` les liste).
 
 ---
@@ -344,12 +359,12 @@ Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`
 
 | Vue du frontend | Route | Contenu |
 | :--- | :--- | :--- |
-| DashboardView | `GET /projects/:projectId/dashboard` | Budget initial / réalisé / reste, % consommé, avancement réel, tendance (`AHEAD` « En avance ✨ », `ON_TRACK`, `BEHIND`), histogramme des 8 statuts × 3 types |
-| GanttView, HierarchyView | `GET /projects/:projectId/tree` | Phase > Epic > Story > Élément avec codes (`PHASE 1`, `EPIC 2`, `STORY 2.1`), agrégats, plages de dates des barres, jalons de phase et de projet, plage globale du Gantt |
-| TimeSheetView | `GET /projects/:projectId/timesheet?epicId=&phaseId=&storyId=&type=&status=` | Par élément : budget, réalisé, bilan ; totaux (nombre, % terminé/résolu, budget, réalisé, reste) |
+| DashboardView | `GET /projects/:projectId/dashboard` | Budget initial / réalisé / reste, solde (`balance` : `REMAINING` ou `OVER`), % consommé, avancement réel, tendance (`AHEAD` « En avance ✨ », `ON_TRACK`, `BEHIND`), histogramme des 8 statuts × 3 types |
+| GanttView | `GET /projects/:projectId/tree` | Phase > Epic > Story > Élément avec numérotation (`1`, `2`, `2.1`, affichée `PHASE 1`, `EPIC 2`, `STORY 2.1`), agrégats, plages de dates des barres, jalons de phase et de projet, plage globale du Gantt |
+| TimeSheetView | `GET /projects/:projectId/timesheet?epicId=&phaseId=&storyId=&type=&status=` | Par élément : budget, réalisé, bilan ; totaux (nombre, % terminé/résolu, budget, réalisé, reste et solde `balance`) |
 | TaskSlideOver | `GET /work-items/:workItemId` | Parent, statut, budget et temps, onglets Description et Journal, saisies de temps, commits liés au `#ID` |
 
-Les trois vues acceptent `?hoursPerDay=` pour afficher les jours avec une autre conversion (sélecteur « 1 Jour = 8 Heures ▾ »), sans modifier les heures stockées.
+Les trois vues et la fiche élément acceptent `?hoursPerDay=` pour afficher les jours avec une autre conversion (sélecteur « 1 Jour = 8 Heures ▾ »), sans modifier les heures stockées.
 
 ### Règles métier appliquées
 
