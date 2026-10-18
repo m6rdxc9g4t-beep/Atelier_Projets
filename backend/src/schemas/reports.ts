@@ -16,6 +16,7 @@ import {
 import { EpicSchema, PhaseSchema, StorySchema } from './hierarchy.ts'
 import { MilestoneSchema } from './milestones.ts'
 import { ProjectSchema } from './projects.ts'
+import { ProjectDependencySchema } from './schedule.ts'
 import { WorkItemSchema } from './work-items.ts'
 
 export const ReportQuery = Type.Object({
@@ -105,6 +106,8 @@ export const ProjectTreeSchema = Type.Object(
     aggregate: AggregateSchema,
     phases: Type.Array(TreePhaseSchema),
     milestones: Type.Array(MilestoneSchema, { description: 'Jalons de niveau projet (sans phase)' }),
+    dependencies: Type.Array(ProjectDependencySchema, { description: 'Dépendances « fin → début » (flèches du Gantt)' }),
+    criticalPath: Type.Array(Type.Integer(), { description: 'Éléments du chemin critique : tout retard retarde la fin du projet' }),
   },
   { description: 'Arborescence complète avec agrégats et plages de dates (Gantt & hiérarchie)' },
 )

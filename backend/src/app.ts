@@ -22,6 +22,10 @@ import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
 import { createOllamaClient } from './ai-bridge/ollama.ts'
 import { createOctokitClient, type GitHubClient } from './git-engine/github.ts'
 import { aiRoutes } from './routes/ai.ts'
+import { scheduleRoutes } from './routes/schedule.ts'
+import { timerRoutes } from './routes/timer.ts'
+import { backupRoutes } from './routes/backups.ts'
+import type { BackupManager } from './services/backups.ts'
 import type { AiSettings } from './services/ai.ts'
 import { gitRoutes } from './routes/git.ts'
 import { healthRoutes } from './routes/health.ts'
@@ -46,6 +50,8 @@ export interface AppSettings {
   github: GitHubClient
   /** IA locale (Ollama) et Claude CLI (simulés dans les tests). */
   ai: AiSettings
+  /** Sauvegardes de la base (null : base en mémoire ou désactivées). */
+  backups: BackupManager | null
 }
 
 declare module 'fastify' {
@@ -76,6 +82,7 @@ export interface BuildAppOptions {
   ai?: Partial<AiSettings>
   /** Hôtes acceptés en plus des hôtes locaux (en-têtes Host et Origin). */
   allowedHosts?: readonly string[]
+  backups?: BackupManager | null
 }
 
 const { version } = JSON.parse(readFileSync(path.join(BACKEND_ROOT, 'package.json'), 'utf8')) as { version: string }
@@ -91,6 +98,7 @@ export async function buildApp({
   github = createOctokitClient({}),
   ai = {},
   allowedHosts: extraHosts = [],
+  backups = null,
 }: BuildAppOptions): Promise<App> {
   const app = Fastify({ logger }).withTypeProvider<TypeBoxTypeProvider>()
 
@@ -102,8 +110,9 @@ export async function buildApp({
     maxDiffChars: ai.maxDiffChars ?? 24_000,
     claude: ai.claude ?? createClaudeLauncher(),
   }
-  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github, ai: aiSettings })
+  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github, ai: aiSettings, backups })
   app.addHook('onClose', async () => {
+    backups?.stop()
     await prisma.$disconnect()
   })
   app.setErrorHandler(errorHandler)
@@ -134,6 +143,8 @@ export async function buildApp({
         { name: 'Éléments', description: 'FEATURE, TASK, BUG : fiche, journal d’avancement' },
         { name: 'Temps', description: 'Saisies de temps' },
         { name: 'Jalons' },
+        { name: 'Sauvegardes', description: 'Copies de la base SQLite (automatiques et manuelles)' },
+        { name: 'Planification', description: 'Dépendances, déplacements du Gantt, chemin critique' },
         { name: 'Git & GitHub', description: 'Analyse du dépôt local, hook post-commit, Pull Requests' },
         { name: 'IA locale & Claude CLI', description: 'Ollama (Qwen, Gemma) : découpage de Story, résumé des commits ; sessions Claude CLI' },
         { name: 'Vues', description: 'Dashboard, arborescence (Gantt) et tableau des temps calculés' },
@@ -152,6 +163,9 @@ export async function buildApp({
       await api.register(reportRoutes)
       await api.register(gitRoutes)
       await api.register(aiRoutes)
+      await api.register(scheduleRoutes)
+      await api.register(timerRoutes)
+      await api.register(backupRoutes)
     },
     { prefix: '/api' },
   )

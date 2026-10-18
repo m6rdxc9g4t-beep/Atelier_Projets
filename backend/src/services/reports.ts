@@ -4,6 +4,7 @@
 // - tableau des temps : budget, réalisé et bilan par élément, avec totaux.
 import { aggregate, progressSummary, type AggregatableItem } from '../domain/aggregates.ts'
 import { computeEnvelopeBalance, computeTrend } from '../domain/balance.ts'
+import { toCsv } from '../domain/csv.ts'
 import { formatDateOnly } from '../domain/dates.ts'
 import { percentOf, sumHours, toDuration, toDurationOrNull } from '../domain/durations.ts'
 import { computeCodes, effectiveSpan, enclosingSpan, type DateSpan } from '../domain/hierarchy.ts'
@@ -32,6 +33,7 @@ import {
   WORK_ITEM_ROW_OMIT,
   type WorkItemRow,
 } from './mappers.ts'
+import { projectSchedule } from './schedule.ts'
 import { spentHoursByWorkItem } from './work-items.ts'
 
 type PhaseTree = Phase & { epics: Array<Epic & { stories: Story[] }> }
@@ -171,6 +173,7 @@ export async function getProjectTree(prisma: PrismaClient, projectId: number, op
   })
 
   const projectSpan = effectiveSpan(project, phaseNodes.map((phase) => phase.span))
+  const schedule = await projectSchedule(prisma, projectId)
   return {
     project: toProjectDto(project),
     hoursPerDay,
@@ -178,6 +181,8 @@ export async function getProjectTree(prisma: PrismaClient, projectId: number, op
     aggregate: toAggregateDto(items, hoursPerDay),
     phases: phaseNodes,
     milestones: milestones.filter((milestone) => milestone.phaseId === null).map(toMilestoneDto),
+    dependencies: schedule.dependencies,
+    criticalPath: schedule.criticalPath,
   }
 }
 
@@ -239,4 +244,59 @@ export async function getTimesheet(prisma: PrismaClient, projectId: number, filt
       balance: toBalanceDto(computeEnvelopeBalance(estimateHours, spentHours), hoursPerDay),
     },
   }
+}
+
+// --- Export CSV du tableau des temps ---------------------------------------------------------------
+
+const STATUS_FR: Record<string, string> = {
+  OPEN: 'À faire',
+  IN_PROGRESS: 'En cours',
+  IN_REVIEW: 'En revue',
+  ON_HOLD: 'En attente',
+  BLOCKED: 'Bloquée',
+  RESOLVED: 'Résolue',
+  CLOSED: 'Terminée',
+  REJECTED: 'Rejetée',
+}
+const BALANCE_FR: Record<string, string> = { UNDER: 'Sous le budget', ON_BUDGET: 'Dans le budget', OVER: 'Dépassement', REMAINING: 'Reste' }
+
+/** Tableau des temps (mêmes filtres que la vue) au format CSV, avec une ligne de totaux. */
+export async function getTimesheetCsv(
+  prisma: PrismaClient,
+  projectId: number,
+  filters: TimesheetFilters,
+): Promise<{ filename: string; content: string }> {
+  const [sheet, project] = await Promise.all([getTimesheet(prisma, projectId, filters), requireProject(prisma, projectId)])
+  const header = ['ID', 'Type', 'Titre', 'Statut', 'Phase', 'Epic', 'Story', 'Budget (j)', 'Réalisé (j)', 'Réalisé (h)', 'Bilan', 'Écart (j)']
+  const rows = sheet.rows.map((row) => [
+    `#${row.id}`,
+    row.type,
+    row.title,
+    STATUS_FR[row.status] ?? row.status,
+    `PHASE ${row.path.phase.code} ${row.path.phase.title}`,
+    `EPIC ${row.path.epic.code} ${row.path.epic.title}`,
+    `STORY ${row.path.story.code} ${row.path.story.title}`,
+    row.estimate?.days ?? null,
+    row.spent.days,
+    row.spent.hours,
+    row.balance ? (BALANCE_FR[row.balance.kind] ?? row.balance.kind) : null,
+    row.balance ? row.balance.delta.days : null,
+  ])
+  const { totals } = sheet
+  rows.push([
+    'TOTAL',
+    `${totals.count} éléments`,
+    '',
+    totals.donePercent === null ? '' : `${totals.donePercent} % terminé/résolu`,
+    '',
+    '',
+    '',
+    totals.estimate.days,
+    totals.spent.days,
+    totals.spent.hours,
+    BALANCE_FR[totals.balance.kind] ?? totals.balance.kind,
+    totals.balance.delta.days,
+  ])
+  const date = new Date().toISOString().slice(0, 10)
+  return { filename: `temps-${project.slug ?? `projet-${project.id}`}-${date}.csv`, content: toCsv(header, rows) }
 }

@@ -22,6 +22,7 @@ import {
   WorkItemTypeSchema,
 } from './common.ts'
 import { LinkedPullRequestSchema } from './git.ts'
+import { DependencyRefSchema } from './schedule.ts'
 import { TimeEntrySchema } from './time-entries.ts'
 
 const Progress = Type.Integer({ minimum: 0, maximum: 100, description: 'Avancement déclaré, en %' })
@@ -71,6 +72,8 @@ export const WorkItemDetailSchema = Type.Object(
     timeEntries: Type.Array(TimeEntrySchema),
     commits: Type.Array(LinkedCommitSchema),
     pullRequests: Type.Array(LinkedPullRequestSchema),
+    predecessors: Type.Array(DependencyRefSchema, { description: 'Éléments qui doivent finir avant celui-ci' }),
+    successors: Type.Array(DependencyRefSchema, { description: 'Éléments qui attendent la fin de celui-ci' }),
   },
   { description: 'Fiche complète d’un élément (TaskSlideOver)' },
 )

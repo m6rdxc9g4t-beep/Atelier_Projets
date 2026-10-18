@@ -23,3 +23,6 @@ backend/src/generated/
 .DS_Store
 *.log
 coverage/
+
+# Sauvegardes de la base (BACKUP_DIR)
+backend/prisma/backups/

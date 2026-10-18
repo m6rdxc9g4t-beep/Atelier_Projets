@@ -4878,7 +4878,9 @@
                     "path",
                     "timeEntries",
                     "commits",
-                    "pullRequests"
+                    "pullRequests",
+                    "predecessors",
+                    "successors"
                   ],
                   "properties": {
                     "id": {
@@ -5414,6 +5416,124 @@
                           }
                         }
                       }
+                    },
+                    "predecessors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "title",
+                          "status",
+                          "slackDays"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK",
+                              "BUG"
+                            ],
+                            "type": "string",
+                            "description": "FEATURE | TASK | BUG"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "OPEN",
+                              "IN_PROGRESS",
+                              "IN_REVIEW",
+                              "ON_HOLD",
+                              "BLOCKED",
+                              "RESOLVED",
+                              "CLOSED",
+                              "REJECTED"
+                            ],
+                            "type": "string",
+                            "description": "Un des 8 statuts du workflow"
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "Marge en jours : 0 = enchaînement serré, négative = conflit, null si non planifié"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "description": "Élément lié par une dépendance « fin → début »"
+                      },
+                      "description": "Éléments qui doivent finir avant celui-ci"
+                    },
+                    "successors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "title",
+                          "status",
+                          "slackDays"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK",
+                              "BUG"
+                            ],
+                            "type": "string",
+                            "description": "FEATURE | TASK | BUG"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "OPEN",
+                              "IN_PROGRESS",
+                              "IN_REVIEW",
+                              "ON_HOLD",
+                              "BLOCKED",
+                              "RESOLVED",
+                              "CLOSED",
+                              "REJECTED"
+                            ],
+                            "type": "string",
+                            "description": "Un des 8 statuts du workflow"
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "Marge en jours : 0 = enchaînement serré, négative = conflit, null si non planifié"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "description": "Élément lié par une dépendance « fin → début »"
+                      },
+                      "description": "Éléments qui attendent la fin de celui-ci"
                     }
                   },
                   "description": "Fiche complète d’un élément (TaskSlideOver)"
@@ -5982,7 +6102,9 @@
                     "path",
                     "timeEntries",
                     "commits",
-                    "pullRequests"
+                    "pullRequests",
+                    "predecessors",
+                    "successors"
                   ],
                   "properties": {
                     "id": {
@@ -6518,6 +6640,124 @@
                           }
                         }
                       }
+                    },
+                    "predecessors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "title",
+                          "status",
+                          "slackDays"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK",
+                              "BUG"
+                            ],
+                            "type": "string",
+                            "description": "FEATURE | TASK | BUG"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "OPEN",
+                              "IN_PROGRESS",
+                              "IN_REVIEW",
+                              "ON_HOLD",
+                              "BLOCKED",
+                              "RESOLVED",
+                              "CLOSED",
+                              "REJECTED"
+                            ],
+                            "type": "string",
+                            "description": "Un des 8 statuts du workflow"
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "Marge en jours : 0 = enchaînement serré, négative = conflit, null si non planifié"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "description": "Élément lié par une dépendance « fin → début »"
+                      },
+                      "description": "Éléments qui doivent finir avant celui-ci"
+                    },
+                    "successors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "title",
+                          "status",
+                          "slackDays"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK",
+                              "BUG"
+                            ],
+                            "type": "string",
+                            "description": "FEATURE | TASK | BUG"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "OPEN",
+                              "IN_PROGRESS",
+                              "IN_REVIEW",
+                              "ON_HOLD",
+                              "BLOCKED",
+                              "RESOLVED",
+                              "CLOSED",
+                              "REJECTED"
+                            ],
+                            "type": "string",
+                            "description": "Un des 8 statuts du workflow"
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "Marge en jours : 0 = enchaînement serré, négative = conflit, null si non planifié"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "description": "Élément lié par une dépendance « fin → début »"
+                      },
+                      "description": "Éléments qui attendent la fin de celui-ci"
                     }
                   },
                   "description": "Fiche complète d’un élément (TaskSlideOver)"
@@ -6757,7 +6997,9 @@
                     "path",
                     "timeEntries",
                     "commits",
-                    "pullRequests"
+                    "pullRequests",
+                    "predecessors",
+                    "successors"
                   ],
                   "properties": {
                     "id": {
@@ -7293,6 +7535,124 @@
                           }
                         }
                       }
+                    },
+                    "predecessors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "title",
+                          "status",
+                          "slackDays"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK",
+                              "BUG"
+                            ],
+                            "type": "string",
+                            "description": "FEATURE | TASK | BUG"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "OPEN",
+                              "IN_PROGRESS",
+                              "IN_REVIEW",
+                              "ON_HOLD",
+                              "BLOCKED",
+                              "RESOLVED",
+                              "CLOSED",
+                              "REJECTED"
+                            ],
+                            "type": "string",
+                            "description": "Un des 8 statuts du workflow"
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "Marge en jours : 0 = enchaînement serré, négative = conflit, null si non planifié"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "description": "Élément lié par une dépendance « fin → début »"
+                      },
+                      "description": "Éléments qui doivent finir avant celui-ci"
+                    },
+                    "successors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "title",
+                          "status",
+                          "slackDays"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK",
+                              "BUG"
+                            ],
+                            "type": "string",
+                            "description": "FEATURE | TASK | BUG"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "OPEN",
+                              "IN_PROGRESS",
+                              "IN_REVIEW",
+                              "ON_HOLD",
+                              "BLOCKED",
+                              "RESOLVED",
+                              "CLOSED",
+                              "REJECTED"
+                            ],
+                            "type": "string",
+                            "description": "Un des 8 statuts du workflow"
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "Marge en jours : 0 = enchaînement serré, négative = conflit, null si non planifié"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "description": "Élément lié par une dépendance « fin → début »"
+                      },
+                      "description": "Éléments qui attendent la fin de celui-ci"
                     }
                   },
                   "description": "Fiche complète d’un élément (TaskSlideOver)"
@@ -7539,7 +7899,9 @@
                     "path",
                     "timeEntries",
                     "commits",
-                    "pullRequests"
+                    "pullRequests",
+                    "predecessors",
+                    "successors"
                   ],
                   "properties": {
                     "id": {
@@ -8075,6 +8437,124 @@
                           }
                         }
                       }
+                    },
+                    "predecessors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "title",
+                          "status",
+                          "slackDays"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK",
+                              "BUG"
+                            ],
+                            "type": "string",
+                            "description": "FEATURE | TASK | BUG"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "OPEN",
+                              "IN_PROGRESS",
+                              "IN_REVIEW",
+                              "ON_HOLD",
+                              "BLOCKED",
+                              "RESOLVED",
+                              "CLOSED",
+                              "REJECTED"
+                            ],
+                            "type": "string",
+                            "description": "Un des 8 statuts du workflow"
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "Marge en jours : 0 = enchaînement serré, négative = conflit, null si non planifié"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "description": "Élément lié par une dépendance « fin → début »"
+                      },
+                      "description": "Éléments qui doivent finir avant celui-ci"
+                    },
+                    "successors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "title",
+                          "status",
+                          "slackDays"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK",
+                              "BUG"
+                            ],
+                            "type": "string",
+                            "description": "FEATURE | TASK | BUG"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "OPEN",
+                              "IN_PROGRESS",
+                              "IN_REVIEW",
+                              "ON_HOLD",
+                              "BLOCKED",
+                              "RESOLVED",
+                              "CLOSED",
+                              "REJECTED"
+                            ],
+                            "type": "string",
+                            "description": "Un des 8 statuts du workflow"
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "description": "Marge en jours : 0 = enchaînement serré, négative = conflit, null si non planifié"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "description": "Élément lié par une dépendance « fin → début »"
+                      },
+                      "description": "Éléments qui attendent la fin de celui-ci"
                     }
                   },
                   "description": "Fiche complète d’un élément (TaskSlideOver)"
@@ -10264,7 +10744,9 @@
                     "range",
                     "aggregate",
                     "phases",
-                    "milestones"
+                    "milestones",
+                    "dependencies",
+                    "criticalPath"
                   ],
                   "properties": {
                     "project": {
@@ -11692,6 +12174,52 @@
                         "description": "Jalon (◆ sur le Gantt) ; phaseId null = jalon de niveau projet"
                       },
                       "description": "Jalons de niveau projet (sans phase)"
+                    },
+                    "dependencies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "predecessorId",
+                          "successorId",
+                          "slackDays",
+                          "conflict"
+                        ],
+                        "properties": {
+                          "predecessorId": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "successorId": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "slackDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "conflict": {
+                            "type": "boolean",
+                            "description": "Le successeur commence avant la fin du prédécesseur"
+                          }
+                        }
+                      },
+                      "description": "Dépendances « fin → début » (flèches du Gantt)"
+                    },
+                    "criticalPath": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "description": "Éléments du chemin critique : tout retard retarde la fin du projet"
                     }
                   },
                   "description": "Arborescence complète avec agrégats et plages de dates (Gantt & hiérarchie)"
@@ -12262,6 +12790,111 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projects/{projectId}/timesheet.csv": {
+      "get": {
+        "summary": "Tableau des temps en CSV (Excel / Numbers : « ; », virgule décimale, UTF-8), mêmes filtres que la vue",
+        "tags": [
+          "Vues"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 24
+            },
+            "in": "query",
+            "name": "hoursPerDay",
+            "required": false,
+            "description": "Surcharge, pour cette vue, du paramètre « 1 jour = X heures » du projet"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "query",
+            "name": "phaseId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "query",
+            "name": "epicId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "query",
+            "name": "storyId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "FEATURE",
+                  "TASK",
+                  "BUG"
+                ],
+                "type": "string",
+                "description": "FEATURE | TASK | BUG"
+              }
+            },
+            "in": "query",
+            "name": "type",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "OPEN",
+                  "IN_PROGRESS",
+                  "IN_REVIEW",
+                  "ON_HOLD",
+                  "BLOCKED",
+                  "RESOLVED",
+                  "CLOSED",
+                  "REJECTED"
+                ],
+                "type": "string",
+                "description": "Un des 8 statuts du workflow"
+              }
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
           }
         }
       }
@@ -14185,6 +14818,1506 @@
           }
         }
       }
+    },
+    "/api/work-items/{workItemId}/dependencies": {
+      "post": {
+        "summary": "Ajouter un prédécesseur : cet élément ne commence qu’après sa fin (même projet, sans boucle)",
+        "tags": [
+          "Planification"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "predecessorId"
+                ],
+                "properties": {
+                  "predecessorId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647,
+                    "description": "Élément qui doit finir avant celui-ci"
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Ajoute un prédécesseur (même projet, sans cycle)"
+              }
+            }
+          },
+          "description": "Ajoute un prédécesseur (même projet, sans cycle)"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "workItemId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Aucun contenu"
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/work-items/{workItemId}/dependencies/{predecessorId}": {
+      "delete": {
+        "summary": "Retirer un prédécesseur",
+        "tags": [
+          "Planification"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "workItemId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "predecessorId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Aucun contenu"
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{projectId}/schedule/resolve": {
+      "post": {
+        "summary": "Replanifier les éléments en conflit avec leurs dépendances (décalés, durées conservées)",
+        "tags": [
+          "Planification"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "projectId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Éléments replanifiés pour respecter leurs dépendances (durées conservées)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "moved"
+                  ],
+                  "properties": {
+                    "moved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "startDate",
+                          "dueDate"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "startDate": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "Date calendaire AAAA-MM-JJ",
+                            "examples": [
+                              "2026-10-18"
+                            ]
+                          },
+                          "dueDate": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "Date calendaire AAAA-MM-JJ",
+                            "examples": [
+                              "2026-10-18"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "description": "Éléments replanifiés pour respecter leurs dépendances (durées conservées)"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phases/{phaseId}/shift": {
+      "post": {
+        "summary": "Déplacer une phase avec son contenu et ses jalons",
+        "tags": [
+          "Planification"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "days"
+                ],
+                "properties": {
+                  "days": {
+                    "type": "integer",
+                    "minimum": -3650,
+                    "maximum": 3650,
+                    "not": {
+                      "enum": [
+                        0
+                      ]
+                    },
+                    "description": "Décalage en jours (négatif = plus tôt) appliqué au conteneur, à son contenu daté et à ses jalons"
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Déplacement d’une barre de Gantt (phase, epic ou story) avec tout son contenu"
+              }
+            }
+          },
+          "description": "Déplacement d’une barre de Gantt (phase, epic ou story) avec tout son contenu"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "phaseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workItems",
+                    "containers",
+                    "milestones"
+                  ],
+                  "properties": {
+                    "workItems": {
+                      "type": "integer",
+                      "description": "Éléments décalés"
+                    },
+                    "containers": {
+                      "type": "integer",
+                      "description": "Phases, epics et stories décalés"
+                    },
+                    "milestones": {
+                      "type": "integer",
+                      "description": "Jalons décalés"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/epics/{epicId}/shift": {
+      "post": {
+        "summary": "Déplacer un epic avec son contenu",
+        "tags": [
+          "Planification"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "days"
+                ],
+                "properties": {
+                  "days": {
+                    "type": "integer",
+                    "minimum": -3650,
+                    "maximum": 3650,
+                    "not": {
+                      "enum": [
+                        0
+                      ]
+                    },
+                    "description": "Décalage en jours (négatif = plus tôt) appliqué au conteneur, à son contenu daté et à ses jalons"
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Déplacement d’une barre de Gantt (phase, epic ou story) avec tout son contenu"
+              }
+            }
+          },
+          "description": "Déplacement d’une barre de Gantt (phase, epic ou story) avec tout son contenu"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "epicId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workItems",
+                    "containers",
+                    "milestones"
+                  ],
+                  "properties": {
+                    "workItems": {
+                      "type": "integer",
+                      "description": "Éléments décalés"
+                    },
+                    "containers": {
+                      "type": "integer",
+                      "description": "Phases, epics et stories décalés"
+                    },
+                    "milestones": {
+                      "type": "integer",
+                      "description": "Jalons décalés"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stories/{storyId}/shift": {
+      "post": {
+        "summary": "Déplacer une story avec ses éléments",
+        "tags": [
+          "Planification"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "days"
+                ],
+                "properties": {
+                  "days": {
+                    "type": "integer",
+                    "minimum": -3650,
+                    "maximum": 3650,
+                    "not": {
+                      "enum": [
+                        0
+                      ]
+                    },
+                    "description": "Décalage en jours (négatif = plus tôt) appliqué au conteneur, à son contenu daté et à ses jalons"
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Déplacement d’une barre de Gantt (phase, epic ou story) avec tout son contenu"
+              }
+            }
+          },
+          "description": "Déplacement d’une barre de Gantt (phase, epic ou story) avec tout son contenu"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "storyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workItems",
+                    "containers",
+                    "milestones"
+                  ],
+                  "properties": {
+                    "workItems": {
+                      "type": "integer",
+                      "description": "Éléments décalés"
+                    },
+                    "containers": {
+                      "type": "integer",
+                      "description": "Phases, epics et stories décalés"
+                    },
+                    "milestones": {
+                      "type": "integer",
+                      "description": "Jalons décalés"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/timer": {
+      "get": {
+        "summary": "Chronomètre en cours (ou null)",
+        "tags": [
+          "Temps"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "timer"
+                  ],
+                  "properties": {
+                    "timer": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "workItemId",
+                            "projectId",
+                            "type",
+                            "title",
+                            "startedAt",
+                            "elapsedSeconds"
+                          ],
+                          "properties": {
+                            "workItemId": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 2147483647
+                            },
+                            "projectId": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 2147483647
+                            },
+                            "type": {
+                              "enum": [
+                                "FEATURE",
+                                "TASK",
+                                "BUG"
+                              ],
+                              "type": "string",
+                              "description": "FEATURE | TASK | BUG"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "startedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "examples": [
+                                "2026-10-18T14:30:00.000Z"
+                              ]
+                            },
+                            "elapsedSeconds": {
+                              "type": "integer",
+                              "description": "Secondes écoulées au moment de la réponse"
+                            }
+                          },
+                          "description": "Chronomètre en cours"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Abandonner le chronomètre sans saisir de temps",
+        "tags": [
+          "Temps"
+        ],
+        "responses": {
+          "204": {
+            "description": "Aucun contenu"
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/timer/start": {
+      "post": {
+        "summary": "Démarrer le chronomètre sur un élément (celui en cours ailleurs est arrêté et saisi)",
+        "tags": [
+          "Temps"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "workItemId"
+                ],
+                "properties": {
+                  "workItemId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Démarre le chronomètre sur un élément ; un chronomètre en cours sur un autre élément est d’abord arrêté et saisi"
+              }
+            }
+          },
+          "description": "Démarre le chronomètre sur un élément ; un chronomètre en cours sur un autre élément est d’abord arrêté et saisi"
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "timer",
+                    "stopped"
+                  ],
+                  "properties": {
+                    "timer": {
+                      "type": "object",
+                      "required": [
+                        "workItemId",
+                        "projectId",
+                        "type",
+                        "title",
+                        "startedAt",
+                        "elapsedSeconds"
+                      ],
+                      "properties": {
+                        "workItemId": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        "projectId": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        "type": {
+                          "enum": [
+                            "FEATURE",
+                            "TASK",
+                            "BUG"
+                          ],
+                          "type": "string",
+                          "description": "FEATURE | TASK | BUG"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "examples": [
+                            "2026-10-18T14:30:00.000Z"
+                          ]
+                        },
+                        "elapsedSeconds": {
+                          "type": "integer",
+                          "description": "Secondes écoulées au moment de la réponse"
+                        }
+                      },
+                      "description": "Chronomètre en cours"
+                    },
+                    "stopped": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "workItemId",
+                            "timeEntry",
+                            "capped"
+                          ],
+                          "properties": {
+                            "workItemId": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 2147483647
+                            },
+                            "timeEntry": {
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "workItemId",
+                                "spentOn",
+                                "duration",
+                                "comment",
+                                "createdAt",
+                                "updatedAt"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 2147483647
+                                },
+                                "workItemId": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 2147483647
+                                },
+                                "spentOn": {
+                                  "type": "string",
+                                  "format": "date",
+                                  "description": "Date calendaire AAAA-MM-JJ",
+                                  "examples": [
+                                    "2026-10-18"
+                                  ]
+                                },
+                                "duration": {
+                                  "type": "object",
+                                  "required": [
+                                    "hours",
+                                    "days"
+                                  ],
+                                  "properties": {
+                                    "hours": {
+                                      "type": "number"
+                                    },
+                                    "days": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "description": "Durée exprimée en heures et en jours (1 jour = hoursPerDay heures)"
+                                },
+                                "comment": {
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "examples": [
+                                    "2026-10-18T14:30:00.000Z"
+                                  ]
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "examples": [
+                                    "2026-10-18T14:30:00.000Z"
+                                  ]
+                                }
+                              },
+                              "description": "Saisie de temps sur un élément"
+                            },
+                            "capped": {
+                              "type": "boolean",
+                              "description": "Durée ramenée à 24 h (maximum d’une saisie)"
+                            }
+                          },
+                          "description": "Saisie de temps créée à l’arrêt du chronomètre"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/timer/stop": {
+      "post": {
+        "summary": "Arrêter le chronomètre : le temps écoulé devient une saisie de temps",
+        "tags": [
+          "Temps"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "comment": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saisie de temps créée à l’arrêt du chronomètre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workItemId",
+                    "timeEntry",
+                    "capped"
+                  ],
+                  "properties": {
+                    "workItemId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647
+                    },
+                    "timeEntry": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "workItemId",
+                        "spentOn",
+                        "duration",
+                        "comment",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        "workItemId": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        "spentOn": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "Date calendaire AAAA-MM-JJ",
+                          "examples": [
+                            "2026-10-18"
+                          ]
+                        },
+                        "duration": {
+                          "type": "object",
+                          "required": [
+                            "hours",
+                            "days"
+                          ],
+                          "properties": {
+                            "hours": {
+                              "type": "number"
+                            },
+                            "days": {
+                              "type": "number"
+                            }
+                          },
+                          "description": "Durée exprimée en heures et en jours (1 jour = hoursPerDay heures)"
+                        },
+                        "comment": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "examples": [
+                            "2026-10-18T14:30:00.000Z"
+                          ]
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "examples": [
+                            "2026-10-18T14:30:00.000Z"
+                          ]
+                        }
+                      },
+                      "description": "Saisie de temps sur un élément"
+                    },
+                    "capped": {
+                      "type": "boolean",
+                      "description": "Durée ramenée à 24 h (maximum d’une saisie)"
+                    }
+                  },
+                  "description": "Saisie de temps créée à l’arrêt du chronomètre"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups": {
+      "get": {
+        "summary": "Sauvegardes de la base SQLite",
+        "tags": [
+          "Sauvegardes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Sauvegardes de la base SQLite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "enabled",
+                    "dir",
+                    "keep",
+                    "backups"
+                  ],
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "false : base en mémoire ou sauvegardes désactivées"
+                    },
+                    "dir": {
+                      "type": "string"
+                    },
+                    "keep": {
+                      "type": "integer",
+                      "description": "Sauvegardes conservées (BACKUP_KEEP)"
+                    },
+                    "backups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "size",
+                          "createdAt",
+                          "reason"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "integer",
+                            "description": "Taille en octets"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "examples": [
+                              "2026-10-18T14:30:00.000Z"
+                            ]
+                          },
+                          "reason": {
+                            "enum": [
+                              "auto",
+                              "manual"
+                            ],
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "description": "Les plus récentes d’abord"
+                    }
+                  },
+                  "description": "Sauvegardes de la base SQLite"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Sauvegarder la base maintenant",
+        "tags": [
+          "Sauvegardes"
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "size",
+                    "createdAt",
+                    "reason"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "integer",
+                      "description": "Taille en octets"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "examples": [
+                        "2026-10-18T14:30:00.000Z"
+                      ]
+                    },
+                    "reason": {
+                      "enum": [
+                        "auto",
+                        "manual"
+                      ],
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/{name}": {
+      "get": {
+        "summary": "Télécharger une sauvegarde (fichier SQLite)",
+        "tags": [
+          "Sauvegardes"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^atelier-[0-9T-]+-(auto|manual)\\.db$"
+            },
+            "in": "path",
+            "name": "name",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -14208,6 +16341,14 @@
     },
     {
       "name": "Jalons"
+    },
+    {
+      "name": "Sauvegardes",
+      "description": "Copies de la base SQLite (automatiques et manuelles)"
+    },
+    {
+      "name": "Planification",
+      "description": "Dépendances, déplacements du Gantt, chemin critique"
     },
     {
       "name": "Git & GitHub",

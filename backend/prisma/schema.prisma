@@ -203,6 +203,10 @@ model WorkItem {
   timeEntries      TimeEntry[]
   commitLinks      GitCommitLink[]
   pullRequestLinks PullRequestLink[]
+  /// Dépendances « fin → début » : cet élément ne commence qu'après la fin de ses prédécesseurs.
+  predecessors     WorkItemDependency[] @relation("DependencySuccessor")
+  successors       WorkItemDependency[] @relation("DependencyPredecessor")
+  runningTimer     RunningTimer?
 
   @@index([projectId, status])
   @@index([projectId, type])
@@ -311,4 +315,27 @@ model PullRequestLink {
 
   @@id([pullRequestId, workItemId])
   @@index([workItemId])
+}
+
+/// Dépendance « fin → début » entre deux éléments du même projet (flèche sur le Gantt).
+model WorkItemDependency {
+  predecessorId Int
+  successorId   Int
+  createdAt     DateTime @default(now())
+
+  predecessor WorkItem @relation("DependencyPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor   WorkItem @relation("DependencySuccessor", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@id([predecessorId, successorId])
+  @@index([successorId])
+}
+
+/// Chronomètre en cours : au plus un pour toute l'application (id = 1). À l'arrêt, une saisie de temps est créée.
+model RunningTimer {
+  id         Int      @id @default(1)
+  workItemId Int      @unique
+  startedAt  DateTime
+  comment    String   @default("")
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
 }

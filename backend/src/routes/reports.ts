@@ -3,7 +3,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import { errorResponses } from '../schemas/common.ts'
 import { ProjectParams } from '../schemas/projects.ts'
 import { DashboardSchema, ProjectTreeSchema, ReportQuery, TimesheetQuery, TimesheetSchema } from '../schemas/reports.ts'
-import { getDashboard, getProjectTree, getTimesheet } from '../services/reports.ts'
+import { getDashboard, getProjectTree, getTimesheet, getTimesheetCsv } from '../services/reports.ts'
 
 const tags = ['Vues']
 
@@ -48,5 +48,25 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request) => getTimesheet(app.prisma, request.params.projectId, request.query),
+  )
+
+  app.get(
+    '/projects/:projectId/timesheet.csv',
+    {
+      schema: {
+        tags,
+        summary: 'Tableau des temps en CSV (Excel / Numbers : « ; », virgule décimale, UTF-8), mêmes filtres que la vue',
+        params: ProjectParams,
+        querystring: TimesheetQuery,
+        produces: ['text/csv'],
+      },
+    },
+    async (request, reply) => {
+      const { filename, content } = await getTimesheetCsv(app.prisma, request.params.projectId, request.query)
+      return reply
+        .header('content-type', 'text/csv; charset=utf-8')
+        .header('content-disposition', `attachment; filename="${filename}"`)
+        .send(content)
+    },
   )
 }

@@ -5,11 +5,18 @@ import { createPrismaClient } from './db/client.ts'
 import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
 import { createOllamaClient } from './ai-bridge/ollama.ts'
 import { createOctokitClient } from './git-engine/github.ts'
+import { BackupManager } from './services/backups.ts'
 
 loadEnvFile()
 const config = loadConfig()
 
+// Fichier de la base (URL « file: » rendue absolue par la configuration) : sauvegardé sauf BACKUP_KEEP=0.
+const databaseFile = config.databaseUrl.slice('file:'.length).split('?')[0] || null
+const backups =
+  databaseFile && config.backupKeep > 0 ? new BackupManager({ databaseFile, dir: config.backupDir, keep: config.backupKeep }) : null
+
 const app = await buildApp({
+  backups,
   prisma: createPrismaClient(config.databaseUrl),
   logger: { level: config.logLevel },
   timeZone: config.timeZone,
@@ -41,6 +48,7 @@ process.once('SIGTERM', (signal) => void shutdown(signal))
 
 try {
   await app.listen({ host: config.host, port: config.port })
+  backups?.startAutomatic((error) => app.log.error({ err: error }, 'Sauvegarde automatique impossible'))
   app.log.info(`Documentation de l’API : http://${config.host}:${config.port}/api/docs`)
 } catch (error) {
   app.log.error({ err: error }, 'Démarrage impossible')

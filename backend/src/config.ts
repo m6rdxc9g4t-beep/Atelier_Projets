@@ -39,6 +39,9 @@ export interface AppConfig {
   claudeTerminalApp: string
   /** Hôtes acceptés en plus des hôtes locaux (ALLOWED_HOSTS, séparés par des virgules). */
   allowedHosts: string[]
+  /** Sauvegardes de la base : dossier (BACKUP_DIR) et nombre conservé (BACKUP_KEEP, 0 = désactivées). */
+  backupDir: string
+  backupKeep: number
 }
 
 /**
@@ -152,6 +155,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     aiMaxDiffChars: parsePositiveInteger('AI_MAX_DIFF_CHARS', env.AI_MAX_DIFF_CHARS, 24_000),
     claudeCli: env.CLAUDE_CLI?.trim() || 'claude',
     claudeTerminalApp: env.CLAUDE_TERMINAL_APP?.trim() || 'Terminal',
+    backupDir: path.resolve(BACKEND_ROOT, env.BACKUP_DIR?.trim() || 'prisma/backups'),
+    backupKeep: env.BACKUP_KEEP?.trim() === '0' ? 0 : parsePositiveInteger('BACKUP_KEEP', env.BACKUP_KEEP, 14),
     allowedHosts: (env.ALLOWED_HOSTS ?? '').split(',').map((host) => host.trim()).filter(Boolean),
   }
 }

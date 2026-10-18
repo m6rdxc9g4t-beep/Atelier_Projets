@@ -28,6 +28,7 @@ import {
 } from './common.ts'
 import type { ReportOptions } from '../schemas/reports.ts'
 import { toLinkedPullRequests } from './git.ts'
+import { workItemDependencies } from './schedule.ts'
 import { toContainerRef, toTimeEntryDto, toWorkItemDto, WORK_ITEM_ROW_OMIT } from './mappers.ts'
 
 /** Ordre hiérarchique (identique à l'arborescence) : à chaque niveau, position puis id. */
@@ -175,6 +176,7 @@ export async function getWorkItemDetail(
       keyword,
     })),
     pullRequests: toLinkedPullRequests(pullRequestLinks),
+    ...(await workItemDependencies(prisma, item.id)),
   }
 }
 
