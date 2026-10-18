@@ -1,6 +1,34 @@
 {
   "name": "@atelier/frontend",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Client web d'Atelier_Projets (React + TypeScript + Vite + Tailwind CSS + Zustand + Lucide Icons) — initialisé dans une phase ultérieure."
+  "description": "Client web d'Atelier_Projets (React + TypeScript + Vite + Tailwind CSS + Zustand + Lucide Icons).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && node scripts/check-frontend.mjs",
+    "api:types": "node scripts/generate-api-types.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^1.59.0",
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.15",
+    "@atelier/design-system": "0.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
 }

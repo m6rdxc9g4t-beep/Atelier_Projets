@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Atelier_Projets</title>
+    <script>
+      // Applique le thème mémorisé avant le premier rendu (évite un flash clair → sombre).
+      try {
+        const saved = JSON.parse(localStorage.getItem('atelier-projets:ui') || '{}').state
+        const theme = saved && saved.theme ? saved.theme : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        document.documentElement.dataset.theme = theme
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

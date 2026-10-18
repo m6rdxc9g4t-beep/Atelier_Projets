@@ -15,12 +15,17 @@
   },
   "scripts": {
     "setup": "npm run db:setup --workspace=@atelier/backend",
+    "dev": "concurrently --kill-others-on-fail --names api,web --prefix-colors auto \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=@atelier/backend",
+    "dev:frontend": "npm run dev --workspace=@atelier/frontend",
+    "build": "npm run build --workspace=@atelier/backend && npm run build --workspace=@atelier/frontend",
     "build:backend": "npm run build --workspace=@atelier/backend",
+    "build:frontend": "npm run build --workspace=@atelier/frontend",
     "db:migrate": "npm run db:migrate --workspace=@atelier/backend --",
     "db:seed": "npm run db:seed --workspace=@atelier/backend",
     "db:reset": "npm run db:reset --workspace=@atelier/backend",
     "db:studio": "npm run db:studio --workspace=@atelier/backend --",
+    "openapi": "npm run openapi --workspace=@atelier/backend && npm run api:types --workspace=@atelier/frontend",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "check": "npm run check --workspaces --if-present"
@@ -31,5 +36,8 @@
     "esbuild": true,
     "fsevents": true,
     "prisma": true
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
   }
 }

@@ -1,0 +1,122 @@
+/* Atelier_Projets · Frontend — styles globaux.
+   Tailwind CSS v4 est relié aux variables du design system : la palette par défaut de Tailwind est
+   retirée (--color-*: initial), seules les couleurs du design system existent comme utilitaires. */
+
+@import "tailwindcss";
+@import "@atelier/design-system";
+@import "@atelier/design-system/components";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* Fondations du thème actif */
+  --color-main: var(--bg-main);
+  --color-surface: var(--bg-surface);
+  --color-elevated: var(--bg-elevated);
+  --color-hover: var(--surface-hover);
+  --color-sunken: var(--surface-sunken);
+  --color-fg: var(--text-primary);
+  --color-muted: var(--text-muted);
+  --color-line: var(--border-color);
+  --color-line-strong: var(--border-strong);
+  --color-grid: var(--grid-line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-backdrop: var(--backdrop);
+
+  /* Couleur sémantique portée par data-type / data-status / data-priority / data-balance */
+  --color-kind: var(--kind-color);
+  --color-kind-ink: var(--kind-ink);
+  --color-kind-soft: var(--kind-soft);
+
+  /* Types et statuts officiels */
+  --color-phase: var(--type-phase);
+  --color-milestone: var(--type-milestone);
+  --color-epic: var(--type-epic);
+  --color-story: var(--type-story);
+  --color-feature: var(--type-feature);
+  --color-task: var(--type-task);
+  --color-bug: var(--type-bug);
+  --color-st-open: var(--status-open);
+  --color-st-progress: var(--status-progress);
+  --color-st-review: var(--status-review);
+  --color-st-hold: var(--status-hold);
+  --color-st-blocked: var(--status-blocked);
+  --color-st-resolved: var(--status-resolved);
+  --color-st-closed: var(--status-closed);
+  --color-st-rejected: var(--status-rejected);
+
+  --font-sans: var(--ds-font-sans);
+  --font-mono: var(--ds-font-mono);
+  --radius-sm: var(--ds-radius-sm);
+  --radius-md: var(--ds-radius-md);
+  --radius-lg: var(--ds-radius-lg);
+  --shadow-card: var(--ds-shadow-card);
+  --shadow-overlay: var(--ds-shadow-overlay);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--ds-font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+/* Largeur de la colonne « Hiérarchie » du Gantt (colonne figée à gauche), selon la place disponible
+   pour le diagramme (fiche élément ouverte ou non) : requête de conteneur sur la carte du Gantt. */
+.gantt-card {
+  container-type: inline-size;
+}
+.gantt {
+  --gantt-left: 13rem;
+}
+@container (min-width: 30rem) {
+  .gantt {
+    --gantt-left: 17rem;
+  }
+}
+@container (min-width: 42rem) {
+  .gantt {
+    --gantt-left: 21rem;
+  }
+}
+@container (min-width: 64rem) {
+  .gantt {
+    --gantt-left: 26rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
