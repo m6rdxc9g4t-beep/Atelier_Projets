@@ -35,7 +35,9 @@ export async function unwrap<T>(request: Promise<FetchResult<T>>): Promise<T> {
   let result: FetchResult<T>
   try {
     result = await request
-  } catch {
+  } catch (error) {
+    // Requête annulée par l'interface (AbortController) : ce n'est pas une panne du backend.
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
     throw new ApiError(UNREACHABLE, 0, 'BACKEND_UNREACHABLE')
   }
   const { data, error, response } = result
@@ -50,6 +52,10 @@ export async function unwrap<T>(request: Promise<FetchResult<T>>): Promise<T> {
 
 function isApiError(value: unknown): value is { message: string; code: string } {
   return typeof value === 'object' && value !== null && typeof (value as { message?: unknown }).message === 'string'
+}
+
+export function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 export function errorMessage(error: unknown): string {

@@ -2,11 +2,14 @@
 // les agrégats (budget, avancement, bilans, histogramme) arrivent déjà calculés.
 import { http, unwrap } from './client.ts'
 import type {
+  BreakdownInput,
+  ClaudeLaunchInput,
   ContainerInput,
   ContainerUpdate,
   LogEntryInput,
   MilestoneInput,
   MilestoneUpdate,
+  SummarizeInput,
   ProjectInput,
   ProjectUpdate,
   TimeEntryInput,
@@ -81,6 +84,8 @@ export const workItemService = {
     unwrap(http.GET('/api/work-items/{workItemId}', { params: { path: { workItemId }, query } })),
   create: (storyId: number, body: WorkItemInput) =>
     unwrap(http.POST('/api/stories/{storyId}/work-items', { params: { path: { storyId } }, body })),
+  createMany: (storyId: number, items: WorkItemInput[]) =>
+    unwrap(http.POST('/api/stories/{storyId}/work-items/batch', { params: { path: { storyId } }, body: { items } })),
   update: (workItemId: number, body: WorkItemUpdate) =>
     unwrap(http.PATCH('/api/work-items/{workItemId}', { params: { path: { workItemId } }, body })),
   remove: (workItemId: number) =>
@@ -91,6 +96,15 @@ export const workItemService = {
     unwrap(http.POST('/api/work-items/{workItemId}/time-entries', { params: { path: { workItemId } }, body })),
   removeTime: (timeEntryId: number) =>
     unwrap(http.DELETE('/api/time-entries/{timeEntryId}', { params: { path: { timeEntryId } } })),
+}
+
+export const aiService = {
+  status: () => unwrap(http.GET('/api/ai/status')),
+  // signal : annule la génération (dialogue fermé, « Régénérer ») ; le backend interrompt alors Ollama.
+  breakdown: (body: BreakdownInput, signal?: AbortSignal) => unwrap(http.POST('/api/ai/breakdown-story', { body, signal })),
+  summarize: (body: SummarizeInput, signal?: AbortSignal) => unwrap(http.POST('/api/ai/summarize-commits', { body, signal })),
+  claudePrompt: (workItemId: number) => unwrap(http.GET('/api/ai/claude/prompt', { params: { query: { workItemId } } })),
+  launchClaude: (body: ClaudeLaunchInput) => unwrap(http.POST('/api/ai/claude/launch', { body })),
 }
 
 export const gitService = {

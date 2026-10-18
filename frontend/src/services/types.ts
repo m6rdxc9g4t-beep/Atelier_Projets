@@ -61,3 +61,14 @@ export type Duration = WorkItemDetail['spent']
 export type Balance = NonNullable<WorkItemDetail['balance']>
 export type DateSpan = NonNullable<TreeWorkItem['span']>
 export type Trend = NonNullable<Dashboard['trend']>
+
+export type AiStatus = ResponseOf<'/api/ai/status', 'get'>
+export type BreakdownInput = BodyOf<'/api/ai/breakdown-story', 'post'>
+export type BreakdownResult = ResponseOf<'/api/ai/breakdown-story', 'post'>
+export type ProposedItem = BreakdownResult['items'][number]
+export type SummarizeInput = BodyOf<'/api/ai/summarize-commits', 'post'>
+export type SummarizeResult = ResponseOf<'/api/ai/summarize-commits', 'post'>
+export type ClaudePrompt = ResponseOf<'/api/ai/claude/prompt', 'get'>
+export type ClaudeLaunchInput = BodyOf<'/api/ai/claude/launch', 'post'>
+export type ClaudeLaunchResult = ResponseOf<'/api/ai/claude/launch', 'post'>
+export type ClaudePermissionMode = NonNullable<ClaudeLaunchInput['permissionMode']>

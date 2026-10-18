@@ -18,8 +18,14 @@ interface Loaded<T> {
   error?: Error
 }
 
-export function useApi<T>(fetcher: (() => Promise<T>) | null, deps: readonly unknown[]): ApiState<T> {
-  const revision = useApp((state) => state.revision)
+export function useApi<T>(
+  fetcher: (() => Promise<T>) | null,
+  deps: readonly unknown[],
+  options: { followRevision?: boolean } = {},
+): ApiState<T> {
+  // followRevision: false pour une ressource indépendante des données du projet (état de l'IA locale).
+  const followRevision = options.followRevision ?? true
+  const revision = useApp((state) => (followRevision ? state.revision : 0))
   const key = JSON.stringify([fetcher === null, ...deps])
   const [loaded, setLoaded] = useState<Loaded<T>>({ key: '' })
   const [pending, setPending] = useState(0)

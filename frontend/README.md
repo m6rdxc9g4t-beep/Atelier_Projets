@@ -18,7 +18,7 @@ frontend/
     ├── index.css              # Tailwind relié aux variables du design system (palette Tailwind retirée)
     ├── App.tsx                # Choix du projet, cadre, vue courante, fiche élément, dialogues
     ├── views/                 # DashboardView (A), GanttView (B), TaskSlideOver (C), TimeSheetView (D), SettingsView
-    ├── components/            # shell (en-tête, rail, onglets, notifications), HealthCard, Dialogs, ui (briques ds-*)
+    ├── components/            # shell (en-tête, rail, onglets, notifications), HealthCard, Dialogs, AiDialogs (IA locale, Claude CLI), ui
     ├── store/app.ts           # Zustand : thème, projet, vue, élément ouvert, dialogue, notifications
     ├── services/              # client.ts (openapi-fetch, erreurs), api.ts (une fonction par route), types.ts
     └── lib/                   # mise en forme (jours, dates), libellés FR, useApi / useAction

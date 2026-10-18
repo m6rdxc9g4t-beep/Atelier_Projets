@@ -13,6 +13,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  SquareTerminal,
   Trash2,
   X,
 } from 'lucide-react'
@@ -22,9 +23,10 @@ import { dateTime, days, fromNow, hours, longDate, parseNumber, signedDays, toda
 import { levelCode, PRIORITIES, PRIORITY_LABEL, STATUS_LABEL, STATUSES, TYPE_LABEL, WORK_ITEM_TYPES } from '../lib/labels.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
-import { gitService, workItemService } from '../services/api.ts'
-import { ApiError } from '../services/client.ts'
-import type { Priority, WorkItemDetail, WorkItemStatus, WorkItemType } from '../services/types.ts'
+import { Generating, useAiModel } from '../components/AiDialogs.tsx'
+import { aiService, gitService, workItemService } from '../services/api.ts'
+import { ApiError, errorMessage, isAbort } from '../services/client.ts'
+import type { Priority, SummarizeResult, WorkItemDetail, WorkItemStatus, WorkItemType } from '../services/types.ts'
 import { useApp } from '../store/app.ts'
 
 type Tab = 'description' | 'log'
@@ -63,7 +65,19 @@ export function TaskSlideOver({ workItemId }: { workItemId: number }) {
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
           <span className="text-sm text-muted">Fiche élément</span>
-          <Button variant="ghost" size="sm" icon={<X className="size-4" />} aria-label="Fermer la fiche" onClick={close} />
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<SquareTerminal className="size-3.5" />}
+              title="Ouvrir Claude CLI dans le dépôt du projet avec cette tâche en prompt"
+              disabled={!detail.data}
+              onClick={() => useApp.getState().openDialog({ kind: 'claude', workItemId })}
+            >
+              Claude CLI
+            </Button>
+            <Button variant="ghost" size="sm" icon={<X className="size-4" />} aria-label="Fermer la fiche" onClick={close} />
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {detail.error && (
@@ -199,7 +213,8 @@ function TaskContent({ item }: { item: WorkItemDetail }) {
           ]}
         />
         <div className="p-5">
-          {tab === 'description' ? (
+          {/* Les deux onglets restent montés : un brouillon ou un résumé en cours survit au changement d'onglet. */}
+          <div hidden={tab !== 'description'}>
             <MarkdownEditor
               key={`description-${item.id}`}
               value={item.description}
@@ -207,9 +222,10 @@ function TaskContent({ item }: { item: WorkItemDetail }) {
               busy={busy === 'description'}
               onSave={(description) => update('description', { description }, 'Description enregistrée')}
             />
-          ) : (
+          </div>
+          <div hidden={tab !== 'log'}>
             <LogTab item={item} />
-          )}
+          </div>
         </div>
       </section>
 
@@ -544,7 +560,37 @@ function LogTab({ item }: { item: WorkItemDetail }) {
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
   const [spent, setSpent] = useState('')
+  const [summary, setSummary] = useState<SummarizeResult | null>(null)
+  const [summarizing, setSummarizing] = useState(false)
+  const model = useAiModel()
   const { busy, run } = useAction()
+
+  // 🤖 Résumer mes commits : l'IA locale rédige l'entrée à partir des git diff ; elle reste modifiable
+  // dans le formulaire et n'est enregistrée qu'avec « Ajouter au journal ».
+  const pending = useRef<AbortController | null>(null)
+  // Fiche fermée pendant un résumé : la requête est annulée (et Ollama libéré côté backend).
+  useEffect(() => () => pending.current?.abort(), [])
+
+  const summarize = async () => {
+    pending.current?.abort()
+    const controller = new AbortController()
+    pending.current = controller
+    setSummarizing(true)
+    try {
+      const result = await aiService.summarize({ workItemId: item.id, ...(model && { model }) }, controller.signal)
+      // Un brouillon saisi à la main est conservé : le résumé s'ajoute à la suite (ou remplace le précédent résumé).
+      setText((current) => (current.trim() === '' || current === summary?.text ? result.text : `${current.trimEnd()}\n\n${result.text}`))
+      setSummary(result)
+      setAdding(true)
+    } catch (error) {
+      if (!isAbort(error)) useApp.getState().notify('error', errorMessage(error))
+    } finally {
+      if (pending.current === controller) {
+        pending.current = null
+        setSummarizing(false)
+      }
+    }
+  }
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -561,11 +607,28 @@ function LogTab({ item }: { item: WorkItemDetail }) {
       setText('')
       setSpent('')
       setAdding(false)
+      setSummary(null)
     }
   }
 
   return (
     <div className="space-y-4">
+      {summarizing && <Generating label="L’IA locale lit les commits et leurs diffs…" active={summarizing} />}
+      {adding && summary && (
+        <div className="space-y-1 rounded-lg border border-line p-3 text-xs text-muted">
+          <p className="flex items-center gap-1.5 font-medium text-fg">
+            <Bot className="size-3.5 text-accent-ink" aria-hidden /> Proposition de {summary.model} à partir de {summary.commits.length} commit(s) — à relire
+          </p>
+          <p className="font-mono">
+            {summary.commits.map((commit) => `${commit.shortHash}${commit.diff === 'full' ? '' : commit.diff === 'truncated' ? ' (diff tronqué)' : ' (sans diff)'}`).join(' · ')}
+          </p>
+          {summary.warnings.map((warning) => (
+            <p key={warning} data-status="ON_HOLD">
+              <span className="ds-ink">{warning}</span>
+            </p>
+          ))}
+        </div>
+      )}
       {adding && (
         <form onSubmit={submit} className="space-y-3 rounded-lg border border-line bg-sunken p-3">
           <Field label="Nouvelle entrée (horodatée automatiquement)">
@@ -583,7 +646,14 @@ function LogTab({ item }: { item: WorkItemDetail }) {
               <input className="ds-input w-28" inputMode="decimal" value={spent} onChange={(event) => setSpent(event.target.value)} placeholder="4.5" />
             </Field>
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setAdding(false)
+                  setSummary(null)
+                }}
+              >
                 Annuler
               </Button>
               <Button size="sm" type="submit" variant="primary" busy={busy === 'append'} disabled={text.trim() === ''}>
@@ -607,8 +677,19 @@ function LogTab({ item }: { item: WorkItemDetail }) {
                 Ajouter une entrée
               </Button>
             )}
-            <Button size="sm" icon={<Bot className="size-3.5" />} disabled title="Rédaction automatique par l’IA locale (Ollama) — prochaine phase">
-              Résumer mes commits
+            <Button
+              size="sm"
+              icon={<Bot className="size-3.5" />}
+              busy={summarizing}
+              disabled={item.commits.length === 0}
+              title={
+                item.commits.length === 0
+                  ? `Aucun commit lié : citer #${item.id} dans un message de commit puis analyser le dépôt`
+                  : 'Rédiger une entrée du journal à partir des git diff des commits liés (IA locale)'
+              }
+              onClick={summarize}
+            >
+              {summary && adding ? 'Régénérer le résumé' : 'Résumer mes commits'}
             </Button>
           </>
         }

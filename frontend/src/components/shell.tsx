@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { githubLabel } from '../lib/format.ts'
+import { useApi } from '../lib/use-api.ts'
+import { aiService } from '../services/api.ts'
 import type { Project } from '../services/types.ts'
 import { useAppState, type ViewId } from '../store/app.ts'
 import { Button, Tabs } from './ui.tsx'
@@ -29,6 +31,29 @@ export const VIEWS: { id: ViewId; label: string; short: string; icon: ReactNode 
   { id: 'timesheet', label: 'Tableau des temps', short: 'Temps', icon: <Clock3 className="size-5" /> },
   { id: 'settings', label: 'Paramètres du projet', short: 'Paramètres', icon: <Settings className="size-5" /> },
 ]
+
+/** Bouton « IA Locale » : pastille verte si Ollama répond avec le modèle choisi, orange sans modèle, rouge injoignable. */
+function AiButton() {
+  const { aiModel, openDialog, dialog } = useAppState((state) => ({ aiModel: state.aiModel, openDialog: state.openDialog, dialog: state.dialog }))
+  const status = useApi(() => aiService.status(), [dialog?.kind === 'ai'], { followRevision: false })
+  const ollama = status.data?.ollama
+  const model = aiModel ?? ollama?.defaultModelName ?? ollama?.defaultModel
+  const ready = ollama?.reachable === true && (aiModel === null ? ollama.defaultModelInstalled : ollama.models.some((candidate) => candidate.name === aiModel))
+  const tone = !ollama ? null : ready ? 'CLOSED' : ollama.reachable ? 'ON_HOLD' : 'REJECTED'
+  const title = !ollama
+    ? 'IA locale (Ollama) et Claude CLI'
+    : ready
+      ? `Ollama connecté · modèle ${model}`
+      : ollama.reachable
+        ? `Ollama connecté, modèle « ${model} » absent`
+        : 'Ollama injoignable'
+  return (
+    <Button variant="primary" icon={<Bot className="size-4" />} title={title} className="hidden sm:inline-flex" onClick={() => openDialog({ kind: 'ai' })}>
+      IA Locale
+      {tone && <span className="ds-dot" data-status={tone} aria-label={title} />}
+    </Button>
+  )
+}
 
 export function Header({ projects, project }: { projects: Project[]; project: Project | undefined }) {
   const { theme, setTheme, toggleRail } = useAppState((state) => ({ theme: state.theme, setTheme: state.setTheme, toggleRail: state.toggleRail }))
@@ -61,15 +86,7 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
           </span>
           <ThemeButton active={theme === 'dark'} onClick={() => setTheme('dark')} label="Thème sombre" icon={<Moon className="size-4" />} />
         </div>
-        <Button
-          variant="primary"
-          icon={<Bot className="size-4" />}
-          disabled
-          title="Pont IA locale (Ollama : Qwen, Gemma) — prochaine phase"
-          className="hidden sm:inline-flex"
-        >
-          IA Locale
-        </Button>
+        <AiButton />
       </div>
     </header>
   )

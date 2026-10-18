@@ -1,6 +1,6 @@
 // Maquette B : santé du projet puis diagramme de Gantt (Phases > Epics > Stories > Éléments, jalons ◆).
 // Le backend fournit agrégats, avancements et plages de dates ; ici, seulement la mise en page du calendrier.
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Flag, Pencil, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Flag, Pencil, Plus, Sparkles } from 'lucide-react'
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { HealthCard } from '../components/HealthCard.tsx'
 import { Button, Card, Eyebrow, ErrorNotice, Spinner, TypeChip } from '../components/ui.tsx'
@@ -50,6 +50,8 @@ interface Row {
   collapsible: boolean
   add?: { label: string; dialog: DialogRequest }
   edit?: DialogRequest
+  /** ✨ Découpage de la story par l'IA locale. */
+  breakdown?: DialogRequest
 }
 
 function buildRows(tree: ProjectTree, collapsed: ReadonlySet<string>): Row[] {
@@ -108,6 +110,7 @@ function buildRows(tree: ProjectTree, collapsed: ReadonlySet<string>): Row[] {
           aggregate: story.aggregate,
           collapsible: story.workItems.length > 0,
           add: { label: 'Ajouter un élément', dialog: { kind: 'workItem', storyId: story.id } },
+          breakdown: { kind: 'breakdown', storyId: story.id, label: `${levelCode('STORY', story.code)} : ${story.title}` },
           edit: { kind: 'editContainer', level: 'story', id: story.id, title: story.title, startDate: story.startDate, dueDate: story.dueDate },
         })
         if (collapsed.has(storyKey)) continue
@@ -431,6 +434,11 @@ function GanttRow({
           )}
         </button>
         <span className="absolute right-16 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-line bg-surface p-0.5 shadow-card group-focus-within:flex group-hover:flex">
+          {row.breakdown && (
+            <RowAction label="Générer les sous-tâches (IA locale)" onClick={() => row.breakdown && openDialog(row.breakdown)}>
+              <Sparkles className="size-3.5" />
+            </RowAction>
+          )}
           {row.add && (
             <RowAction label={row.add.label} onClick={() => row.add && openDialog(row.add.dialog)}>
               <Plus className="size-3.5" />

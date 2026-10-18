@@ -19,6 +19,9 @@ export type DialogRequest =
   | { kind: 'milestone'; phaseId?: number | null }
   | { kind: 'editContainer'; level: 'phase' | 'epic' | 'story'; id: number; title: string; startDate: string | null; dueDate: string | null }
   | { kind: 'editMilestone'; id: number }
+  | { kind: 'ai' }
+  | { kind: 'breakdown'; storyId: number; label: string }
+  | { kind: 'claude'; workItemId: number }
 
 export interface Toast {
   id: number
@@ -35,6 +38,8 @@ interface AppState {
   /** Surcharge de « 1 jour = X heures » pour l'affichage (null = paramètre du projet). */
   hoursPerDay: number | null
   selectedWorkItemId: number | null
+  /** Modèle Ollama choisi dans le panneau IA (null = modèle par défaut du serveur, OLLAMA_MODEL). */
+  aiModel: string | null
   dialog: DialogRequest | null
   revision: number
   toasts: Toast[]
@@ -46,6 +51,7 @@ interface AppState {
   setHoursPerDay: (hoursPerDay: number | null) => void
   openWorkItem: (workItemId: number | null) => void
   openDialog: (dialog: DialogRequest | null) => void
+  setAiModel: (model: string | null) => void
   /** À appeler après toute écriture : les vues relisent l'API. */
   refresh: () => void
   notify: (tone: Toast['tone'], message: string) => void
@@ -92,6 +98,7 @@ export const useApp = create<AppState>()(
       railExpanded: false,
       hoursPerDay: null,
       selectedWorkItemId: null,
+      aiModel: null,
       dialog: null,
       revision: 0,
       toasts: [],
@@ -103,6 +110,7 @@ export const useApp = create<AppState>()(
       setHoursPerDay: (hoursPerDay) => set({ hoursPerDay }),
       openWorkItem: (selectedWorkItemId) => set({ selectedWorkItemId }),
       openDialog: (dialog) => set({ dialog }),
+      setAiModel: (aiModel) => set({ aiModel }),
       refresh: () => set((state) => ({ revision: state.revision + 1 })),
       notify: (tone, message) => {
         const id = ++toastSequence
@@ -114,7 +122,13 @@ export const useApp = create<AppState>()(
     {
       name: 'atelier-projets:ui',
       storage: createJSONStorage(() => safeStorage),
-      partialize: (state) => ({ theme: state.theme, projectId: state.projectId, view: state.view, railExpanded: state.railExpanded }),
+      partialize: (state) => ({
+        theme: state.theme,
+        projectId: state.projectId,
+        view: state.view,
+        railExpanded: state.railExpanded,
+        aiModel: state.aiModel,
+      }),
     },
   ),
 )

@@ -209,13 +209,18 @@ export function Modal({
   children,
   footer,
   width = 'max-w-lg',
+  guard = false,
 }: {
   title: ReactNode
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
   width?: string
+  /** Travail en cours (génération, brouillon) : Échap et un clic à côté ne ferment pas ; seuls les boutons ferment. */
+  guard?: boolean
 }) {
+  const guardRef = useRef(guard)
+  guardRef.current = guard
   const titleId = useId()
   const panel = useRef<HTMLDivElement>(null)
 
@@ -226,7 +231,7 @@ export function Modal({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        if (!guardRef.current) onClose()
       }
       if (event.key !== 'Tab' || !panel.current) return
       const focusable = [...panel.current.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]')].filter(
@@ -250,7 +255,7 @@ export function Modal({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-backdrop p-4 pt-[10vh] backdrop-blur-sm">
-      <div className="fixed inset-0" onClick={onClose} aria-hidden />
+      <div className="fixed inset-0" onClick={() => !guardRef.current && onClose()} aria-hidden />
       <div
         ref={panel}
         role="dialog"
