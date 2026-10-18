@@ -11,8 +11,9 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 | Étape | Contenu | État |
 | :--- | :--- | :--- |
 | **Phase 1 — Socle** | Monorepo (npm workspaces), design system (tokens officiels + thèmes clair/sombre), backend Fastify + TypeScript + Prisma/SQLite, migration initiale, seed de démo « App E-Commerce v2 » | ✅ Validée |
-| **Phase 2 — API REST métier** | CRUD de la hiérarchie, temps et jalons, journal d'avancement horodaté, vues calculées (dashboard, arborescence/Gantt, tableau des temps, fiche tâche), OpenAPI, tests | ✅ Terminée — en attente de validation |
-| Phases suivantes | `git-engine` (commits & Pull Requests), `ai-bridge` (Ollama, Claude CLI), frontend React | ⏳ À venir |
+| **Phase 2 — API REST métier** | CRUD de la hiérarchie, temps et jalons, journal d'avancement horodaté, vues calculées (dashboard, arborescence/Gantt, tableau des temps, fiche tâche), OpenAPI, tests | ✅ Validée |
+| **Phase 3 — `git-engine`** | Analyse du dépôt local (`simple-git`, regex `#ID`), hook `post-commit`, synchronisation des Pull Requests GitHub (`@octokit/rest`), modèle `PullRequest` | ✅ Terminée — en attente de validation |
+| Phases suivantes | `ai-bridge` (Ollama, Claude CLI), frontend React | ⏳ À venir |
 
 ## ⚡ Démarrage rapide
 
@@ -63,7 +64,7 @@ Atelier_Projets/
 │   ├── src/services/          # ✅ Cas d'usage (Prisma) : CRUD et vues calculées
 │   ├── src/routes/            # ✅ Routes REST Fastify sous /api (documentation : /api/docs)
 │   ├── test/                  # ✅ Tests node:test (domaine, CRUD, vues sur la démo)
-│   ├── src/git-engine/        # ⏳ Hooks Git locaux, parsing des commits (#ID), Sync GitHub API
+│   ├── src/git-engine/        # ✅ Lecture du dépôt (simple-git), regex #ID, hook post-commit, client GitHub (Octokit)
 │   └── src/ai-bridge/         # ⏳ Connecteur Ollama (Qwen / Gemma) & exécution Claude CLI
 │
 ├── CLAUDE.md                  # Règles d'architecture et conventions de code pour Claude CLI
@@ -156,6 +157,8 @@ Chaque projet est lié à un dépôt Git local et un dépôt GitHub distant :
 | `TimeEntry` | Saisie de temps sur un WorkItem | `spentOn`, `hours`, `comment` |
 | `GitCommit` | Commit détecté dans le dépôt du projet | `hash`, `authorName`, `authorEmail`, `committedAt`, `message`, `branch` |
 | `GitCommitLink` | Liaison commit ↔ WorkItem (un commit peut citer plusieurs `#ID`) | `keyword` (`feature`, `task`, `bug`, `fix`, `feat`, `ref`) |
+| `PullRequest` | Pull Request GitHub du dépôt du projet | `number`, `title`, `state` (`OPEN` · `MERGED` · `CLOSED`), `draft`, `headBranch`, `url` |
+| `PullRequestLink` | Liaison Pull Request ↔ WorkItem | `source` (`title`, `body`, `branch`) |
 
 - **Unités :** toutes les durées sont stockées en **heures** ; la conversion en jours utilise `Project.hoursPerDay` (1 jour = 8 h par défaut).
 - **Statuts et types** sont des enums Prisma (`WorkItemStatus`, `WorkItemType`) dont les valeurs correspondent exactement à `CLAUDE.md`.
@@ -166,7 +169,7 @@ Chaque projet est lié à un dépôt Git local et un dépôt GitHub distant :
 
 ## 🖥️ 4. Maquettes Visuelles des Interfaces
 
-> Le seed de démo (`npm run db:seed`) reproduit les données de ces maquettes : budget 45.0 j (360 h), réalisé 28.5 j (228 h), Gantt (phases de 15 j et 20 j, jalons du 15 oct. et du 2 nov.), tableau des temps (#101, #102, #103, #12345, #205 : 12 j budgétés, 72 h réalisées) et fiche #12345 avec ses deux commits. La Pull Request #42 de la fiche arrivera avec la synchronisation GitHub (modèle à ajouter dans la phase `git-engine`).
+> Le seed de démo (`npm run db:seed`) reproduit les données de ces maquettes : budget 45.0 j (360 h), réalisé 28.5 j (228 h), Gantt (phases de 15 j et 20 j, jalons du 15 oct. et du 2 nov.), tableau des temps (#101, #102, #103, #12345, #205 : 12 j budgétés, 72 h réalisées) et fiche #12345 avec ses deux commits et la Pull Request #42 « En revue ».
 >
 > Indicateurs du tableau de bord, tels que le seed les reproduit :
 > - **Progression budget** = temps réalisé / budget initial du projet → 228 h / 360 h = **63 %** ;
@@ -355,3 +358,20 @@ Les trois vues acceptent `?hoursPerDay=` pour afficher les jours avec une autre 
 - **Bilan** (colonne BILAN) : élément terminé → `UNDER` / `ON_BUDGET` / `OVER` selon réalisé − estimé ; élément en cours → `OVER` si l'estimation est déjà dépassée, sinon `REMAINING` (reste à consommer) ; pas de bilan sans estimation ni pour un rejeté.
 - **Journal d'avancement** : `POST /work-items/:id/log-entries` avec `{ "text", "at"?, "hours"? }` ajoute `> **18 Oct 2026 - 16h30 (4.5h passées) :** …` en fin de journal, de façon atomique (deux ajouts simultanés ne s'écrasent pas), dans la limite de 100 000 caractères. L'en-tête est informatif : le temps se saisit à part.
 - **Déplacements** : un élément, une story ou un epic ne change de parent qu'à l'intérieur de son projet ; il est placé en fin de liste sauf `position` fournie. Supprimer une phase supprime son contenu mais garde ses jalons, rattachés au projet.
+
+### Git & GitHub (`git-engine`)
+
+| Route | Effet |
+| :--- | :--- |
+| `POST /projects/:projectId/git/scan` | Lit les commits des branches locales du dépôt `localRepoPath` (merges exclus) et rattache ceux qui citent un `#ID` du projet ; renvoie les branches lues, les commits et liens créés, et les `#ID` inconnus |
+| `GET /projects/:projectId/commits?workItemId=&limit=` | Commits détectés, les plus récents d'abord |
+| `GET · PUT · DELETE /projects/:projectId/git/hook` | État, installation ou retrait du hook `post-commit` qui relance l'analyse après chaque commit |
+| `POST /projects/:projectId/github/sync` | Importe les Pull Requests de `githubOwner/githubRepo` et les relie aux éléments |
+| `GET /projects/:projectId/pull-requests?state=` | Pull Requests synchronisées |
+
+- **Détection** : regex de `CLAUDE.md` `(feature|task|bug|fix|feat|ref)?\s*#(\d+)`, insensible à la casse ; seuls les éléments du projet sont rattachés. Le suffixe « (#57) » que GitHub ajoute au titre d'un squash désigne la PR #57 et est ignoré. Une analyse est idempotente, ne lit en détail que les nouveaux commits, complète les liens d'un élément créé après coup et retire les commits disparus (amend, rebase, branche supprimée) ; `GIT_SCAN_MAX_COMMITS` (5000 par branche) limite la lecture (`truncated: true`).
+- **Branche d'un commit** : la ligne directe (`--first-parent`) de la branche principale (`defaultBranch`, sinon la branche courante), puis celle des autres branches, sinon la première branche qui le contient ; un commit garde la branche où il a été vu en premier (d'où l'intérêt du hook). Une HEAD détachée (rebase, bisect) est sans effet ; worktrees et sous-modules sont acceptés.
+- **Hook** : bloc balisé par projet, placé juste après le shebang du `post-commit` existant (il s'exécute même si le script se termine par `exit`), qui appelle `POST …/git/scan` en arrière-plan avec `curl` ; le commit n'est jamais bloqué, même API arrêtée. Par sécurité, l'installation est refusée si les hooks du dépôt sont hors de son dossier Git (`core.hooksPath` global ou versionné, ex. `.husky`), si `post-commit` est un lien symbolique ou un script non shell : dans ces cas, ajouter la ligne `curl` à la main.
+- **Pull Requests** : liées par `#ID` dans le titre, puis le corps, puis un numéro en tête de branche (`feature/12345-git-sync-engine`). Statut affiché : brouillon → `IN_PROGRESS`, ouverte → `IN_REVIEW`, fusionnée → `CLOSED`, fermée → `REJECTED`. La synchronisation ne modifie pas le statut des éléments.
+- **GitHub** : dépôts publics sans configuration ; pour un dépôt privé ou un quota plus large, `GITHUB_TOKEN` dans `backend/.env` (jeton en lecture des Pull Requests). Une erreur GitHub renvoie `502 GITHUB_ERROR` avec la cause (jeton refusé, quota, dépôt introuvable, réseau).
+
