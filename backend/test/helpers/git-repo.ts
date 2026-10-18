@@ -1,5 +1,5 @@
 // Dépôt Git temporaire pour les tests, isolé de la configuration Git de l'utilisateur.
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { simpleGit, type SimpleGit } from 'simple-git'
@@ -30,7 +30,8 @@ export interface TestRepo {
 
 export async function createTestRepo(): Promise<TestRepo> {
   await isolateGitConfig()
-  const dir = await mkdtemp(path.join(tmpdir(), 'atelier-repo-'))
+  // Chemin réel : sur macOS, le dossier temporaire /var/… est un lien vers /private/var/…, et Git renvoie le chemin réel.
+  const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'atelier-repo-')))
   const git = simpleGit({ baseDir: dir })
   await git.raw(['init', '--initial-branch=main'])
   await git.addConfig('user.name', 'Camille Test')
