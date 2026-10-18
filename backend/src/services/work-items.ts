@@ -26,6 +26,7 @@ import {
   resolveDate,
   resolveHours,
 } from './common.ts'
+import type { ReportOptions } from '../schemas/reports.ts'
 import { toLinkedPullRequests } from './git.ts'
 import { toContainerRef, toTimeEntryDto, toWorkItemDto, WORK_ITEM_ROW_OMIT } from './mappers.ts'
 
@@ -129,7 +130,11 @@ export async function listStoryWorkItems(prisma: PrismaClient, storyId: number):
   return items.map((item) => toWorkItemDto(item, spent.get(item.id) ?? 0, hoursPerDay))
 }
 
-export async function getWorkItemDetail(prisma: PrismaClient, workItemId: number): Promise<WorkItemDetailDto> {
+export async function getWorkItemDetail(
+  prisma: PrismaClient,
+  workItemId: number,
+  options: ReportOptions = {},
+): Promise<WorkItemDetailDto> {
   const item = await prisma.workItem.findUnique({
     where: { id: workItemId },
     include: {
@@ -146,9 +151,10 @@ export async function getWorkItemDetail(prisma: PrismaClient, workItemId: number
   const { epic } = story
   const codes = await loadHierarchyCodes(prisma, project.id)
   const spentHours = sumHours(timeEntries.map((entry) => entry.hours))
+  const hoursPerDay = options.hoursPerDay ?? project.hoursPerDay
 
   return {
-    ...toWorkItemDto(item, spentHours, project.hoursPerDay),
+    ...toWorkItemDto(item, spentHours, hoursPerDay),
     description: item.description,
     implementationLog: item.implementationLog,
     project: { id: project.id, name: project.name, hoursPerDay: project.hoursPerDay },
@@ -157,7 +163,7 @@ export async function getWorkItemDetail(prisma: PrismaClient, workItemId: number
       epic: toContainerRef(epic, codes.epics),
       story: toContainerRef(story, codes.stories),
     },
-    timeEntries: timeEntries.map((entry) => toTimeEntryDto(entry, project.hoursPerDay)),
+    timeEntries: timeEntries.map((entry) => toTimeEntryDto(entry, hoursPerDay)),
     commits: commitLinks.map(({ commit, keyword }) => ({
       hash: commit.hash,
       shortHash: commit.hash.slice(0, 7),

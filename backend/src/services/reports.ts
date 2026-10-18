@@ -3,7 +3,7 @@
 // - arborescence : Phase > Epic > Story > WorkItem avec agrégats et plages de dates (Gantt, hiérarchie) ;
 // - tableau des temps : budget, réalisé et bilan par élément, avec totaux.
 import { aggregate, progressSummary, type AggregatableItem } from '../domain/aggregates.ts'
-import { computeTrend } from '../domain/balance.ts'
+import { computeEnvelopeBalance, computeTrend } from '../domain/balance.ts'
 import { formatDateOnly } from '../domain/dates.ts'
 import { percentOf, sumHours, toDuration, toDurationOrNull } from '../domain/durations.ts'
 import { computeCodes, effectiveSpan, enclosingSpan, type DateSpan } from '../domain/hierarchy.ts'
@@ -21,6 +21,7 @@ import type {
 } from '../schemas/reports.ts'
 import { requireProject } from './common.ts'
 import {
+  toBalanceDto,
   toContainerRef,
   toEpicDto,
   toMilestoneDto,
@@ -106,6 +107,7 @@ export async function getDashboard(prisma: PrismaClient, projectId: number, opti
       initial: toDurationOrNull(budgetHours, hoursPerDay),
       spent: toDuration(spentHours, hoursPerDay),
       remaining: budgetHours === null ? null : toDuration(budgetHours - spentHours, hoursPerDay),
+      balance: budgetHours === null ? null : toBalanceDto(computeEnvelopeBalance(budgetHours, spentHours), hoursPerDay),
       consumedPercent,
     },
     progress: {
@@ -234,6 +236,7 @@ export async function getTimesheet(prisma: PrismaClient, projectId: number, filt
       estimate: toDuration(estimateHours, hoursPerDay),
       spent: toDuration(spentHours, hoursPerDay),
       remaining: toDuration(estimateHours - spentHours, hoursPerDay),
+      balance: toBalanceDto(computeEnvelopeBalance(estimateHours, spentHours), hoursPerDay),
     },
   }
 }

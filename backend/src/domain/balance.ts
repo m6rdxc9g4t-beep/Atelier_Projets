@@ -29,6 +29,15 @@ export function computeBalance(item: {
   return overrun > 0 ? { kind: 'OVER', deltaHours: overrun } : { kind: 'REMAINING', deltaHours: -overrun }
 }
 
+/**
+ * Solde d'une enveloppe (budget initial du projet, total du tableau des temps) :
+ * REMAINING (reste à consommer, ≥ 0) ou OVER (dépassement, > 0).
+ */
+export function computeEnvelopeBalance(budgetHours: number, spentHours: number): BalanceResult {
+  const overrun = roundTo(spentHours - budgetHours, 2)
+  return overrun > 0 ? { kind: 'OVER', deltaHours: overrun } : { kind: 'REMAINING', deltaHours: overrun === 0 ? 0 : -overrun }
+}
+
 export type Trend = 'AHEAD' | 'ON_TRACK' | 'BEHIND'
 
 /**

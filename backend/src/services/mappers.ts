@@ -1,5 +1,5 @@
 // Entités Prisma → DTO de l'API (dates en chaînes, durées en heures + jours, bilans calculés).
-import { computeBalance } from '../domain/balance.ts'
+import { computeBalance, type BalanceResult } from '../domain/balance.ts'
 import { formatDateOnly, formatDateOnlyOrNull } from '../domain/dates.ts'
 import { toDuration, toDurationOrNull } from '../domain/durations.ts'
 import type { Epic, Milestone, Phase, Project, Story, TimeEntry, WorkItem } from '../generated/prisma/client.ts'
@@ -67,6 +67,11 @@ export function toContainerRef(
   return { id: container.id, code: codes.get(container.id) ?? '?', title: container.title }
 }
 
+/** Bilan du domaine → { kind, delta: { hours, days } }. */
+export function toBalanceDto(balance: BalanceResult, hoursPerDay: number) {
+  return { kind: balance.kind, delta: toDuration(balance.deltaHours, hoursPerDay) }
+}
+
 export function toWorkItemDto(item: WorkItemRow, spentHours: number, hoursPerDay: number): WorkItemDto {
   const balance = computeBalance({ status: item.status, estimatedHours: item.estimatedHours, spentHours })
   return {
@@ -83,7 +88,7 @@ export function toWorkItemDto(item: WorkItemRow, spentHours: number, hoursPerDay
     dueDate: formatDateOnlyOrNull(item.dueDate),
     estimate: toDurationOrNull(item.estimatedHours, hoursPerDay),
     spent: toDuration(spentHours, hoursPerDay),
-    balance: balance === null ? null : { kind: balance.kind, delta: toDuration(balance.deltaHours, hoursPerDay) },
+    balance: balance === null ? null : toBalanceDto(balance, hoursPerDay),
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
   }

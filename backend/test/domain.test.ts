@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { aggregate, deriveStatus, effectiveProgress, progressSummary } from '../src/domain/aggregates.ts'
-import { computeBalance, computeTrend } from '../src/domain/balance.ts'
+import { computeBalance, computeEnvelopeBalance, computeTrend } from '../src/domain/balance.ts'
 import { formatDateOnly, parseDateOnly, todayDateOnly } from '../src/domain/dates.ts'
 import { daysToHours, percentOf, roundTo, sumHours, toDuration } from '../src/domain/durations.ts'
 import { computeCodes, effectiveSpan, enclosingSpan } from '../src/domain/hierarchy.ts'
@@ -106,6 +106,13 @@ describe('bilans du tableau des temps (maquette README §4.D)', () => {
   it('ne calcule pas de bilan sans estimation ou pour un élément rejeté', () => {
     assert.equal(computeBalance({ status: 'OPEN', estimatedHours: null, spentHours: 3 }), null)
     assert.equal(computeBalance({ status: 'REJECTED', estimatedHours: 8, spentHours: 3 }), null)
+  })
+
+  it('donne le solde d’une enveloppe : reste à consommer ou dépassement, toujours positif', () => {
+    assert.deepEqual(computeEnvelopeBalance(360, 228), { kind: 'REMAINING', deltaHours: 132 })
+    assert.deepEqual(computeEnvelopeBalance(48, 50), { kind: 'OVER', deltaHours: 2 })
+    assert.deepEqual(computeEnvelopeBalance(10, 10), { kind: 'REMAINING', deltaHours: 0 })
+    assert.deepEqual(computeEnvelopeBalance(0.1 + 0.2, 0.3), { kind: 'REMAINING', deltaHours: 0 })
   })
 
   it('compare avancement et consommation du budget en points affichés', () => {

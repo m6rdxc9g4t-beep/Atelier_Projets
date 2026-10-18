@@ -4,6 +4,7 @@ import { Type } from 'typebox'
 import { errorResponses, NoContent } from '../schemas/common.ts'
 import { StoryParams } from '../schemas/hierarchy.ts'
 import { ProjectParams } from '../schemas/projects.ts'
+import { ReportQuery } from '../schemas/reports.ts'
 import { TimeEntryCreateSchema, TimeEntryParams, TimeEntrySchema, TimeEntryUpdateSchema } from '../schemas/time-entries.ts'
 import {
   LogEntryCreateSchema,
@@ -79,10 +80,11 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags,
         summary: 'Fiche d’un élément : description, journal, temps, commits liés',
         params: WorkItemParams,
+        querystring: ReportQuery,
         response: { 200: WorkItemDetailSchema, ...errorResponses(400, 404) },
       },
     },
-    async (request) => getWorkItemDetail(app.prisma, request.params.workItemId),
+    async (request) => getWorkItemDetail(app.prisma, request.params.workItemId, request.query),
   )
 
   app.patch(

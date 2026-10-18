@@ -49,6 +49,11 @@ export const DashboardSchema = Type.Object(
       initial: Nullable(DurationSchema),
       spent: DurationSchema,
       remaining: Nullable(DurationSchema),
+      balance: Nullable(
+        Type.Object(BalanceSchema.properties, {
+          description: 'Solde du budget initial : REMAINING (reste à consommer) ou OVER (dépassement), delta ≥ 0 ; null sans budget',
+        }),
+      ),
       consumedPercent: Nullable(Type.Number({ description: 'Temps réalisé / budget initial, en %' })),
     }),
     progress: Type.Object({
@@ -141,6 +146,9 @@ export const TimesheetSchema = Type.Object(
       estimate: DurationSchema,
       spent: DurationSchema,
       remaining: Type.Object(DurationSchema.properties, { description: 'Σ estimations − Σ réalisé (négatif = dépassement)' }),
+      balance: Type.Object(BalanceSchema.properties, {
+        description: 'Solde global : REMAINING (reste à consommer) ou OVER (dépassement), delta ≥ 0',
+      }),
     }),
   },
   { description: 'Tableau des temps : budget, réalisé et bilan par élément' },

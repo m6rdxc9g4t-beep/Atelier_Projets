@@ -12,7 +12,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && tsx scripts/export-openapi.ts --check",
     "test": "node --import tsx --test --test-reporter=spec \"test/**/*.test.ts\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -21,7 +21,8 @@
     "db:seed": "prisma db seed",
     "db:setup": "prisma generate && prisma migrate deploy && prisma db seed",
     "db:reset": "prisma migrate reset --force && prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "openapi": "tsx scripts/export-openapi.ts"
   },
   "dependencies": {
     "@fastify/swagger": "^9.9.2",

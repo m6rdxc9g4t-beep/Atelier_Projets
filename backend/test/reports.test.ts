@@ -33,6 +33,7 @@ describe('dashboard (maquette A)', () => {
       initial: { hours: 360, days: 45 },
       spent: { hours: 228, days: 28.5 },
       remaining: { hours: 132, days: 16.5 },
+      balance: { kind: 'REMAINING', delta: { hours: 132, days: 16.5 } },
       consumedPercent: 63.3,
     })
     assert.deepEqual(body.progress, { percent: 70.7, planned: { hours: 280, days: 35 }, earned: { hours: 198, days: 24.75 } })
@@ -170,6 +171,7 @@ describe('tableau des temps (maquette D)', () => {
       estimate: { hours: 280, days: 35 },
       spent: { hours: 228, days: 28.5 },
       remaining: { hours: 52, days: 6.5 },
+      balance: { kind: 'REMAINING', delta: { hours: 52, days: 6.5 } },
     })
   })
 
@@ -200,6 +202,7 @@ describe('tableau des temps (maquette D)', () => {
       estimate: { hours: 48, days: 6 },
       spent: { hours: 50, days: 6.25 },
       remaining: { hours: -2, days: -0.25 },
+      balance: { kind: 'OVER', delta: { hours: 2, days: 0.25 } },
     })
   })
 
@@ -215,6 +218,12 @@ describe('tableau des temps (maquette D)', () => {
     assert.equal(tree.hoursPerDay, 7)
     assert.deepEqual(tree.phases[0].aggregate.estimate, { hours: 120, days: 17.1429 })
     assert.deepEqual(tree.phases[0].epics[0].stories[0].workItems[0].spent, { hours: 20, days: 2.8571 })
+
+    const item = (await get('/api/work-items/101?hoursPerDay=7')).body
+    assert.deepEqual(item.estimate, { hours: 24, days: 3.4286 })
+    assert.deepEqual(item.balance, { kind: 'UNDER', delta: { hours: -4, days: -0.5714 } })
+    assert.deepEqual(item.project.hoursPerDay, 8)
+    assert.deepEqual(item.timeEntries[0].duration.days, Number((item.timeEntries[0].duration.hours / 7).toFixed(4)))
   })
 })
 
