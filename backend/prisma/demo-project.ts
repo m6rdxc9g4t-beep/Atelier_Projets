@@ -1,5 +1,5 @@
 // =============================================================================
-// Seed de démonstration — projet « App E-Commerce v2 »
+// Projet de démonstration « App E-Commerce v2 » — données et insertion
 //
 // Reproduit les maquettes du README (§4) : budget initial 45 j (360 h), temps réalisé
 // 28.5 j (228 h), éléments #101 → #211 et fiche #12345 avec ses commits Git.
@@ -7,13 +7,12 @@
 //
 // Idempotent : le projet de démo (slug « app-ecommerce-v2 ») est supprimé puis recréé.
 // Les WorkItems gardent leurs #ID fixes, référencés par les messages de commit.
-// Lancement : npm run db:seed  (prisma db seed → tsx prisma/seed.ts)
+// Utilisé par le seed (prisma/seed.ts → npm run db:seed) et par les tests de l'API.
 // =============================================================================
-import { loadEnvFile, resolveDatabaseUrl } from '../src/config.ts'
-import { createPrismaClient, type PrismaClient } from '../src/db/client.ts'
+import type { PrismaClient } from '../src/db/client.ts'
 import { Priority, WorkItemStatus, WorkItemType } from '../src/generated/prisma/client.ts'
 
-const DEMO_SLUG = 'app-ecommerce-v2'
+export const DEMO_PROJECT_SLUG = 'app-ecommerce-v2'
 const HOURS_PER_DAY = 8
 
 /** Date calendaire, stockée à 00:00 UTC. */
@@ -653,15 +652,16 @@ const COMMITS: CommitSeed[] = [
 // Insertion
 // -----------------------------------------------------------------------------
 
-async function seedDemoProject(prisma: PrismaClient): Promise<number> {
+/** (Ré)insère le projet de démo dans une transaction et renvoie son id. */
+export async function seedDemoProject(prisma: PrismaClient): Promise<number> {
   return prisma.$transaction(
     async (tx) => {
-      await tx.project.deleteMany({ where: { slug: DEMO_SLUG } })
+      await tx.project.deleteMany({ where: { slug: DEMO_PROJECT_SLUG } })
 
       const project = await tx.project.create({
         data: {
           name: 'App E-Commerce v2',
-          slug: DEMO_SLUG,
+          slug: DEMO_PROJECT_SLUG,
           description:
             'Refonte de la boutique en ligne : authentification GitHub, synchronisation Git / GitHub et nouvelle interface (thèmes clair et sombre).',
           githubOwner: 'user',
@@ -787,43 +787,4 @@ async function seedDemoProject(prisma: PrismaClient): Promise<number> {
     },
     { timeout: 30_000 },
   )
-}
-
-async function printSummary(prisma: PrismaClient, projectId: number): Promise<void> {
-  const [project, phases, epics, stories, workItems, milestones, timeEntries, commits] = await Promise.all([
-    prisma.project.findUniqueOrThrow({ where: { id: projectId } }),
-    prisma.phase.count({ where: { projectId } }),
-    prisma.epic.count({ where: { phase: { projectId } } }),
-    prisma.story.count({ where: { epic: { phase: { projectId } } } }),
-    prisma.workItem.count({ where: { projectId } }),
-    prisma.milestone.count({ where: { projectId } }),
-    prisma.timeEntry.count({ where: { workItem: { projectId } } }),
-    prisma.gitCommit.count({ where: { projectId } }),
-  ])
-  const spent = await prisma.timeEntry.aggregate({ where: { workItem: { projectId } }, _sum: { hours: true } })
-  const spentHours = spent._sum.hours ?? 0
-  const budgetHours = project.budgetHours ?? 0
-  const days = (hours: number): string => (hours / project.hoursPerDay).toFixed(1)
-
-  console.log(`✔ Projet de démo « ${project.name} » inséré (id ${projectId})`)
-  console.log(
-    `  ${phases} phases · ${epics} epics · ${stories} stories · ${workItems} work items · ${milestones} jalons · ` +
-      `${timeEntries} saisies de temps · ${commits} commits`,
-  )
-  console.log(
-    `  Budget initial ${days(budgetHours)} j (${budgetHours} h) · Temps réalisé ${days(spentHours)} j (${spentHours} h) · ` +
-      `1 jour = ${project.hoursPerDay} h`,
-  )
-}
-
-loadEnvFile()
-const prisma = createPrismaClient(resolveDatabaseUrl())
-try {
-  const projectId = await seedDemoProject(prisma)
-  await printSummary(prisma, projectId)
-} catch (error) {
-  console.error('✘ Échec du seed :', error)
-  process.exitCode = 1
-} finally {
-  await prisma.$disconnect()
 }

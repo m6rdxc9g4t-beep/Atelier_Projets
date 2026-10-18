@@ -9,6 +9,7 @@ const config = loadConfig()
 const app = await buildApp({
   prisma: createPrismaClient(config.databaseUrl),
   logger: { level: config.logLevel },
+  timeZone: config.timeZone,
 })
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
@@ -27,6 +28,7 @@ process.once('SIGTERM', (signal) => void shutdown(signal))
 
 try {
   await app.listen({ host: config.host, port: config.port })
+  app.log.info(`Documentation de l’API : http://${config.host}:${config.port}/api/docs`)
 } catch (error) {
   app.log.error({ err: error }, 'Démarrage impossible')
   process.exit(1)

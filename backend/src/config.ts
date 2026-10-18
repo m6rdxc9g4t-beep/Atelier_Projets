@@ -18,6 +18,8 @@ export interface AppConfig {
   port: number
   logLevel: LogLevel
   databaseUrl: string
+  /** Fuseau IANA des horodatages lisibles (journal d'avancement, date du jour). */
+  timeZone: string
 }
 
 /**
@@ -66,6 +68,21 @@ function parseLogLevel(value: string | undefined): LogLevel {
   return level
 }
 
+/** Fuseau par défaut : celui du système (Europe/Paris sur un poste français). */
+export function systemTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
+}
+
+function parseTimeZone(value: string | undefined): string {
+  const timeZone = value?.trim() || systemTimeZone()
+  try {
+    new Intl.DateTimeFormat('fr-FR', { timeZone })
+  } catch {
+    throw new Error(`APP_TIMEZONE invalide : « ${value} » (fuseau IANA attendu, ex. Europe/Paris)`)
+  }
+  return timeZone
+}
+
 /** Lit la configuration depuis l'environnement (après loadEnvFile()). */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
@@ -73,5 +90,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     port: parsePort(env.PORT),
     logLevel: parseLogLevel(env.LOG_LEVEL),
     databaseUrl: resolveDatabaseUrl(env.DATABASE_URL),
+    timeZone: parseTimeZone(env.APP_TIMEZONE),
   }
 }
