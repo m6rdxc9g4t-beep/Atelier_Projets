@@ -13,8 +13,8 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 | **Phase 1 — Socle** | Monorepo (npm workspaces), design system (tokens officiels + thèmes clair/sombre), backend Fastify + TypeScript + Prisma/SQLite, migration initiale, seed de démo « App E-Commerce v2 » | ✅ Validée |
 | **Phase 2 — API REST métier** | CRUD de la hiérarchie, temps et jalons, journal d'avancement horodaté, vues calculées (dashboard, arborescence/Gantt, tableau des temps, fiche tâche), OpenAPI, tests | ✅ Validée |
 | **Phase 3 — `git-engine`** | Analyse du dépôt local (`simple-git`, regex `#ID`), hook `post-commit`, synchronisation des Pull Requests GitHub (`@octokit/rest`), modèle `PullRequest` | ✅ Validée |
-| **Phase 4 — Frontend** | Client React (Vite, Tailwind CSS, Zustand, Lucide) : tableau de bord, Gantt, tableau des temps, fiche tâche, paramètres et dépôts ; composants UI purs du design system ; types de l'API générés depuis le contrat OpenAPI | ✅ Terminée — en attente de validation |
-| Phase suivante | `ai-bridge` : Ollama (Qwen, Gemma) et Claude CLI | ⏳ À venir |
+| **Phase 4 — Frontend** | Client React (Vite, Tailwind CSS, Zustand, Lucide) : tableau de bord, Gantt, tableau des temps, fiche tâche, paramètres et dépôts ; composants UI purs du design system ; types de l'API générés depuis le contrat OpenAPI | ✅ Validée |
+| **Phase 5 — `ai-bridge`** | IA locale Ollama (Qwen, Gemma) : découpage d'une Story en Features / Tasks estimées, résumé des commits pour le journal d'avancement ; sessions Claude CLI dans le dépôt du projet ; API réservée aux requêtes locales | ✅ Terminée — en attente de validation |
 
 ## ⚡ Démarrage rapide
 
@@ -27,6 +27,8 @@ npm run dev            # API (port 3000) + interface (port 5173)
 ```
 
 Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : http://127.0.0.1:3000/api/docs.
+
+**IA locale (facultatif) :** installer [Ollama](https://ollama.com), puis `ollama pull qwen2.5-coder` (ou `gemma3`) ; le bouton `🤖 IA Locale` de l'en-tête affiche l'état et permet de choisir le modèle. **Claude CLI (facultatif) :** installer Claude Code (`claude` dans le PATH) ; le bouton « Claude CLI » de la fiche d'un élément ouvre une session dans le dépôt du projet.
 
 | Commande (racine) | Effet |
 | :--- | :--- |
@@ -72,7 +74,7 @@ Atelier_Projets/
 │   ├── src/routes/            # ✅ Routes REST Fastify sous /api (documentation : /api/docs)
 │   ├── test/                  # ✅ Tests node:test (domaine, CRUD, vues sur la démo)
 │   ├── src/git-engine/        # ✅ Lecture du dépôt (simple-git), regex #ID, hook post-commit, client GitHub (Octokit)
-│   └── src/ai-bridge/         # ⏳ Connecteur Ollama (Qwen / Gemma) & exécution Claude CLI
+│   └── src/ai-bridge/         # ✅ Client Ollama (Qwen / Gemma), prompts IA, lancement de Claude CLI
 │
 ├── CLAUDE.md                  # Règles d'architecture et conventions de code pour Claude CLI
 └── README.md                  # Spécification fonctionnelle et visuelle d'Atelier_Projets
@@ -176,7 +178,7 @@ Chaque projet est lié à un dépôt Git local et un dépôt GitHub distant :
 
 ## 🖥️ 4. Maquettes Visuelles des Interfaces
 
-> **Implémentation :** onglets « Tableau de bord » (A), « Gantt & Avancement du projet » (B), « Tableau des temps » (D) et fiche élément à droite (C), plus « Paramètres du projet » (dépôts Git/GitHub). Les boutons IA (`🤖 IA Locale`, `Résumer mes commits`) sont présents mais désactivés jusqu'à l'`ai-bridge`.
+> **Implémentation :** onglets « Tableau de bord » (A), « Gantt & Avancement du projet » (B), « Tableau des temps » (D) et fiche élément à droite (C), plus « Paramètres du projet » (dépôts Git/GitHub). Fonctions IA : voir §5.
 >
 > Le seed de démo (`npm run db:seed`) reproduit les données de ces maquettes : budget 45.0 j (360 h), réalisé 28.5 j (228 h), Gantt (phases de 15 j et 20 j, jalons du 15 oct. et du 2 nov.), tableau des temps (#101, #102, #103, #12345, #205 : 12 j budgétés, 72 h réalisées) et fiche #12345 avec ses deux commits et la Pull Request #42 « En revue ».
 >
@@ -306,6 +308,19 @@ Les commits contenant `feature #12345`, `task #12345` ou `bug #12345` sont autom
 2. **Auto-Rédaction du Journal d'Avancement :** Bouton `[🤖 Résumer mes commits]` dans l'onglet 2 d'une tâche qui lit les `git diff` des commits liés à `#12345` et rédige automatiquement l'explication technique du travail réalisé.
 3. **Exécution Claude CLI :** Bouton d'action rapide sur une tâche permettant de lancer Claude CLI dans le dépôt Git du projet avec la description de la tâche `#12345` directement injectée en prompt.
 
+**Implémentation (`backend/src/ai-bridge/`) :**
+
+| Fonction | Où | Fonctionnement |
+| :--- | :--- | :--- |
+| `🤖 IA Locale` | En-tête | État d'Ollama (pastille verte / orange sans modèle / rouge injoignable), modèles installés, choix du modèle (mémorisé dans le navigateur), état de Claude CLI |
+| `✨ Générer les sous-tâches` | Ligne STORY du Gantt (survol) | Le modèle reçoit la story, ses parents et ses éléments existants (+ consignes facultatives) et répond en JSON structuré : 3 à 8 Features / Tasks avec critères d'acceptation et estimation en jours (bornée, au quart de jour). Les propositions sont **éditables** (titre, type, estimation, sélection) puis créées en une transaction (`POST /stories/:storyId/work-items/batch`) |
+| `🤖 Résumer mes commits` | Onglet « Journal d'avancement » | Le modèle reçoit la tâche, la fin du journal et les commits liés au `#ID` avec leur `git diff` (fichiers générés exclus, budget `AI_MAX_DIFF_CHARS` réparti par fichier). Le texte proposé arrive dans le formulaire d'entrée, **modifiable**, et n'est ajouté au journal qu'après validation |
+| `Claude CLI` | En-tête de la fiche élément | Prompt pré-rempli et modifiable (tâche, contexte, description, journal, commits, consignes et convention `feat(scope): description #ID`), mode de permissions (manuel, plan d'abord, accepter les modifications). macOS : session **interactive** ouverte dans Terminal (`CLAUDE_TERMINAL_APP`) dans le dépôt du projet ; ailleurs : commande à coller |
+
+- Aucune donnée ne quitte la machine : Ollama tourne en local ; Claude CLI utilise ton compte Claude Code, dans un terminal où tu valides chaque action.
+- Les générations sont annulées si le dialogue est fermé (Ollama est libéré) ; la réponse d'Ollama est lue en flux, sans limite de 5 min sur l'attente du premier octet.
+- Le prompt de Claude CLI est écrit dans un fichier temporaire (droits `0600`, dossier propre à l'utilisateur) et passé après `--` : son contenu ne peut être interprété ni par le shell ni comme option de la CLI.
+
 ---
 
 ## 🧾 6. Notes techniques & conventions
@@ -330,6 +345,8 @@ Les commits contenant `feature #12345`, `task #12345` ou `bug #12345` sont autom
   - **contrat d'API** : `backend/openapi.json` (exporté par `npm run openapi`) → `frontend/src/services/api.gen.ts` (openapi-typescript, exécuté via `npx` car il dépend de TypeScript 5). `npm run check` signale un contrat ou des types périmés ;
   - **aucun calcul métier** côté client : jours, pourcentages, bilans, histogramme et statuts des conteneurs viennent de l'API ; le frontend ne fait que de la mise en forme (et la mise en page du calendrier du Gantt) ;
   - préférences (thème, projet, vue) mémorisées dans le navigateur (`localStorage`, facultatif).
+- **API locale protégée :** l'API n'accepte que les en-têtes `Host` locaux (`127.0.0.1`, `localhost`, `::1`, plus `ALLOWED_HOSTS`) et refuse les écritures dont l'en-tête `Origin` désigne un autre site : un site web visité ne peut pas piloter l'API (DNS rebinding, requêtes intersites). Le `curl` du hook post-commit, sans `Origin`, reste accepté.
+- **IA locale :** `OLLAMA_URL` (défaut `http://localhost:11434`), `OLLAMA_MODEL` (`qwen2.5-coder` ; une seule étiquette installée comme `qwen2.5-coder:7b` est reconnue), `OLLAMA_NUM_CTX` (16384 : fenêtre de contexte demandée, pour que les diffs ne soient pas tronqués), `OLLAMA_TIMEOUT_MS` (180000), `AI_MAX_DIFF_CHARS` (24000) ; `CLAUDE_CLI` (`claude`) et `CLAUDE_TERMINAL_APP` (`Terminal`, ou `iTerm`). Voir `backend/.env.example`.
 - **Scripts d'installation (npm 11.16+ / 12) :** `allowScripts` (package.json racine) autorise uniquement les dépendances qui en ont besoin : `better-sqlite3` (module natif SQLite), `prisma` et `@prisma/engines` (moteurs Prisma), `esbuild` (utilisé par `tsx`) et `fsevents` (surveillance des fichiers sous macOS). Toute nouvelle dépendance à script d'installation devra y être ajoutée (`npm install-scripts ls` les liste).
 
 ---
@@ -390,3 +407,15 @@ Les trois vues et la fiche élément acceptent `?hoursPerDay=` pour afficher les
 - **Pull Requests** : liées par `#ID` dans le titre, puis le corps, puis un numéro en tête de branche (`feature/12345-git-sync-engine`). Statut affiché : brouillon → `IN_PROGRESS`, ouverte → `IN_REVIEW`, fusionnée → `CLOSED`, fermée → `REJECTED`. La synchronisation ne modifie pas le statut des éléments.
 - **GitHub** : dépôts publics sans configuration ; pour un dépôt privé ou un quota plus large, `GITHUB_TOKEN` dans `backend/.env` (jeton en lecture des Pull Requests). Une erreur GitHub renvoie `502 GITHUB_ERROR` avec la cause (jeton refusé, quota, dépôt introuvable, réseau).
 
+### IA locale & Claude CLI (`ai-bridge`)
+
+| Route | Effet |
+| :--- | :--- |
+| `GET /ai/status` | Ollama (joignable, modèles installés, modèle par défaut) et Claude CLI (version, ouverture de terminal possible) |
+| `POST /ai/breakdown-story` | `{ storyId, model?, instructions? }` → propositions `{ type, title, description, estimate }` ; rien n'est enregistré |
+| `POST /stories/:storyId/work-items/batch` | `{ items: [...] }` (1 à 50) : création groupée en fin de story, tout ou rien |
+| `POST /ai/summarize-commits` | `{ workItemId, model? }` → `{ text, commits: [{ shortHash, subject, diff: full / truncated / missing }], warnings }` ; rien n'est enregistré (ajout au journal par `POST /work-items/:id/log-entries`) |
+| `GET /ai/claude/prompt?workItemId=` | Prompt proposé et dossier de la session (dépôt local du projet) |
+| `POST /ai/claude/launch` | `{ workItemId, permissionMode?: default / plan / acceptEdits, prompt? }` → `{ launched, command, promptFile }` |
+
+Erreurs IA : `502 AI_UNAVAILABLE` (Ollama arrêté ou délai dépassé), `AI_MODEL_MISSING` (`ollama pull <modèle>`), `AI_INVALID_RESPONSE` (réponse inexploitable : réessayer ou changer de modèle), `AI_ERROR` ; `400` sans commit lié ou sans dépôt local pour Claude CLI.
