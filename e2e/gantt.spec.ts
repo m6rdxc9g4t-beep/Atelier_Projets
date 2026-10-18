@@ -106,6 +106,13 @@ test('chemin critique, dépendances depuis la fiche et impression PDF', async ({
   expect(printed[0]?.theme).toBe('light')
   expect(Number(printed[0]?.scale)).toBeGreaterThan(0)
   expect(Number(printed[0]?.scale)).toBeLessThanOrEqual(1)
+  // Au zoom « Jour », le diagramme est plus large : il est davantage réduit pour tenir sur la page.
+  await page.getByLabel('Zoom').selectOption('day')
+  await page.getByRole('button', { name: 'PDF', exact: true }).click()
+  const [, daily] = await page.evaluate(() => (window as unknown as { printed: { scale: string }[] }).printed)
+  const width = await page.locator('.gantt-content').evaluate((element) => element.scrollWidth)
+  expect(Number(daily?.scale)).toBeLessThan(Number(printed[0]?.scale))
+  expect(Number(daily?.scale)).toBeLessThan(1100 / width)
   // Après l'impression : thème et mise en page d'écran rétablis.
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await expect(page.locator('html')).not.toHaveAttribute('data-printing', /.*/)

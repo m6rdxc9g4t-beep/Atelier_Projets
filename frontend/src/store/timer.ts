@@ -14,19 +14,22 @@ interface TimerStore {
   syncedAt: number
   busy: boolean
   load: () => Promise<void>
-  start: (workItemId: number) => Promise<void>
-  stop: (comment?: string) => Promise<void>
-  discard: () => Promise<void>
+  start: (workItemId: number) => Promise<boolean>
+  stop: (comment?: string) => Promise<boolean>
+  discard: () => Promise<boolean>
 }
 
-async function guarded(set: (partial: Partial<TimerStore>) => void, action: () => Promise<void>): Promise<void> {
+/** Exécute une action du chronomètre ; renvoie false en cas d'échec (déjà signalé). */
+async function guarded(set: (partial: Partial<TimerStore>) => void, action: () => Promise<void>): Promise<boolean> {
   set({ busy: true })
   try {
     await action()
+    return true
   } catch (error) {
     useApp.getState().notify('error', errorMessage(error))
     // État incertain (chronomètre arrêté ailleurs, élément supprimé) : on relit.
     await useTimer.getState().load()
+    return false
   } finally {
     set({ busy: false })
   }

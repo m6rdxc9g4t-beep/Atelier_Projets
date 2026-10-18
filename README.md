@@ -52,7 +52,7 @@ Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : h
 
 La configuration est facultative : sans fichier `.env`, la base est créée dans `backend/prisma/dev.db` et l'API écoute sur `127.0.0.1:3000`. Pour changer ces valeurs, copier `backend/.env.example` en `backend/.env`.
 
-**Sauvegardes :** la base est copiée au démarrage puis toutes les 24 h dans `backend/prisma/backups/` (14 copies gardées) ; « Sauvegarder maintenant » et le téléchargement des copies sont dans **Paramètres du projet**. Pour restaurer : arrêter l'application, remplacer `backend/prisma/dev.db` par une copie, relancer.
+**Sauvegardes :** la base est copiée au démarrage puis toutes les 24 h dans `backend/prisma/backups/` (14 copies automatiques et 14 manuelles gardées) ; « Sauvegarder maintenant » et le téléchargement des copies sont dans **Paramètres du projet**. Pour restaurer : arrêter l'application, remplacer `backend/prisma/dev.db` par une copie, relancer.
 
 **Après une mise à jour du dépôt :** `npm install` puis `npm run setup` (applique les nouvelles migrations de la base ; le projet de démo est réinséré, vos projets sont conservés).
 

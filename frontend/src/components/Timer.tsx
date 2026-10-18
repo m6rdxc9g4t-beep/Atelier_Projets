@@ -49,8 +49,7 @@ export function TimerPill() {
 
   const stop = async (event: FormEvent) => {
     event.preventDefault()
-    await useTimer.getState().stop(comment.trim() || undefined)
-    setComment('')
+    if (await useTimer.getState().stop(comment.trim() || undefined)) setComment('')
   }
 
   const openItem = () => {

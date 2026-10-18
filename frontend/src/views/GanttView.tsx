@@ -75,7 +75,7 @@ interface Row {
 }
 
 type DragTarget =
-  | { kind: 'item'; id: number; span: DateSpan }
+  | { kind: 'item'; id: number; span: DateSpan; startDate: string | null; dueDate: string | null }
   | { kind: 'container'; level: 'phase' | 'epic' | 'story'; id: number }
   | { kind: 'milestone'; id: number; date: string }
 
@@ -160,7 +160,7 @@ function buildRows(tree: ProjectTree, collapsed: ReadonlySet<string>): Row[] {
             item,
             collapsible: false,
             parents: [phaseKey, epicKey, storyKey],
-            drag: item.span ? { kind: 'item', id: item.id, span: item.span } : undefined,
+            drag: item.span ? { kind: 'item', id: item.id, span: item.span, startDate: item.startDate, dueDate: item.dueDate } : undefined,
           })
         }
       }
@@ -324,6 +324,11 @@ function dragMessage(row: Row, mode: DragMode, amount: number): string {
 function dragAction(target: DragTarget, mode: DragMode, amount: number): () => Promise<unknown> {
   switch (target.kind) {
     case 'item': {
+      // Déplacement : seules les dates renseignées bougent (une échéance seule reste une échéance seule).
+      if (mode === 'move') {
+        const shift = (date: string | null) => (date === null ? null : shiftDay(date, amount))
+        return () => workItemService.update(target.id, { startDate: shift(target.startDate), dueDate: shift(target.dueDate) })
+      }
       const startDate = mode === 'end' ? target.span.start : shiftDay(target.span.start, amount)
       const dueDate = mode === 'start' ? target.span.end : shiftDay(target.span.end, amount)
       return () => workItemService.update(target.id, { startDate, dueDate })
@@ -362,10 +367,14 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
   const linkLayer = useRef<SVGSVGElement>(null)
   /** Un glisser vient de se terminer : le clic qui suit n'ouvre pas la fiche. */
   const suppressClick = useRef(false)
+  /** Déplacement envoyé, arbre pas encore relu : les dates affichées sont périmées, on n'en accepte pas d'autre. */
+  const pendingRef = useRef(false)
+  const commitToken = useRef(0)
   const width = calendar.totalDays * calendar.ppd
 
   // Déplacement envoyé : l'aperçu reste en place jusqu'à l'arrivée de l'arbre relu (pas de retour en arrière).
   useEffect(() => {
+    pendingRef.current = false
     setDrag((current) => (current?.pending ? null : current))
   }, [tree])
 
@@ -405,9 +414,21 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
   const commit = useCallback(
     async (row: Row, mode: DragMode, amount: number) => {
       if (!row.drag || amount === 0) return setDrag(null)
+      pendingRef.current = true
       setDrag({ rowKey: row.key, mode, days: amount, pending: true })
       const result = await run('drag', dragAction(row.drag, mode, amount), dragMessage(row, mode, amount))
-      if (!result.ok) setDrag(null)
+      if (!result.ok) {
+        pendingRef.current = false
+        setDrag(null)
+      } else {
+        // Relecture de l'arbre en échec : l'aperçu ne reste pas affiché indéfiniment.
+        const token = ++commitToken.current
+        setTimeout(() => {
+          if (!pendingRef.current || token !== commitToken.current) return
+          pendingRef.current = false
+          setDrag((current) => (current?.pending ? null : current))
+        }, 8000)
+      }
     },
     [run],
   )
@@ -415,7 +436,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
   /** Appui sur une barre : clic (ouvre) sous le seuil, sinon glisser-déposer au jour près. */
   const beginDrag = useCallback(
     (row: Row, mode: DragMode, event: ReactPointerEvent) => {
-      if (event.button !== 0 || !row.drag || busy === 'drag') return
+      if (event.button !== 0 || !row.drag || pendingRef.current) return
       event.stopPropagation()
       const originX = event.clientX
       const ppd = calendarRef.current.ppd
@@ -444,7 +465,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
       window.addEventListener('pointerup', onUp)
       window.addEventListener('pointercancel', onCancel)
     },
-    [busy, commit],
+    [commit],
   )
 
   /** Tirer le rond au bout d'une barre jusqu'à un autre élément : celui-ci attendra la fin du premier. */
@@ -460,10 +481,14 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
       }
       setLinking({ fromId, ...locate(event.clientX, event.clientY) })
       const onMove = (move: PointerEvent) => setLinking({ fromId, ...locate(move.clientX, move.clientY) })
-      const onUp = (up: PointerEvent) => {
+      const stop = () => {
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
+        window.removeEventListener('pointercancel', stop)
         setLinking(null)
+      }
+      const onUp = (up: PointerEvent) => {
+        stop()
         const target = document.elementFromPoint(up.clientX, up.clientY)?.closest<HTMLElement>('[data-item-id]')
         const targetId = Number(target?.dataset.itemId)
         if (!Number.isInteger(targetId) || targetId === fromId) return
@@ -471,6 +496,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
       }
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
+      window.addEventListener('pointercancel', stop)
     },
     [run],
   )
@@ -479,6 +505,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
     (row: Row, event: ReactKeyboardEvent) => {
       if (!event.altKey || !row.drag || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return
       event.preventDefault()
+      if (pendingRef.current) return
       const mode: DragMode = event.shiftKey && row.drag.kind === 'item' ? 'end' : 'move'
       void commit(row, mode, clampDays(row, mode, event.key === 'ArrowLeft' ? -1 : 1))
     },
@@ -493,7 +520,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
   }, [])
 
   const printGantt = () => {
-    const content = scroller.current?.firstElementChild as HTMLElement | null
+    const content = scroller.current?.querySelector<HTMLElement>('.gantt-content')
     if (!content) return
     const root = document.documentElement
     const theme = root.dataset.theme
@@ -536,7 +563,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
         d: linkPath(from.left + from.width, fromIndex * ROW_PITCH + ROW_HEIGHT / 2, to.left, toIndex * ROW_PITCH + ROW_HEIGHT / 2),
         tone,
         label: `#${dependency.predecessorId} → #${dependency.successorId} · ${
-          dependency.slackDays === null ? 'non planifié' : dependency.conflict ? `conflit : ${-dependency.slackDays} j de chevauchement` : `marge ${dependency.slackDays} j`
+          dependency.slackDays === null ? 'marge non calculée (élément non planifié ou rejeté)' : dependency.conflict ? `conflit : ${-dependency.slackDays} j de chevauchement` : `marge ${dependency.slackDays} j`
         }`,
       },
     ]
@@ -937,7 +964,7 @@ function Bar({ row, calendar, geometry, dragging, critical, faded, conflict, onO
           style={{ width: geometry.width }}
         >
           <span className="ds-bar__fill block" style={{ width: `${progress}%` }} />
-          {isItem && (
+          {isItem && geometry.width >= 24 && (
             <>
               <span
                 className="gantt-handle left-0"
