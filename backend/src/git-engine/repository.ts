@@ -137,3 +137,61 @@ export async function gitDirectories(repoPath: string): Promise<{ commonDir: str
   }
   return { commonDir: await absolute(['rev-parse', '--git-common-dir']), hooksDir: await absolute(['rev-parse', '--git-path', 'hooks']) }
 }
+
+/** Fichiers générés exclus des diffs envoyés à l'IA (bruit sans valeur pour décrire le travail). */
+const PATCH_EXCLUDES = [
+  ':(exclude,glob)**/package-lock.json',
+  ':(exclude,glob)**/*.lock',
+  ':(exclude,glob)**/pnpm-lock.yaml',
+  ':(exclude,glob)**/*.min.*',
+  ':(exclude,glob)**/*.map',
+  ':(exclude,glob)**/*.gen.*',
+  ':(exclude,glob)**/*.snap',
+  ':(exclude,glob)**/generated/**',
+  ':(exclude,glob)**/dist/**',
+]
+
+/** Part minimale du budget accordée à chaque fichier modifié. */
+const MIN_FILE_CHARS = 600
+
+export interface CommitPatch {
+  /** Statistiques (fichiers modifiés) puis diff de chaque fichier, tronqués pour tenir dans maxChars. */
+  patch: string
+  truncated: boolean
+}
+
+/**
+ * Diff d'un commit pour l'IA : `git show --stat` puis le diff de chaque fichier (hors fichiers générés),
+ * chaque fichier recevant une part équitable du budget pour qu'un gros fichier n'efface pas les autres.
+ * null si le commit n'existe plus dans le dépôt (amend, rebase).
+ */
+export async function readCommitPatch(git: SimpleGit, hash: string, maxChars: number): Promise<CommitPatch | null> {
+  if (!HASH.test(hash)) return null
+  const exists = await git.raw(['cat-file', '-e', `${hash}^{commit}`]).then(
+    () => true,
+    () => false,
+  )
+  if (!exists) return null
+  const show = (...args: string[]) => git.raw(['show', '--no-color', '--no-ext-diff', '--no-textconv', '--format=', ...args, hash, '--', '.', ...PATCH_EXCLUDES])
+  const stat = (await show('--stat=120')).trim()
+  const files = (await show('--patch'))
+    .split(/^(?=diff --git )/m)
+    .map((section) => section.trim())
+    .filter(Boolean)
+  const available = Math.max(0, maxChars - stat.length)
+  const share = Math.max(MIN_FILE_CHARS, Math.floor(available / Math.max(files.length, 1)))
+  let truncated = false
+  const parts = [stat]
+  let used = stat.length
+  for (const file of files) {
+    let text = file.length > share ? `${file.slice(0, share)}\n… (diff du fichier tronqué)` : file
+    if (file.length > share) truncated = true
+    if (used + text.length > maxChars) {
+      text = `${file.split('\n')[0]}\n… (diff omis : budget atteint)`
+      truncated = true
+    }
+    parts.push(text)
+    used += text.length
+  }
+  return { patch: parts.join('\n\n'), truncated }
+}

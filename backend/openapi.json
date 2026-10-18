@@ -5486,6 +5486,443 @@
         }
       }
     },
+    "/api/stories/{storyId}/work-items/batch": {
+      "post": {
+        "summary": "Créer plusieurs éléments dans une story, en une transaction (découpage proposé par l’IA)",
+        "tags": [
+          "Éléments"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "title"
+                      ],
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "FEATURE",
+                            "TASK",
+                            "BUG"
+                          ],
+                          "type": "string",
+                          "description": "FEATURE | TASK | BUG"
+                        },
+                        "title": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "pattern": "\\S"
+                        },
+                        "status": {
+                          "enum": [
+                            "OPEN",
+                            "IN_PROGRESS",
+                            "IN_REVIEW",
+                            "ON_HOLD",
+                            "BLOCKED",
+                            "RESOLVED",
+                            "CLOSED",
+                            "REJECTED"
+                          ],
+                          "type": "string",
+                          "description": "Un des 8 statuts du workflow"
+                        },
+                        "priority": {
+                          "enum": [
+                            "LOW",
+                            "NORMAL",
+                            "HIGH",
+                            "IMMEDIATE"
+                          ],
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 100000,
+                          "description": "Texte Markdown"
+                        },
+                        "implementationLog": {
+                          "type": "string",
+                          "maxLength": 100000,
+                          "description": "Texte Markdown"
+                        },
+                        "estimatedHours": {
+                          "minimum": 0,
+                          "maximum": 1000000,
+                          "description": "Durée en heures",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "estimatedDays": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "description": "Durée en jours (convertie avec hoursPerDay)",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "progress": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "Avancement déclaré, en %"
+                        },
+                        "position": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2147483647,
+                          "description": "Ordre d’affichage parmi les éléments frères"
+                        },
+                        "startDate": {
+                          "format": "date",
+                          "description": "Date calendaire AAAA-MM-JJ",
+                          "examples": [
+                            "2026-10-18"
+                          ],
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "format": "date",
+                          "description": "Date calendaire AAAA-MM-JJ",
+                          "examples": [
+                            "2026-10-18"
+                          ],
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false,
+                      "description": "Estimation en estimatedHours OU estimatedDays (converti avec le hoursPerDay du projet)"
+                    },
+                    "minItems": 1,
+                    "maxItems": 50
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Éléments créés ensemble, en fin de story et dans l’ordre donné : tous ou aucun"
+              }
+            }
+          },
+          "description": "Éléments créés ensemble, en fin de story et dans l’ordre donné : tous ou aucun"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "path",
+            "name": "storyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "projectId",
+                      "storyId",
+                      "type",
+                      "status",
+                      "priority",
+                      "title",
+                      "progress",
+                      "position",
+                      "startDate",
+                      "dueDate",
+                      "estimate",
+                      "spent",
+                      "balance",
+                      "createdAt",
+                      "updatedAt"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2147483647,
+                        "description": "#ID public, cité dans les messages de commit"
+                      },
+                      "projectId": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2147483647
+                      },
+                      "storyId": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2147483647
+                      },
+                      "type": {
+                        "enum": [
+                          "FEATURE",
+                          "TASK",
+                          "BUG"
+                        ],
+                        "type": "string",
+                        "description": "FEATURE | TASK | BUG"
+                      },
+                      "status": {
+                        "enum": [
+                          "OPEN",
+                          "IN_PROGRESS",
+                          "IN_REVIEW",
+                          "ON_HOLD",
+                          "BLOCKED",
+                          "RESOLVED",
+                          "CLOSED",
+                          "REJECTED"
+                        ],
+                        "type": "string",
+                        "description": "Un des 8 statuts du workflow"
+                      },
+                      "priority": {
+                        "enum": [
+                          "LOW",
+                          "NORMAL",
+                          "HIGH",
+                          "IMMEDIATE"
+                        ],
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "progress": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Avancement déclaré, en %"
+                      },
+                      "position": {
+                        "type": "integer"
+                      },
+                      "startDate": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date",
+                            "description": "Date calendaire AAAA-MM-JJ",
+                            "examples": [
+                              "2026-10-18"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "dueDate": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date",
+                            "description": "Date calendaire AAAA-MM-JJ",
+                            "examples": [
+                              "2026-10-18"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "estimate": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "hours",
+                              "days"
+                            ],
+                            "properties": {
+                              "hours": {
+                                "type": "number"
+                              },
+                              "days": {
+                                "type": "number"
+                              }
+                            },
+                            "description": "Durée exprimée en heures et en jours (1 jour = hoursPerDay heures)"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "spent": {
+                        "type": "object",
+                        "required": [
+                          "hours",
+                          "days"
+                        ],
+                        "properties": {
+                          "hours": {
+                            "type": "number"
+                          },
+                          "days": {
+                            "type": "number"
+                          }
+                        },
+                        "description": "Durée exprimée en heures et en jours (1 jour = hoursPerDay heures)"
+                      },
+                      "balance": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "delta"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "enum": [
+                                  "UNDER",
+                                  "ON_BUDGET",
+                                  "OVER",
+                                  "REMAINING"
+                                ],
+                                "type": "string"
+                              },
+                              "delta": {
+                                "type": "object",
+                                "required": [
+                                  "hours",
+                                  "days"
+                                ],
+                                "properties": {
+                                  "hours": {
+                                    "type": "number"
+                                  },
+                                  "days": {
+                                    "type": "number"
+                                  }
+                                },
+                                "description": "Durée exprimée en heures et en jours (1 jour = hoursPerDay heures)"
+                              }
+                            },
+                            "description": "Bilan : UNDER / ON_BUDGET / OVER = réalisé − estimé d’un élément terminé (ou dépassement en cours) ; REMAINING = reste à consommer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "examples": [
+                          "2026-10-18T14:30:00.000Z"
+                        ]
+                      },
+                      "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "examples": [
+                          "2026-10-18T14:30:00.000Z"
+                        ]
+                      }
+                    },
+                    "description": "Élément de travail (FEATURE, TASK ou BUG)"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/work-items/{workItemId}": {
       "get": {
         "summary": "Fiche d’un élément : description, journal, temps, commits liés",
@@ -12859,6 +13296,884 @@
           }
         }
       }
+    },
+    "/api/ai/status": {
+      "get": {
+        "summary": "État d’Ollama (modèles installés) et de Claude CLI",
+        "tags": [
+          "IA locale & Claude CLI"
+        ],
+        "responses": {
+          "200": {
+            "description": "État de l’IA locale (Ollama) et de Claude CLI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ollama",
+                    "claude"
+                  ],
+                  "properties": {
+                    "ollama": {
+                      "type": "object",
+                      "required": [
+                        "url",
+                        "reachable",
+                        "error",
+                        "defaultModel",
+                        "defaultModelInstalled",
+                        "defaultModelName",
+                        "models"
+                      ],
+                      "properties": {
+                        "url": {
+                          "type": "string"
+                        },
+                        "reachable": {
+                          "type": "boolean"
+                        },
+                        "error": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "defaultModel": {
+                          "type": "string"
+                        },
+                        "defaultModelInstalled": {
+                          "type": "boolean"
+                        },
+                        "defaultModelName": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "Étiquette installée utilisée pour le modèle par défaut (ex. qwen2.5-coder:7b)"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "models": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "name",
+                              "size",
+                              "parameterSize",
+                              "family"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "size": {
+                                "type": "number",
+                                "description": "Taille sur le disque, en octets"
+                              },
+                              "parameterSize": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "family": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "claude": {
+                      "type": "object",
+                      "required": [
+                        "available",
+                        "version",
+                        "command",
+                        "canOpenTerminal",
+                        "terminalApp",
+                        "error"
+                      ],
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "command": {
+                          "type": "string"
+                        },
+                        "canOpenTerminal": {
+                          "type": "boolean",
+                          "description": "Ouverture automatique d’un terminal (macOS)"
+                        },
+                        "terminalApp": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "error": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "description": "État de l’IA locale (Ollama) et de Claude CLI"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/breakdown-story": {
+      "post": {
+        "summary": "Proposer le découpage d’une Story en Features et Tasks estimées en jours (rien n’est enregistré)",
+        "tags": [
+          "IA locale & Claude CLI"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "storyId"
+                ],
+                "properties": {
+                  "storyId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "\\S",
+                    "description": "Modèle Ollama (défaut : OLLAMA_MODEL)"
+                  },
+                  "instructions": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Consignes complémentaires pour le découpage"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Propositions de Features et Tasks (rien n’est enregistré : à créer avec POST /stories/:storyId/work-items/batch)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "story",
+                    "model",
+                    "hoursPerDay",
+                    "items"
+                  ],
+                  "properties": {
+                    "story": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "code",
+                        "title"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "hoursPerDay": {
+                      "type": "number"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "title",
+                          "description",
+                          "estimate"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "FEATURE",
+                              "TASK"
+                            ],
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string",
+                            "description": "Objectif et critères d’acceptation (Markdown)"
+                          },
+                          "estimate": {
+                            "type": "object",
+                            "required": [
+                              "hours",
+                              "days"
+                            ],
+                            "properties": {
+                              "hours": {
+                                "type": "number"
+                              },
+                              "days": {
+                                "type": "number"
+                              }
+                            },
+                            "description": "Durée exprimée en heures et en jours (1 jour = hoursPerDay heures)"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "description": "Propositions de Features et Tasks (rien n’est enregistré : à créer avec POST /stories/:storyId/work-items/batch)"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Ollama injoignable, modèle absent ou réponse inexploitable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Ollama injoignable, modèle absent ou réponse inexploitable"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/summarize-commits": {
+      "post": {
+        "summary": "Rédiger une entrée du journal d’avancement à partir des git diff des commits liés au #ID (rien n’est enregistré)",
+        "tags": [
+          "IA locale & Claude CLI"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "workItemId"
+                ],
+                "properties": {
+                  "workItemId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "\\S",
+                    "description": "Modèle Ollama (défaut : OLLAMA_MODEL)"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Résumé des commits liés à un élément, rédigé par l’IA locale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workItemId",
+                    "model",
+                    "text",
+                    "commits",
+                    "warnings"
+                  ],
+                  "properties": {
+                    "workItemId": {
+                      "type": "integer"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "Entrée proposée pour le journal d’avancement (Markdown) — rien n’est enregistré"
+                    },
+                    "commits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "shortHash",
+                          "subject",
+                          "diff"
+                        ],
+                        "properties": {
+                          "shortHash": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
+                          "diff": {
+                            "enum": [
+                              "full",
+                              "truncated",
+                              "missing"
+                            ],
+                            "type": "string",
+                            "description": "Diff transmis au modèle"
+                          }
+                        }
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "description": "Résumé des commits liés à un élément, rédigé par l’IA locale"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Ollama injoignable, modèle absent ou réponse inexploitable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Ollama injoignable, modèle absent ou réponse inexploitable"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/claude/prompt": {
+      "get": {
+        "summary": "Aperçu du prompt d’une session Claude CLI pour un élément",
+        "tags": [
+          "IA locale & Claude CLI"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "query",
+            "name": "workItemId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aperçu du prompt d’une session Claude CLI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workItemId",
+                    "prompt",
+                    "cwd"
+                  ],
+                  "properties": {
+                    "workItemId": {
+                      "type": "integer"
+                    },
+                    "prompt": {
+                      "type": "string",
+                      "description": "Prompt initial proposé pour la session Claude CLI"
+                    },
+                    "cwd": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Dépôt Git local du projet (dossier de la session) ; null s’il n’est pas renseigné"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "description": "Aperçu du prompt d’une session Claude CLI"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/claude/launch": {
+      "post": {
+        "summary": "Ouvrir Claude CLI dans le dépôt du projet avec le prompt de l’élément (terminal macOS, sinon commande à copier)",
+        "tags": [
+          "IA locale & Claude CLI"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "workItemId"
+                ],
+                "properties": {
+                  "workItemId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  },
+                  "permissionMode": {
+                    "enum": [
+                      "default",
+                      "plan",
+                      "acceptEdits"
+                    ],
+                    "type": "string",
+                    "description": "Mode de permission de la session : default (demande avant d’agir), plan (plan d’abord), acceptEdits"
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50000,
+                    "pattern": "\\S",
+                    "description": "Prompt modifié (défaut : celui de l’aperçu)"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session Claude CLI préparée ou ouverte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "launched",
+                    "command",
+                    "promptFile"
+                  ],
+                  "properties": {
+                    "launched": {
+                      "type": "boolean",
+                      "description": "true : session ouverte dans le terminal (macOS) ; false : commande à copier"
+                    },
+                    "command": {
+                      "type": "string",
+                      "description": "Commande qui ouvre la session dans le dépôt"
+                    },
+                    "promptFile": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Session Claude CLI préparée ou ouverte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Ouverture du terminal impossible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Ouverture du terminal impossible"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -12886,6 +14201,10 @@
     {
       "name": "Git & GitHub",
       "description": "Analyse du dépôt local, hook post-commit, Pull Requests"
+    },
+    {
+      "name": "IA locale & Claude CLI",
+      "description": "Ollama (Qwen, Gemma) : découpage de Story, résumé des commits ; sessions Claude CLI"
     },
     {
       "name": "Vues",

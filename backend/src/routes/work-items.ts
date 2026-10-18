@@ -8,6 +8,7 @@ import { ReportQuery } from '../schemas/reports.ts'
 import { TimeEntryCreateSchema, TimeEntryParams, TimeEntrySchema, TimeEntryUpdateSchema } from '../schemas/time-entries.ts'
 import {
   LogEntryCreateSchema,
+  WorkItemBatchSchema,
   WorkItemCreateSchema,
   WorkItemDetailSchema,
   WorkItemListQuery,
@@ -19,6 +20,7 @@ import { createTimeEntry, deleteTimeEntry, listTimeEntries, updateTimeEntry } fr
 import {
   addLogEntry,
   createWorkItem,
+  createWorkItems,
   deleteWorkItem,
   getWorkItemDetail,
   listProjectWorkItems,
@@ -71,6 +73,20 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => reply.code(201).send(await createWorkItem(app.prisma, request.params.storyId, request.body)),
+  )
+
+  app.post(
+    '/stories/:storyId/work-items/batch',
+    {
+      schema: {
+        tags,
+        summary: 'Créer plusieurs éléments dans une story, en une transaction (découpage proposé par l’IA)',
+        params: StoryParams,
+        body: WorkItemBatchSchema,
+        response: { 201: Type.Array(WorkItemSchema), ...errorResponses(400, 404) },
+      },
+    },
+    async (request, reply) => reply.code(201).send(await createWorkItems(app.prisma, request.params.storyId, request.body.items)),
   )
 
   app.get(

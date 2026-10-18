@@ -2,6 +2,8 @@
 import { buildApp } from './app.ts'
 import { loadConfig, loadEnvFile } from './config.ts'
 import { createPrismaClient } from './db/client.ts'
+import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
+import { createOllamaClient } from './ai-bridge/ollama.ts'
 import { createOctokitClient } from './git-engine/github.ts'
 
 loadEnvFile()
@@ -14,6 +16,13 @@ const app = await buildApp({
   publicUrl: config.publicUrl,
   gitScanMaxCommits: config.gitScanMaxCommits,
   github: createOctokitClient({ token: config.githubToken, baseUrl: config.githubApiUrl }),
+  allowedHosts: config.allowedHosts,
+  ai: {
+    ollama: createOllamaClient({ baseUrl: config.ollamaUrl, timeoutMs: config.ollamaTimeoutMs, contextTokens: config.ollamaContextTokens }),
+    model: config.ollamaModel,
+    maxDiffChars: config.aiMaxDiffChars,
+    claude: createClaudeLauncher({ command: config.claudeCli, terminalApp: config.claudeTerminalApp }),
+  },
 })
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {

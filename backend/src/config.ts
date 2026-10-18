@@ -28,6 +28,17 @@ export interface AppConfig {
   githubApiUrl: string | undefined
   /** Commits lus au plus par branche lors d'une analyse. */
   gitScanMaxCommits: number
+  /** IA locale : URL d'Ollama, modèle par défaut, délai d'une génération, taille des diffs transmis. */
+  ollamaUrl: string
+  ollamaModel: string
+  ollamaTimeoutMs: number
+  ollamaContextTokens: number
+  aiMaxDiffChars: number
+  /** Claude CLI : commande (ou chemin) et application de terminal macOS. */
+  claudeCli: string
+  claudeTerminalApp: string
+  /** Hôtes acceptés en plus des hôtes locaux (ALLOWED_HOSTS, séparés par des virgules). */
+  allowedHosts: string[]
 }
 
 /**
@@ -106,6 +117,20 @@ export function localApiUrl(host: string, port: number): string {
   return `http://${reachable}:${port}`
 }
 
+function parseHttpUrl(name: string, value: string | undefined, fallback: string): string {
+  const raw = value?.trim() || fallback
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new Error(`${name} invalide : « ${value} » (URL http(s) attendue, ex. ${fallback})`)
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`${name} invalide : « ${value} » (URL http(s) attendue, ex. ${fallback})`)
+  }
+  return raw.replace(/\/+$/, '')
+}
+
 /** Lit la configuration depuis l'environnement (après loadEnvFile()). */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const host = env.HOST?.trim() || '127.0.0.1'
@@ -120,5 +145,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     githubToken: env.GITHUB_TOKEN?.trim() || undefined,
     githubApiUrl: env.GITHUB_API_URL?.trim() || undefined,
     gitScanMaxCommits: parsePositiveInteger('GIT_SCAN_MAX_COMMITS', env.GIT_SCAN_MAX_COMMITS, 5000),
+    ollamaUrl: parseHttpUrl('OLLAMA_URL', env.OLLAMA_URL, 'http://localhost:11434'),
+    ollamaModel: env.OLLAMA_MODEL?.trim() || 'qwen2.5-coder',
+    ollamaTimeoutMs: parsePositiveInteger('OLLAMA_TIMEOUT_MS', env.OLLAMA_TIMEOUT_MS, 180_000),
+    ollamaContextTokens: parsePositiveInteger('OLLAMA_NUM_CTX', env.OLLAMA_NUM_CTX, 16_384),
+    aiMaxDiffChars: parsePositiveInteger('AI_MAX_DIFF_CHARS', env.AI_MAX_DIFF_CHARS, 24_000),
+    claudeCli: env.CLAUDE_CLI?.trim() || 'claude',
+    claudeTerminalApp: env.CLAUDE_TERMINAL_APP?.trim() || 'Terminal',
+    allowedHosts: (env.ALLOWED_HOSTS ?? '').split(',').map((host) => host.trim()).filter(Boolean),
   }
 }

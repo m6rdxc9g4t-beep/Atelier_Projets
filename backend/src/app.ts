@@ -16,8 +16,13 @@ import Fastify, {
 import { BACKEND_ROOT, systemTimeZone } from './config.ts'
 import type { PrismaClient } from './db/client.ts'
 import { errorHandler } from './http/errors.ts'
+import { allowedHosts, createLocalOnlyGuard } from './http/local-only.ts'
 import { createValidatorCompiler } from './http/validation.ts'
+import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
+import { createOllamaClient } from './ai-bridge/ollama.ts'
 import { createOctokitClient, type GitHubClient } from './git-engine/github.ts'
+import { aiRoutes } from './routes/ai.ts'
+import type { AiSettings } from './services/ai.ts'
 import { gitRoutes } from './routes/git.ts'
 import { healthRoutes } from './routes/health.ts'
 import { hierarchyRoutes } from './routes/hierarchy.ts'
@@ -39,6 +44,8 @@ export interface AppSettings {
   githubMaxPullRequests: number
   /** Client GitHub (Octokit, ou simulé dans les tests). */
   github: GitHubClient
+  /** IA locale (Ollama) et Claude CLI (simulés dans les tests). */
+  ai: AiSettings
 }
 
 declare module 'fastify' {
@@ -66,6 +73,9 @@ export interface BuildAppOptions {
   gitScanMaxCommits?: number
   githubMaxPullRequests?: number
   github?: GitHubClient
+  ai?: Partial<AiSettings>
+  /** Hôtes acceptés en plus des hôtes locaux (en-têtes Host et Origin). */
+  allowedHosts?: readonly string[]
 }
 
 const { version } = JSON.parse(readFileSync(path.join(BACKEND_ROOT, 'package.json'), 'utf8')) as { version: string }
@@ -79,16 +89,25 @@ export async function buildApp({
   gitScanMaxCommits = 5000,
   githubMaxPullRequests = 500,
   github = createOctokitClient({}),
+  ai = {},
+  allowedHosts: extraHosts = [],
 }: BuildAppOptions): Promise<App> {
   const app = Fastify({ logger }).withTypeProvider<TypeBoxTypeProvider>()
 
   app.setValidatorCompiler(createValidatorCompiler())
   app.decorate('prisma', prisma)
-  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github })
+  const aiSettings: AiSettings = {
+    ollama: ai.ollama ?? createOllamaClient({ baseUrl: 'http://localhost:11434', timeoutMs: 180_000 }),
+    model: ai.model ?? 'qwen2.5-coder',
+    maxDiffChars: ai.maxDiffChars ?? 24_000,
+    claude: ai.claude ?? createClaudeLauncher(),
+  }
+  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github, ai: aiSettings })
   app.addHook('onClose', async () => {
     await prisma.$disconnect()
   })
   app.setErrorHandler(errorHandler)
+  app.addHook('onRequest', createLocalOnlyGuard(allowedHosts(undefined, [new URL(publicUrl).host, ...extraHosts])))
   app.setNotFoundHandler((request, reply) =>
     reply.status(404).send({
       statusCode: 404,
@@ -116,6 +135,7 @@ export async function buildApp({
         { name: 'Temps', description: 'Saisies de temps' },
         { name: 'Jalons' },
         { name: 'Git & GitHub', description: 'Analyse du dépôt local, hook post-commit, Pull Requests' },
+        { name: 'IA locale & Claude CLI', description: 'Ollama (Qwen, Gemma) : découpage de Story, résumé des commits ; sessions Claude CLI' },
         { name: 'Vues', description: 'Dashboard, arborescence (Gantt) et tableau des temps calculés' },
       ],
     },
@@ -131,6 +151,7 @@ export async function buildApp({
       await api.register(milestoneRoutes)
       await api.register(reportRoutes)
       await api.register(gitRoutes)
+      await api.register(aiRoutes)
     },
     { prefix: '/api' },
   )

@@ -95,6 +95,11 @@ export const WorkItemCreateSchema = StrictObject(
 )
 export type WorkItemCreate = Static<typeof WorkItemCreateSchema>
 
+export const WorkItemBatchSchema = StrictObject(
+  { items: Type.Array(WorkItemCreateSchema, { minItems: 1, maxItems: 50 }) },
+  { description: 'Éléments créés ensemble, en fin de story et dans l’ordre donné : tous ou aucun' },
+)
+
 export const WorkItemUpdateSchema = StrictObject(
   {
     type: Type.Optional(WorkItemTypeSchema),

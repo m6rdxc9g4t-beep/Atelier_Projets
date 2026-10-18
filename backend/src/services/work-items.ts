@@ -178,37 +178,61 @@ export async function getWorkItemDetail(
   }
 }
 
+/** Données d'un nouvel élément, validées (dates, statut / avancement, estimation convertie en heures). */
+function newWorkItemData(project: { id: number; hoursPerDay: number }, storyId: number, input: WorkItemCreate) {
+  const startDate = inputDate(input.startDate ?? null)
+  const dueDate = inputDate(input.dueDate ?? null)
+  assertDateOrder(startDate, dueDate)
+  const status = input.status ?? 'OPEN'
+  return {
+    projectId: project.id,
+    storyId,
+    type: input.type,
+    status,
+    priority: input.priority ?? 'NORMAL',
+    title: input.title.trim(),
+    description: input.description ?? '',
+    implementationLog: input.implementationLog ?? '',
+    estimatedHours: resolveHours(input.estimatedHours, input.estimatedDays, project.hoursPerDay, 'estimated') ?? null,
+    progress: progressFor(status, input.progress) ?? 0,
+    startDate,
+    dueDate,
+  }
+}
+
 export async function createWorkItem(
   prisma: PrismaClient,
   storyId: number,
   input: WorkItemCreate,
 ): Promise<WorkItemDetailDto> {
   const story = await requireStory(prisma, storyId)
-  const project = story.epic.phase.project
-  const startDate = inputDate(input.startDate ?? null)
-  const dueDate = inputDate(input.dueDate ?? null)
-  assertDateOrder(startDate, dueDate)
-  const status = input.status ?? 'OPEN'
-  const progress = progressFor(status, input.progress) ?? 0
-
+  const data = newWorkItemData(story.epic.phase.project, storyId, input)
   const item = await prisma.workItem.create({
-    data: {
-      projectId: project.id,
-      storyId,
-      type: input.type,
-      status,
-      priority: input.priority ?? 'NORMAL',
-      title: input.title.trim(),
-      description: input.description ?? '',
-      implementationLog: input.implementationLog ?? '',
-      estimatedHours: resolveHours(input.estimatedHours, input.estimatedDays, project.hoursPerDay, 'estimated') ?? null,
-      progress,
-      position: input.position ?? (await nextWorkItemPosition(prisma, storyId)),
-      startDate,
-      dueDate,
-    },
+    data: { ...data, position: input.position ?? (await nextWorkItemPosition(prisma, storyId)) },
   })
   return getWorkItemDetail(prisma, item.id)
+}
+
+/**
+ * Crée plusieurs éléments dans une story, en fin de liste et dans l'ordre donné, en une seule transaction :
+ * tous sont créés ou aucun (découpage proposé par l'IA, saisie en lot).
+ */
+export async function createWorkItems(prisma: PrismaClient, storyId: number, inputs: WorkItemCreate[]): Promise<WorkItemDto[]> {
+  const story = await requireStory(prisma, storyId)
+  const rows = inputs.map((input) => ({ input, data: newWorkItemData(story.epic.phase.project, storyId, input) }))
+  const ids = await prisma.$transaction(async (tx) => {
+    const max = await tx.workItem.aggregate({ where: { storyId }, _max: { position: true } })
+    let position = nextPosition(max._max.position)
+    const created: number[] = []
+    for (const { input, data } of rows) {
+      const item = await tx.workItem.create({ data: { ...data, position: input.position ?? position } })
+      position = Math.max(position, item.position) + 1
+      created.push(item.id)
+    }
+    return created
+  })
+  const all = await listStoryWorkItems(prisma, storyId)
+  return ids.map((id) => all.find((item) => item.id === id)).filter((item): item is WorkItemDto => item !== undefined)
 }
 
 export async function updateWorkItem(
