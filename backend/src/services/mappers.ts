@@ -29,6 +29,8 @@ export function toProjectDto(project: Project): ProjectDto {
     budget: toDurationOrNull(project.budgetHours, project.hoursPerDay),
     startDate: formatDateOnlyOrNull(project.startDate),
     dueDate: formatDateOnlyOrNull(project.dueDate),
+    gitScannedAt: project.gitScannedAt?.toISOString() ?? null,
+    githubSyncedAt: project.githubSyncedAt?.toISOString() ?? null,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
   }

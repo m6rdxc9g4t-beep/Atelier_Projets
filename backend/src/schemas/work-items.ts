@@ -21,6 +21,7 @@ import {
   Title,
   WorkItemTypeSchema,
 } from './common.ts'
+import { LinkedPullRequestSchema } from './git.ts'
 import { TimeEntrySchema } from './time-entries.ts'
 
 const Progress = Type.Integer({ minimum: 0, maximum: 100, description: 'Avancement déclaré, en %' })
@@ -69,6 +70,7 @@ export const WorkItemDetailSchema = Type.Object(
     path: Type.Object({ phase: ContainerRefSchema, epic: ContainerRefSchema, story: ContainerRefSchema }),
     timeEntries: Type.Array(TimeEntrySchema),
     commits: Type.Array(LinkedCommitSchema),
+    pullRequests: Type.Array(LinkedPullRequestSchema),
   },
   { description: 'Fiche complète d’un élément (TaskSlideOver)' },
 )

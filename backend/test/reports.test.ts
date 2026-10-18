@@ -242,6 +242,10 @@ describe('fiche tâche #12345 (maquette C)', () => {
         ['c3e91b0', 'feature', 'wip: database schema for git links feature #12345'],
       ],
     )
+    assert.deepEqual(
+      body.pullRequests.map((pr: { number: number; title: string; status: string; source: string }) => [pr.number, pr.title, pr.status, pr.source]),
+      [[42, 'Feature/12345 git sync engine', 'IN_REVIEW', 'branch']],
+    )
   })
 
   it('renvoie une 404 explicite pour un #ID inconnu', async () => {
@@ -275,6 +279,11 @@ describe('numérotation, seed et documentation', () => {
       '/api/work-items/{workItemId}/log-entries',
       '/api/work-items/{workItemId}/time-entries',
       '/api/milestones/{milestoneId}',
+      '/api/projects/{projectId}/git/scan',
+      '/api/projects/{projectId}/git/hook',
+      '/api/projects/{projectId}/commits',
+      '/api/projects/{projectId}/github/sync',
+      '/api/projects/{projectId}/pull-requests',
     ]) {
       assert.ok(body.paths[route], `route absente de l’OpenAPI : ${route}`)
     }

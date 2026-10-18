@@ -2,6 +2,7 @@
 import { buildApp } from './app.ts'
 import { loadConfig, loadEnvFile } from './config.ts'
 import { createPrismaClient } from './db/client.ts'
+import { createOctokitClient } from './git-engine/github.ts'
 
 loadEnvFile()
 const config = loadConfig()
@@ -10,6 +11,9 @@ const app = await buildApp({
   prisma: createPrismaClient(config.databaseUrl),
   logger: { level: config.logLevel },
   timeZone: config.timeZone,
+  publicUrl: config.publicUrl,
+  gitScanMaxCommits: config.gitScanMaxCommits,
+  github: createOctokitClient({ token: config.githubToken, baseUrl: config.githubApiUrl }),
 })
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {

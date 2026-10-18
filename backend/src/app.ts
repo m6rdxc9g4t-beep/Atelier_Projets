@@ -17,6 +17,8 @@ import { BACKEND_ROOT, systemTimeZone } from './config.ts'
 import type { PrismaClient } from './db/client.ts'
 import { errorHandler } from './http/errors.ts'
 import { createValidatorCompiler } from './http/validation.ts'
+import { createOctokitClient, type GitHubClient } from './git-engine/github.ts'
+import { gitRoutes } from './routes/git.ts'
 import { healthRoutes } from './routes/health.ts'
 import { hierarchyRoutes } from './routes/hierarchy.ts'
 import { milestoneRoutes } from './routes/milestones.ts'
@@ -29,6 +31,14 @@ export interface AppSettings {
   timeZone: string
   /** Horloge (remplaçable dans les tests). */
   now: () => Date
+  /** URL de l'API appelée par le hook post-commit. */
+  publicUrl: string
+  /** Commits lus au plus par branche. */
+  gitScanMaxCommits: number
+  /** Pull Requests lues au plus par synchronisation. */
+  githubMaxPullRequests: number
+  /** Client GitHub (Octokit, ou simulé dans les tests). */
+  github: GitHubClient
 }
 
 declare module 'fastify' {
@@ -52,6 +62,10 @@ export interface BuildAppOptions {
   logger?: FastifyServerOptions['logger']
   timeZone?: string
   now?: () => Date
+  publicUrl?: string
+  gitScanMaxCommits?: number
+  githubMaxPullRequests?: number
+  github?: GitHubClient
 }
 
 const { version } = JSON.parse(readFileSync(path.join(BACKEND_ROOT, 'package.json'), 'utf8')) as { version: string }
@@ -61,12 +75,16 @@ export async function buildApp({
   logger = true,
   timeZone = systemTimeZone(),
   now = () => new Date(),
+  publicUrl = 'http://127.0.0.1:3000',
+  gitScanMaxCommits = 5000,
+  githubMaxPullRequests = 500,
+  github = createOctokitClient({}),
 }: BuildAppOptions): Promise<App> {
   const app = Fastify({ logger }).withTypeProvider<TypeBoxTypeProvider>()
 
   app.setValidatorCompiler(createValidatorCompiler())
   app.decorate('prisma', prisma)
-  app.decorate('settings', { timeZone, now })
+  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github })
   app.addHook('onClose', async () => {
     await prisma.$disconnect()
   })
@@ -97,6 +115,7 @@ export async function buildApp({
         { name: 'Éléments', description: 'FEATURE, TASK, BUG : fiche, journal d’avancement' },
         { name: 'Temps', description: 'Saisies de temps' },
         { name: 'Jalons' },
+        { name: 'Git & GitHub', description: 'Analyse du dépôt local, hook post-commit, Pull Requests' },
         { name: 'Vues', description: 'Dashboard, arborescence (Gantt) et tableau des temps calculés' },
       ],
     },
@@ -111,6 +130,7 @@ export async function buildApp({
       await api.register(workItemRoutes)
       await api.register(milestoneRoutes)
       await api.register(reportRoutes)
+      await api.register(gitRoutes)
     },
     { prefix: '/api' },
   )

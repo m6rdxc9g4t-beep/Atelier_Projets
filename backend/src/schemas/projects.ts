@@ -31,6 +31,8 @@ export const ProjectSchema = Type.Object(
     budget: Nullable(DurationSchema),
     startDate: Nullable(DateOnly),
     dueDate: Nullable(DateOnly),
+    gitScannedAt: Nullable(DateTime),
+    githubSyncedAt: Nullable(DateTime),
     createdAt: DateTime,
     updatedAt: DateTime,
   },

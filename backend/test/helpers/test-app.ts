@@ -6,7 +6,7 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import type { InjectOptions, LightMyRequestResponse } from 'fastify'
 import { seedDemoProject } from '../../prisma/demo-project.ts'
-import { buildApp, type App } from '../../src/app.ts'
+import { buildApp, type App, type BuildAppOptions } from '../../src/app.ts'
 import { BACKEND_ROOT } from '../../src/config.ts'
 import { createPrismaClient, type PrismaClient } from '../../src/db/client.ts'
 
@@ -32,13 +32,16 @@ async function applyMigrations(databaseFile: string): Promise<void> {
   }
 }
 
-export async function createTestContext({ seed = false, now }: { seed?: boolean; now?: () => Date } = {}): Promise<TestContext> {
+export async function createTestContext({
+  seed = false,
+  ...options
+}: { seed?: boolean } & Partial<Omit<BuildAppOptions, 'prisma' | 'logger'>> = {}): Promise<TestContext> {
   const dir = await mkdtemp(path.join(tmpdir(), 'atelier-projets-test-'))
   const databaseFile = path.join(dir, 'test.db')
   await applyMigrations(databaseFile)
   const prisma = createPrismaClient(`file:${databaseFile}`)
   const demoProjectId = seed ? await seedDemoProject(prisma) : 0
-  const app = await buildApp({ prisma, logger: false, timeZone: 'Europe/Paris', ...(now && { now }) })
+  const app = await buildApp({ prisma, logger: false, timeZone: 'Europe/Paris', ...options })
   return {
     app,
     prisma,

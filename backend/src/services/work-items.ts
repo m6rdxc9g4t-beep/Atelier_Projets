@@ -26,6 +26,7 @@ import {
   resolveDate,
   resolveHours,
 } from './common.ts'
+import { toLinkedPullRequests } from './git.ts'
 import { toContainerRef, toTimeEntryDto, toWorkItemDto, WORK_ITEM_ROW_OMIT } from './mappers.ts'
 
 /** Ordre hiérarchique (identique à l'arborescence) : à chaque niveau, position puis id. */
@@ -136,11 +137,12 @@ export async function getWorkItemDetail(prisma: PrismaClient, workItemId: number
       story: { include: { epic: { include: { phase: true } } } },
       timeEntries: { orderBy: [{ spentOn: 'desc' }, { id: 'desc' }] },
       commitLinks: { include: { commit: true }, orderBy: { commit: { committedAt: 'desc' } } },
+      pullRequestLinks: { include: { pullRequest: true } },
     },
   })
   if (!item) throw notFound(`Élément #${workItemId} introuvable`)
 
-  const { project, story, timeEntries, commitLinks } = item
+  const { project, story, timeEntries, commitLinks, pullRequestLinks } = item
   const { epic } = story
   const codes = await loadHierarchyCodes(prisma, project.id)
   const spentHours = sumHours(timeEntries.map((entry) => entry.hours))
@@ -166,6 +168,7 @@ export async function getWorkItemDetail(prisma: PrismaClient, workItemId: number
       branch: commit.branch,
       keyword,
     })),
+    pullRequests: toLinkedPullRequests(pullRequestLinks),
   }
 }
 
