@@ -1,13 +1,13 @@
 // IA locale (Ollama) et Claude CLI : panneau d'état et choix du modèle, découpage d'une Story,
 // session Claude CLI pour un élément. Les propositions de l'IA ne sont enregistrées qu'après validation.
 import { Bot, Check, ClipboardCopy, Cpu, RefreshCw, Sparkles, SquareTerminal, TriangleAlert } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { TYPE_LABEL } from '../lib/labels.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
-import { aiService, workItemService } from '../services/api.ts'
+import { aiService, projectService, workItemService } from '../services/api.ts'
 import { errorMessage, isAbort } from '../services/client.ts'
-import type { AiStatus, BreakdownResult, ClaudeLaunchResult, ClaudePermissionMode, ProposedItem } from '../services/types.ts'
+import type { AiStatus, BreakdownResult, ClaudeLaunchResult, ClaudePermissionMode, Project, ProposedItem } from '../services/types.ts'
 import { useApp, useAppState, type DialogRequest } from '../store/app.ts'
 import { Button, Field, MarkdownText, Modal, Spinner, TypeChip } from './ui.tsx'
 
@@ -53,9 +53,103 @@ function StatusLine({ ok, children }: { ok: boolean; children: ReactNode }) {
   )
 }
 
+// --- Claude CLI en un clic --------------------------------------------------------------------------
+
+/**
+ * Ouvre Claude CLI tout de suite dans le dépôt du projet : avec la tâche en prompt (workItemId), ou
+ * sans prompt (session sur le projet). Sans dépôt local, le chemin est demandé une fois.
+ */
+export async function launchClaudeNow(project: Project, workItemId: number | null): Promise<void> {
+  const { notify, openDialog } = useApp.getState()
+  if (!project.localRepoPath) {
+    openDialog({ kind: 'linkRepo', workItemId })
+    return
+  }
+  try {
+    const result = await aiService.launchClaude(workItemId !== null ? { workItemId } : { projectId: project.id })
+    if (result.launched) {
+      notify('success', workItemId !== null ? `Claude s’ouvre dans le Terminal avec la tâche #${workItemId}…` : 'Claude s’ouvre dans le Terminal…')
+      return
+    }
+    // Hors macOS : pas d'ouverture automatique, la commande est copiée.
+    await navigator.clipboard?.writeText(result.command).catch(() => undefined)
+    notify('info', `Commande copiée, à coller dans un terminal : ${result.command}`)
+  } catch (error) {
+    notify('error', errorMessage(error))
+  }
+}
+
+/** Bouton « Claude CLI » : un clic ouvre Claude ; indicateur pendant l'ouverture. */
+export function ClaudeLaunchButton({ project, workItemId, label = 'Claude CLI' }: { project: Project; workItemId: number | null; label?: string }) {
+  const [busy, setBusy] = useState(false)
+  return (
+    <Button
+      size="sm"
+      variant="primary"
+      icon={<SquareTerminal className="size-3.5" />}
+      busy={busy}
+      title={workItemId !== null ? 'Ouvrir Claude CLI dans le dépôt du projet avec cette tâche en prompt' : 'Ouvrir Claude CLI dans le dépôt du projet'}
+      onClick={async () => {
+        setBusy(true)
+        await launchClaudeNow(project, workItemId)
+        setBusy(false)
+      }}
+    >
+      {label}
+    </Button>
+  )
+}
+
+/** Dépôt local manquant : demandé une fois, enregistré dans le projet, puis Claude s'ouvre. */
+export function LinkRepoDialog({ project, request }: { project: Project; request: Extract<DialogRequest, { kind: 'linkRepo' }> }) {
+  const [path, setPath] = useState('')
+  const { busy, run } = useAction()
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    const outcome = await run('save', () => projectService.update(project.id, { localRepoPath: path.trim() }), 'Dépôt relié au projet')
+    if (!outcome.ok) return
+    close()
+    await launchClaudeNow(outcome.value, request.workItemId)
+  }
+  return (
+    <Modal
+      title={
+        <span className="flex items-center gap-2">
+          <SquareTerminal className="size-5 text-accent-ink" aria-hidden /> Où se trouve le code de « {project.name} » ?
+        </span>
+      }
+      onClose={close}
+      footer={
+        <>
+          <Button variant="ghost" onClick={close}>
+            Annuler
+          </Button>
+          <Button type="submit" form="link-repo-form" variant="primary" busy={busy === 'save'} disabled={path.trim() === ''}>
+            Enregistrer et ouvrir Claude
+          </Button>
+        </>
+      }
+    >
+      <form id="link-repo-form" onSubmit={submit} className="space-y-3">
+        <p className="text-sm text-muted">Claude CLI s’ouvre dans le dépôt Git du projet. Indique son chemin une fois : il est gardé dans les paramètres du projet.</p>
+        <Field label="Dépôt Git local (chemin absolu)" hint="Dans le Finder : clic droit sur le dossier, Option enfoncée, « Copier … comme nom de chemin »">
+          <input
+            className="ds-input font-mono"
+            value={path}
+            onChange={(event) => setPath(event.target.value)}
+            placeholder="/Users/…/mon-projet"
+            spellCheck={false}
+            required
+          />
+        </Field>
+      </form>
+    </Modal>
+  )
+}
+
 // --- Panneau « IA Locale » -------------------------------------------------------------------------
 
-export function AiPanel() {
+export function AiPanel({ project }: { project: Project | undefined }) {
   const status = useApi(() => aiService.status(), [])
   const { aiModel, setAiModel } = useAppState((state) => ({ aiModel: state.aiModel, setAiModel: state.setAiModel }))
 
@@ -76,12 +170,22 @@ export function AiPanel() {
     >
       {status.error && <p className="text-muted">{status.error.message}</p>}
       {!status.data && !status.error && <Spinner />}
-      {status.data && <AiStatusContent status={status.data} aiModel={aiModel} setAiModel={setAiModel} />}
+      {status.data && <AiStatusContent status={status.data} aiModel={aiModel} setAiModel={setAiModel} project={project} />}
     </Modal>
   )
 }
 
-function AiStatusContent({ status, aiModel, setAiModel }: { status: AiStatus; aiModel: string | null; setAiModel: (model: string | null) => void }) {
+function AiStatusContent({
+  status,
+  aiModel,
+  setAiModel,
+  project,
+}: {
+  status: AiStatus
+  aiModel: string | null
+  setAiModel: (model: string | null) => void
+  project: Project | undefined
+}) {
   const { ollama, claude } = status
   const selected = aiModel ?? ollama.defaultModelName ?? ollama.defaultModel
   return (
@@ -147,9 +251,10 @@ function AiStatusContent({ status, aiModel, setAiModel }: { status: AiStatus; ai
         <p className="break-all font-mono text-xs text-muted">{claude.command}</p>
         {claude.error && <p className="text-sm text-muted">{claude.error}</p>}
         <p className="text-sm text-muted">
-          Depuis la fiche d’un élément, « Claude CLI » ouvre une session dans le dépôt du projet avec la tâche en prompt
-          {claude.canOpenTerminal ? ` (application ${claude.terminalApp}).` : ' (commande à coller dans un terminal).'}
+          Un clic sur « Claude CLI » (ici, ou dans la fiche d’un élément pour lui donner la tâche en prompt) ouvre Claude dans le dépôt du
+          projet{claude.canOpenTerminal ? ` (application ${claude.terminalApp}).` : ' (commande copiée, à coller dans un terminal).'}
         </p>
+        {project && claude.available && <ClaudeLaunchButton project={project} workItemId={null} label={`Claude CLI sur « ${project.name} »`} />}
       </section>
     </div>
   )

@@ -22,6 +22,7 @@ export type DialogRequest =
   | { kind: 'ai' }
   | { kind: 'breakdown'; storyId: number; label: string }
   | { kind: 'claude'; workItemId: number }
+  | { kind: 'linkRepo'; workItemId: number | null }
 
 export interface Toast {
   id: number

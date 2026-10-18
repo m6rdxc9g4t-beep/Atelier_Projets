@@ -255,7 +255,22 @@ export async function getClaudePrompt(prisma: PrismaClient, workItemId: number):
 }
 
 export async function launchClaude(prisma: PrismaClient, settings: AiSettings, input: ClaudeLaunchRequest): Promise<ClaudeLaunchResultDto> {
-  const { item, prompt, cwd } = await claudeContext(prisma, input.workItemId)
+  let workItemId: number | null = null
+  let cwd: string | null
+  let prompt: string | null
+  if (input.workItemId !== undefined) {
+    const context = await claudeContext(prisma, input.workItemId)
+    workItemId = context.item.id
+    cwd = context.cwd
+    prompt = input.prompt ?? context.prompt
+  } else if (input.projectId !== undefined) {
+    const project = await prisma.project.findUnique({ where: { id: input.projectId }, select: { localRepoPath: true } })
+    if (!project) throw notFound(`Projet #${input.projectId} introuvable`)
+    cwd = project.localRepoPath
+    prompt = input.prompt ?? null
+  } else {
+    throw badRequest('Indiquer workItemId (session sur un élément) ou projectId (session sur le projet)')
+  }
   if (!cwd) throw badRequest('Aucun dépôt Git local pour ce projet : renseigner localRepoPath dans les paramètres du projet')
   // Le dossier doit être la racine d'un dépôt Git existant (mêmes règles que l'analyse).
   await openRepository(cwd).catch((error: unknown) => {
@@ -264,7 +279,7 @@ export async function launchClaude(prisma: PrismaClient, settings: AiSettings, i
   })
   const permissionMode = input.permissionMode ?? CLAUDE_PERMISSION_MODES[0]
   try {
-    return await settings.claude.launch({ workItemId: item.id, cwd, prompt: input.prompt ?? prompt, permissionMode })
+    return await settings.claude.launch({ workItemId, cwd, prompt, permissionMode })
   } catch (error) {
     throw badGateway('CLAUDE_LAUNCH_FAILED', `Ouverture du terminal impossible : ${error instanceof Error ? error.message : String(error)}`)
   }

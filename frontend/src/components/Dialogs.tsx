@@ -8,17 +8,18 @@ import { useApi } from '../lib/use-api.ts'
 import { hierarchyService, milestoneService, projectService, reportService, workItemService } from '../services/api.ts'
 import type { Priority, Project, WorkItemType } from '../services/types.ts'
 import { useApp, type DialogRequest } from '../store/app.ts'
-import { AiPanel, BreakdownDialog, ClaudeDialog } from './AiDialogs.tsx'
+import { AiPanel, BreakdownDialog, ClaudeDialog, LinkRepoDialog } from './AiDialogs.tsx'
 import { Button, Field, Modal, TypeChip } from './ui.tsx'
 
 export function Dialogs({ project }: { project: Project | undefined }) {
   const dialog = useApp((state) => state.dialog)
   if (!dialog) return null
   if (dialog.kind === 'project') return <ProjectDialog />
-  if (dialog.kind === 'ai') return <AiPanel />
+  if (dialog.kind === 'ai') return <AiPanel project={project} />
   if (dialog.kind === 'breakdown') return <BreakdownDialog request={dialog} />
   if (dialog.kind === 'claude') return <ClaudeDialog request={dialog} />
   if (!project) return null
+  if (dialog.kind === 'linkRepo') return <LinkRepoDialog project={project} request={dialog} />
   switch (dialog.kind) {
     case 'phase':
     case 'epic':

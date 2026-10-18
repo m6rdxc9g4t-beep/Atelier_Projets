@@ -25,17 +25,19 @@ export interface ClaudeCliStatus {
 }
 
 export interface ClaudeSessionRequest {
-  workItemId: number
+  /** Élément concerné (nom des fichiers), ou null pour une session sur le projet. */
+  workItemId: number | null
   /** Racine du dépôt Git du projet (dossier de travail de la session). */
   cwd: string
-  prompt: string
+  /** Prompt initial ; null : session interactive sans prompt. */
+  prompt: string | null
   permissionMode: ClaudePermissionMode
 }
 
 export interface PreparedSession {
   /** Commande à exécuter dans un terminal (le prompt est lu dans promptFile). */
   command: string
-  promptFile: string
+  promptFile: string | null
 }
 
 export interface ClaudeLauncher {
@@ -126,18 +128,21 @@ export function createClaudeLauncher(options: ClaudeLauncherOptions = {}): Claud
   }
 
   /** Arguments de la CLI ; « -- » : le prompt n'est jamais lu comme une option, même s'il commence par « - ». */
-  function cliArguments(permissionMode: ClaudePermissionMode, promptFile: string, catOptions = ''): string {
+  function cliArguments(permissionMode: ClaudePermissionMode, promptFile: string | null, catOptions = ''): string {
     const mode = permissionMode === 'default' ? '' : ` --permission-mode ${permissionMode}`
-    return `${mode} -- "$(cat ${catOptions}${shellQuote(promptFile)})"`
+    return promptFile === null ? mode : `${mode} -- "$(cat ${catOptions}${shellQuote(promptFile)})"`
   }
 
   async function prepare(request: ClaudeSessionRequest): Promise<PreparedSession & { executable: string }> {
-    const prompt = request.prompt.trim()
+    const prompt = request.prompt === null ? null : request.prompt.trim()
     if (prompt === '') throw new Error('prompt vide')
     const executable = (await findExecutable(command, searchPath)) ?? command
     await ensureWorkDir()
-    const promptFile = path.join(workDir, `prompt-${request.workItemId}-${Date.now()}.md`)
-    await writeFile(promptFile, `${prompt}\n`, { mode: 0o600, flag: 'wx' })
+    let promptFile: string | null = null
+    if (prompt !== null) {
+      promptFile = path.join(workDir, `prompt-${request.workItemId ?? 'projet'}-${Date.now()}.md`)
+      await writeFile(promptFile, `${prompt}\n`, { mode: 0o600, flag: 'wx' })
+    }
     const sessionCommand = `cd -- ${shellQuote(request.cwd)} && ${shellQuote(executable)}${cliArguments(request.permissionMode, promptFile)}`
     return { command: sessionCommand, promptFile, executable }
   }
@@ -160,12 +165,12 @@ export function createClaudeLauncher(options: ClaudeLauncherOptions = {}): Claud
       const prepared = await prepare(request)
       const result = { command: prepared.command, promptFile: prepared.promptFile }
       if (terminalApp === null) return { ...result, launched: false }
-      const script = path.join(workDir, `claude-${request.workItemId}-${Date.now()}.command`)
+      const script = path.join(workDir, `claude-${request.workItemId ?? 'projet'}-${Date.now()}.command`)
       await writeFile(
         script,
         [
           '#!/bin/zsh',
-          `# Atelier_Projets — session Claude CLI pour l’élément #${request.workItemId}`,
+          `# Atelier_Projets — session Claude CLI ${request.workItemId === null ? 'sur le projet' : `pour l’élément #${request.workItemId}`}`,
           `export PATH=${shellQuote(sessionPath(searchPath, prepared.executable))}`,
           `cd -- ${shellQuote(request.cwd)} || exit 1`,
           `exec ${shellQuote(prepared.executable)}${cliArguments(request.permissionMode, prepared.promptFile, '-- ')}`,

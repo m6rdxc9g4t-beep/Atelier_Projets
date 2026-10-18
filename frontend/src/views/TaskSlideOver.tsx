@@ -13,7 +13,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  SquareTerminal,
+  SlidersHorizontal,
   Trash2,
   X,
 } from 'lucide-react'
@@ -23,15 +23,15 @@ import { dateTime, days, fromNow, hours, longDate, parseNumber, signedDays, toda
 import { levelCode, PRIORITIES, PRIORITY_LABEL, STATUS_LABEL, STATUSES, TYPE_LABEL, WORK_ITEM_TYPES } from '../lib/labels.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
-import { Generating, useAiModel } from '../components/AiDialogs.tsx'
+import { ClaudeLaunchButton, Generating, useAiModel } from '../components/AiDialogs.tsx'
 import { aiService, gitService, workItemService } from '../services/api.ts'
 import { ApiError, errorMessage, isAbort } from '../services/client.ts'
-import type { Priority, SummarizeResult, WorkItemDetail, WorkItemStatus, WorkItemType } from '../services/types.ts'
+import type { Priority, Project, SummarizeResult, WorkItemDetail, WorkItemStatus, WorkItemType } from '../services/types.ts'
 import { useApp } from '../store/app.ts'
 
 type Tab = 'description' | 'log'
 
-export function TaskSlideOver({ workItemId }: { workItemId: number }) {
+export function TaskSlideOver({ workItemId, project }: { workItemId: number; project: Project }) {
   const close = () => useApp.getState().openWorkItem(null)
   const hoursPerDay = useApp((state) => state.hoursPerDay) ?? undefined
   const detail = useApi(() => workItemService.get(workItemId, { hoursPerDay }), [workItemId, hoursPerDay])
@@ -66,16 +66,15 @@ export function TaskSlideOver({ workItemId }: { workItemId: number }) {
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
           <span className="text-sm text-muted">Fiche élément</span>
           <div className="flex items-center gap-1">
+            <ClaudeLaunchButton project={project} workItemId={workItemId} />
             <Button
+              variant="ghost"
               size="sm"
-              variant="primary"
-              icon={<SquareTerminal className="size-3.5" />}
-              title="Ouvrir Claude CLI dans le dépôt du projet avec cette tâche en prompt"
-              disabled={!detail.data}
+              icon={<SlidersHorizontal className="size-4" />}
+              aria-label="Options de Claude CLI (prompt, permissions)"
+              title="Options de Claude CLI : modifier le prompt, choisir les permissions"
               onClick={() => useApp.getState().openDialog({ kind: 'claude', workItemId })}
-            >
-              Claude CLI
-            </Button>
+            />
             <Button variant="ghost" size="sm" icon={<X className="size-4" />} aria-label="Fermer la fiche" onClick={close} />
           </div>
         </div>

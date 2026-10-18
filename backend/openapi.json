@@ -14018,14 +14018,18 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "workItemId"
-                ],
                 "properties": {
                   "workItemId": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 2147483647
+                    "maximum": 2147483647,
+                    "description": "Élément : la session démarre avec son prompt"
+                  },
+                  "projectId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647,
+                    "description": "Sans élément : session interactive dans le dépôt du projet"
                   },
                   "permissionMode": {
                     "enum": [
@@ -14071,7 +14075,14 @@
                       "description": "Commande qui ouvre la session dans le dépôt"
                     },
                     "promptFile": {
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "description": "Session Claude CLI préparée ou ouverte"

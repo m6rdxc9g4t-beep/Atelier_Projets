@@ -69,7 +69,7 @@ export function App() {
             </div>
           </div>
         </main>
-        {project && selectedWorkItemId !== null && <TaskSlideOver key={selectedWorkItemId} workItemId={selectedWorkItemId} />}
+        {project && selectedWorkItemId !== null && <TaskSlideOver key={selectedWorkItemId} workItemId={selectedWorkItemId} project={project} />}
       </div>
       <Dialogs project={project} />
       <Toasts />

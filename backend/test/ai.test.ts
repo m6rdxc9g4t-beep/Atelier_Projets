@@ -93,7 +93,7 @@ describe('client Ollama (faux serveur local)', () => {
     assert.equal(findInstalledModel(two, 'gemma3'), undefined, 'ambigu : deux étiquettes')
   })
 
-  it('envoie la conversation sans streaming, avec le schéma de réponse', async () => {
+  it('envoie la conversation en flux, avec le schéma de réponse', async () => {
     const client = createOllamaClient({ baseUrl, timeoutMs: 2000 })
     chatReply = { status: 200, body: { message: { role: 'assistant', content: '{"items":[]}' } } }
     const answer = await client.chat({ model: 'gemma3', messages: [{ role: 'user', content: 'Bonjour' }], format: { type: 'object' } })
@@ -258,12 +258,16 @@ describe('lanceur de Claude CLI', () => {
     const launcher = createClaudeLauncher({ searchPath: '/nonexistent', platform: 'linux', workDir: path.join(dir, 'linux') })
     const result = await launcher.launch(request)
     assert.equal(result.launched, false)
-    assert.equal(await readFile(result.promptFile, 'utf8'), `${request.prompt}\n`)
+    assert.equal(await readFile(result.promptFile ?? '', 'utf8'), `${request.prompt}\n`)
     assert.equal(
       result.command,
       `cd -- '/Users/françois/dev/l'\\''atelier' && 'claude' --permission-mode plan -- "$(cat '${result.promptFile}')"`,
     )
     await assert.rejects(launcher.launch({ ...request, prompt: '   ' }), /prompt vide/)
+
+    // Session sur le projet, sans tâche : Claude interactif sans prompt initial.
+    const bare = await launcher.launch({ workItemId: null, cwd: '/repo', prompt: null, permissionMode: 'default' })
+    assert.deepEqual(bare, { command: `cd -- '/repo' && 'claude'`, promptFile: null, launched: false })
   })
 
   it('« -- » : un prompt qui commence par un tiret reste un prompt pour la vraie CLI', async () => {
@@ -538,6 +542,13 @@ describe('routes IA', () => {
     assert.deepEqual(claude.launches.at(-1), { workItemId: 12345, cwd: repo.dir, prompt: 'Corrige seulement les tests', permissionMode: 'default' })
 
     assert.equal((await api('POST', '/api/ai/claude/launch', { workItemId: 12345, permissionMode: 'bypassPermissions' })).status, 400)
+
+    // Un clic depuis le panneau IA : session sur le projet, sans tâche ni prompt.
+    const onProject = await api('POST', '/api/ai/claude/launch', { projectId: ctx.demoProjectId })
+    assert.equal(onProject.status, 200)
+    assert.deepEqual(claude.launches.at(-1), { workItemId: null, cwd: repo.dir, prompt: null, permissionMode: 'default' })
+    assert.equal((await api('POST', '/api/ai/claude/launch', {})).status, 400)
+    assert.equal((await api('POST', '/api/ai/claude/launch', { projectId: 999_999 })).status, 404)
     assert.equal((await api('GET', '/api/ai/claude/prompt?workItemId=999999')).status, 404)
     await api('PATCH', `/api/projects/${ctx.demoProjectId}`, { localRepoPath: '/nonexistent/repo' })
     assert.equal((await api('POST', '/api/ai/claude/launch', { workItemId: 12345 })).status, 400)

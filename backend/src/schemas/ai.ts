@@ -103,7 +103,8 @@ export const ClaudePromptSchema = Type.Object(
 export type ClaudePromptDto = Static<typeof ClaudePromptSchema>
 
 export const ClaudeLaunchRequestSchema = StrictObject({
-  workItemId: Type.Integer({ minimum: 1, maximum: 2_147_483_647 }),
+  workItemId: Type.Optional(Type.Integer({ minimum: 1, maximum: 2_147_483_647, description: 'Élément : la session démarre avec son prompt' })),
+  projectId: Type.Optional(Type.Integer({ minimum: 1, maximum: 2_147_483_647, description: 'Sans élément : session interactive dans le dépôt du projet' })),
   permissionMode: Type.Optional(PermissionMode),
   prompt: Type.Optional(Type.String({ minLength: 1, maxLength: 50_000, pattern: '\\S', description: 'Prompt modifié (défaut : celui de l’aperçu)' })),
 })
@@ -113,7 +114,7 @@ export const ClaudeLaunchResultSchema = Type.Object(
   {
     launched: Type.Boolean({ description: 'true : session ouverte dans le terminal (macOS) ; false : commande à copier' }),
     command: Type.String({ description: 'Commande qui ouvre la session dans le dépôt' }),
-    promptFile: Type.String(),
+    promptFile: Nullable(Type.String()),
   },
   { description: 'Session Claude CLI préparée ou ouverte' },
 )
