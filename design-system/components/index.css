@@ -1,0 +1,5 @@
+/* Atelier_Projets · Design System — composants UI purs (CSS natif).
+   Usage : @import "@atelier/design-system/components"; (après le design system) */
+
+@import "./semantic.css";
+@import "./components.css";

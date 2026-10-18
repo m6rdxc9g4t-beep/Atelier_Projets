@@ -2,11 +2,13 @@
   "name": "@atelier/design-system",
   "version": "0.1.0",
   "private": true,
-  "description": "Design system d'Atelier_Projets : tokens de couleurs (types & statuts) et thèmes clair/sombre en CSS natif.",
+  "description": "Design system d'Atelier_Projets : tokens de couleurs (types & statuts), thèmes clair/sombre et composants UI purs en CSS natif.",
   "type": "module",
   "style": "./index.css",
   "exports": {
     ".": "./index.css",
+    "./components": "./components/index.css",
+    "./components/*": "./components/*",
     "./tokens/*": "./tokens/*",
     "./themes/*": "./themes/*",
     "./package.json": "./package.json"
@@ -14,7 +16,8 @@
   "files": [
     "index.css",
     "tokens",
-    "themes"
+    "themes",
+    "components"
   ],
   "scripts": {
     "check": "node scripts/check-tokens.mjs"

@@ -1,0 +1,282 @@
+/* ==========================================================================
+   Atelier_Projets · Design System — Composants UI purs (CSS natif)
+   Cartes, boutons, badges, puces de type, barres de progression, onglets,
+   champs, tableaux, losange de jalon et texte Markdown.
+   Sans framework : utilisables depuis React, du HTML statique ou une autre
+   application. Couleurs exclusivement via les variables du design system.
+   ========================================================================== */
+
+/* Couche « components » : les utilitaires d'un framework (Tailwind…) peuvent surcharger ces styles. */
+@layer components {
+  /* --- Carte ------------------------------------------------------------------ */
+  .ds-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--ds-radius-lg);
+    box-shadow: var(--ds-shadow-card);
+  }
+
+  .ds-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* --- Boutons ---------------------------------------------------------------- */
+  .ds-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-block-size: 2.25rem;
+    padding: 0 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--ds-radius-md);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .ds-btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
+  .ds-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .ds-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+
+  .ds-btn[data-variant="primary"] {
+    background: var(--accent-soft);
+    border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+    color: var(--accent-ink);
+  }
+  .ds-btn[data-variant="primary"]:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--accent) 26%, transparent);
+    border-color: var(--accent);
+  }
+  .ds-btn[data-variant="ghost"] { background: transparent; border-color: transparent; color: var(--text-muted); }
+  .ds-btn[data-variant="ghost"]:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
+  .ds-btn[data-variant="danger"] {
+    background: transparent;
+    border-color: color-mix(in oklab, var(--status-rejected) 45%, transparent);
+    color: color-mix(in oklab, var(--status-rejected) 72%, var(--text-primary));
+  }
+  .ds-btn[data-variant="danger"]:hover:not(:disabled) { background: color-mix(in oklab, var(--status-rejected) 14%, transparent); }
+  .ds-btn[data-size="sm"] { min-block-size: 1.875rem; padding: 0 0.6rem; font-size: 0.8125rem; border-radius: var(--ds-radius-sm); }
+  .ds-btn[data-icon-only] { padding: 0; inline-size: 2.25rem; }
+  .ds-btn[data-icon-only][data-size="sm"] { inline-size: 1.875rem; }
+
+  /* --- Badge (statut, priorité, bilan) : teinte douce + pastille ---------------- */
+  .ds-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--ds-radius-pill);
+    background: var(--kind-soft, var(--bg-elevated));
+    border: 1px solid color-mix(in oklab, var(--kind-color, var(--border-color)) 35%, transparent);
+    color: var(--kind-ink, var(--text-primary));
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+  .ds-badge::before {
+    content: "";
+    inline-size: 0.45rem;
+    block-size: 0.45rem;
+    border-radius: var(--ds-radius-pill);
+    background: var(--kind-color, var(--text-muted));
+  }
+  .ds-badge[data-plain]::before { content: none; }
+
+  /* --- Puce de type (carré arrondi coloré) -------------------------------------- */
+  .ds-type-chip {
+    display: inline-block;
+    flex: none;
+    inline-size: 0.875rem;
+    block-size: 0.875rem;
+    border-radius: 4px;
+    background: var(--kind-color);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--text-primary) 12%, transparent);
+  }
+  .ds-type-chip[data-size="lg"] { inline-size: 1.125rem; block-size: 1.125rem; border-radius: 5px; }
+
+  /* --- Losange de jalon ◆ -------------------------------------------------------- */
+  .ds-diamond {
+    display: inline-block;
+    flex: none;
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+    transform: rotate(45deg);
+    border-radius: 2px;
+    background: var(--type-milestone);
+    box-shadow: 0 0 0 2px var(--bg-surface);
+  }
+  .ds-diamond[data-reached="false"] { background: var(--bg-surface); box-shadow: inset 0 0 0 2px var(--type-milestone), 0 0 0 2px var(--bg-surface); }
+
+  /* --- Barre de progression ------------------------------------------------------ */
+  .ds-progress {
+    position: relative;
+    block-size: 0.625rem;
+    border-radius: var(--ds-radius-pill);
+    background: var(--bg-elevated);
+    overflow: hidden;
+  }
+  .ds-progress__bar {
+    block-size: 100%;
+    border-radius: inherit;
+    background: var(--progress-fill, var(--accent));
+    transition: inline-size 300ms ease;
+  }
+  .ds-progress[data-tone="budget"] { --progress-fill: var(--gradient-budget); }
+  .ds-progress[data-tone="progress"] { --progress-fill: var(--gradient-progress); }
+  .ds-progress[data-tone="over"] { --progress-fill: var(--status-rejected); }
+
+  /* --- Onglets ------------------------------------------------------------------- */
+  .ds-tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .ds-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.75rem 0.9rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .ds-tab:hover { color: var(--text-primary); }
+  .ds-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--ds-radius-sm); }
+  .ds-tab[aria-selected="true"] { color: var(--accent-ink); }
+  .ds-tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0.5rem;
+    inset-block-end: -1px;
+    block-size: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* --- Champs ---------------------------------------------------------------------- */
+  .ds-label {
+    display: grid;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+  .ds-input,
+  .ds-select,
+  .ds-textarea {
+    inline-size: 100%;
+    min-block-size: 2.25rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--ds-radius-md);
+    background: var(--surface-sunken);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.875rem;
+  }
+  .ds-textarea { min-block-size: 7rem; line-height: 1.5; resize: vertical; font-family: var(--ds-font-mono); font-size: 0.8125rem; }
+  .ds-input:focus,
+  .ds-select:focus,
+  .ds-textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+  .ds-input::placeholder,
+  .ds-textarea::placeholder { color: var(--text-muted); opacity: 0.8; }
+  .ds-select { appearance: auto; cursor: pointer; }
+
+  /* --- Tableau --------------------------------------------------------------------- */
+  .ds-table { inline-size: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .ds-table th {
+    padding: 0.7rem 1rem;
+    text-align: start;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+  }
+  .ds-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+  .ds-table tbody tr { transition: background-color 120ms ease; }
+  .ds-table tbody tr:hover { background: var(--surface-hover); }
+  .ds-table tfoot td { font-weight: 600; background: var(--surface-sunken); border-bottom: 0; }
+  .ds-table .ds-num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* --- Texte Markdown (description, journal d'avancement) --------------------------- */
+  .ds-markdown { color: var(--text-primary); font-size: 0.9rem; line-height: 1.6; overflow-wrap: anywhere; }
+  .ds-markdown > :first-child { margin-top: 0; }
+  .ds-markdown > :last-child { margin-bottom: 0; }
+  .ds-markdown h1,
+  .ds-markdown h2,
+  .ds-markdown h3,
+  .ds-markdown h4 { margin: 1.1em 0 0.45em; font-weight: 650; line-height: 1.3; }
+  .ds-markdown h1 { font-size: 1.15rem; }
+  .ds-markdown h2 { font-size: 1.05rem; }
+  .ds-markdown h3,
+  .ds-markdown h4 { font-size: 0.95rem; }
+  .ds-markdown p { margin: 0.5em 0; }
+  .ds-markdown ul,
+  .ds-markdown ol { margin: 0.5em 0; padding-inline-start: 1.3em; }
+  .ds-markdown li { margin: 0.2em 0; }
+  .ds-markdown li:has(> input[type="checkbox"]) { list-style: none; margin-inline-start: -1.3em; }
+  .ds-markdown input[type="checkbox"] { margin-inline-end: 0.5em; accent-color: var(--status-closed); vertical-align: -0.1em; }
+  .ds-markdown a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+  .ds-markdown code {
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    background: var(--bg-elevated);
+    font-family: var(--ds-font-mono);
+    font-size: 0.85em;
+  }
+  .ds-markdown pre { padding: 0.75rem; border-radius: var(--ds-radius-md); background: var(--surface-sunken); overflow-x: auto; }
+  .ds-markdown pre code { padding: 0; background: none; }
+  .ds-markdown blockquote {
+    margin: 0.75em 0;
+    padding: 0.55em 0.9em;
+    border-inline-start: 3px solid var(--accent);
+    border-radius: 0 var(--ds-radius-sm) var(--ds-radius-sm) 0;
+    background: var(--accent-soft);
+  }
+  .ds-markdown blockquote p { margin: 0.25em 0; }
+  .ds-markdown hr { border: 0; border-top: 1px solid var(--border-color); margin: 1em 0; }
+  .ds-markdown table { border-collapse: collapse; font-size: 0.85rem; }
+  .ds-markdown th,
+  .ds-markdown td { border: 1px solid var(--border-color); padding: 0.3rem 0.55rem; }
+
+  /* --- Barre de planning (Gantt) : piste teintée + remplissage = avancement ------------ */
+  .ds-bar {
+    position: relative;
+    block-size: var(--bar-size, 0.875rem);
+    border-radius: var(--ds-radius-pill);
+    background: color-mix(in oklab, var(--kind-color) 22%, var(--bg-surface));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--kind-color) 50%, transparent);
+    overflow: hidden;
+  }
+  .ds-bar__fill {
+    block-size: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--kind-color), color-mix(in oklab, var(--kind-color) 72%, var(--text-primary)));
+  }
+  .ds-bar[data-size="lg"] { --bar-size: 1.125rem; }
+  .ds-bar[data-size="sm"] { --bar-size: 0.625rem; }
+  .ds-bar[data-dimmed] {
+    opacity: 0.55;
+    background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in oklab, var(--kind-color) 30%, transparent) 5px 7px);
+  }
+}

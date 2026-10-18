@@ -6,9 +6,11 @@
 //  - tokens/colors.css déclare exactement les 7 types et les 8 statuts, avec les codes hex officiels ;
 //  - themes/light.css et themes/dark.css déclarent exactement les 6 variables de fondation ;
 //  - les thèmes restent du CSS natif pur, sans dépendance métier (ni @import, ni url(), ni var(),
-//    ni variable --type-* / --status-*), donc copiables tels quels dans une autre application.
+//    ni variable --type-* / --status-*), donc copiables tels quels dans une autre application ;
+//  - les jetons dérivés (tokens/ui.css) et les composants (components/*.css) n'introduisent aucune couleur
+//    littérale (#hex, rgb(), hsl()…) et ne redéfinissent ni les tokens officiels ni les variables de thème.
 
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -101,6 +103,22 @@ for (const [file, expected] of Object.entries(THEMES)) {
   if (/--(type|status)-/i.test(code)) errors.push(`${file} : variable métier --type-*/--status-* interdite dans un thème`)
 }
 
+// 3. Jetons dérivés et composants : uniquement des var() / color-mix() des couleurs officielles
+const OFFICIAL = new Set([...Object.keys(TYPES), ...Object.keys(STATUSES), ...Object.keys(THEMES['themes/light.css'])])
+const derivedFiles = [
+  'tokens/ui.css',
+  ...(await readdir(path.join(ROOT, 'components'))).filter((name) => name.endsWith('.css')).map((name) => `components/${name}`),
+]
+for (const file of derivedFiles) {
+  const code = stripComments(await load(file))
+  for (const [literal] of code.matchAll(/#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi)) {
+    errors.push(`${file} : couleur littérale « ${literal} » interdite (dériver des variables du design system)`)
+  }
+  for (const [, name] of code.matchAll(/(--[\w-]+)\s*:/g)) {
+    if (OFFICIAL.has(name)) errors.push(`${file} : ${name} est un token officiel, il ne se redéfinit pas ici`)
+  }
+}
+
 if (errors.length > 0) {
   console.error(`✘ Design system NON conforme (${errors.length} écart${errors.length > 1 ? 's' : ''}) :`)
   for (const error of errors) console.error(`  - ${error}`)
@@ -109,5 +127,6 @@ if (errors.length > 0) {
 
 console.log(
   `✔ Design system conforme : ${Object.keys(TYPES).length} types, ${Object.keys(STATUSES).length} statuts, ` +
-    `${Object.keys(THEMES).length} thèmes × ${Object.keys(THEMES['themes/light.css']).length} variables (codes hex officiels).`,
+    `${Object.keys(THEMES).length} thèmes × ${Object.keys(THEMES['themes/light.css']).length} variables (codes hex officiels), ` +
+    `${derivedFiles.length} fichiers dérivés sans couleur littérale.`,
 )

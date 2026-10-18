@@ -1,0 +1,37 @@
+/* ==========================================================================
+   Atelier_Projets · Design System — Jetons d'interface dérivés
+   Aucun nouveau code hex : tout dérive des tokens officiels (colors.css) et
+   des 6 variables de fondation du thème actif (light.css / dark.css).
+   color-mix() est évalué à l'usage : les dérivés suivent le thème clair/sombre.
+   Contrôle automatique : npm run check (aucun #hex autorisé dans ce fichier).
+   ========================================================================== */
+
+:root {
+  /* --- Accent de l'application (onglet actif, focus, ligne « aujourd'hui ») - */
+  --accent: var(--type-epic);
+  --accent-soft: color-mix(in oklab, var(--type-epic) 16%, transparent);
+  --accent-ink: color-mix(in oklab, var(--type-epic) 62%, var(--text-primary));
+
+  /* --- Surfaces et traits ---------------------------------------------------- */
+  --surface-hover: color-mix(in oklab, var(--bg-elevated) 70%, var(--bg-surface));
+  --surface-sunken: color-mix(in oklab, var(--bg-main) 60%, var(--bg-surface));
+  --border-strong: color-mix(in oklab, var(--border-color) 60%, var(--text-muted));
+  --grid-line: color-mix(in oklab, var(--border-color) 70%, transparent);
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px color-mix(in oklab, var(--accent) 70%, transparent);
+  --ds-shadow-card: 0 1px 2px color-mix(in oklab, var(--text-primary) 6%, transparent),
+    0 8px 24px -12px color-mix(in oklab, var(--text-primary) 18%, transparent);
+  --ds-shadow-overlay: 0 24px 48px -12px color-mix(in oklab, var(--text-primary) 35%, transparent);
+  --backdrop: color-mix(in oklab, var(--bg-main) 55%, transparent);
+
+  /* --- Dégradés des barres d'indicateurs (maquette A) ------------------------ */
+  --gradient-budget: linear-gradient(90deg, var(--type-epic), var(--status-review));
+  --gradient-progress: linear-gradient(90deg, var(--status-resolved), var(--status-closed));
+
+  /* --- Forme et typographie --------------------------------------------------- */
+  --ds-radius-sm: 6px;
+  --ds-radius-md: 10px;
+  --ds-radius-lg: 16px;
+  --ds-radius-pill: 999px;
+  --ds-font-sans: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ds-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}

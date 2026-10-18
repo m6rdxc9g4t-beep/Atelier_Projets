@@ -1,0 +1,58 @@
+/* ==========================================================================
+   Atelier_Projets · Design System — Couleurs sémantiques par attribut
+   Un composant porte data-type="FEATURE" ou data-status="IN_PROGRESS" ;
+   ces règles lui donnent --kind-color (couleur officielle) et --kind-ink
+   (même teinte rapprochée de la couleur du texte, lisible en clair comme en
+   sombre). Le frontend n'a ainsi jamais à associer une valeur à une couleur.
+   ========================================================================== */
+
+/* Couche « components » : les utilitaires d'un framework (Tailwind…) peuvent surcharger ces styles. */
+@layer components {
+  [data-type="PHASE"] { --kind-color: var(--type-phase); }
+  [data-type="MILESTONE"] { --kind-color: var(--type-milestone); }
+  [data-type="EPIC"] { --kind-color: var(--type-epic); }
+  [data-type="STORY"] { --kind-color: var(--type-story); }
+  [data-type="FEATURE"] { --kind-color: var(--type-feature); }
+  [data-type="TASK"] { --kind-color: var(--type-task); }
+  [data-type="BUG"] { --kind-color: var(--type-bug); }
+
+  [data-status="OPEN"] { --kind-color: var(--status-open); }
+  [data-status="IN_PROGRESS"] { --kind-color: var(--status-progress); }
+  [data-status="IN_REVIEW"] { --kind-color: var(--status-review); }
+  [data-status="ON_HOLD"] { --kind-color: var(--status-hold); }
+  [data-status="BLOCKED"] { --kind-color: var(--status-blocked); }
+  [data-status="RESOLVED"] { --kind-color: var(--status-resolved); }
+  [data-status="CLOSED"] { --kind-color: var(--status-closed); }
+  [data-status="REJECTED"] { --kind-color: var(--status-rejected); }
+
+  /* Priorités : réutilisent la gamme des statuts (urgence croissante). */
+  [data-priority="LOW"] { --kind-color: var(--status-open); }
+  [data-priority="NORMAL"] { --kind-color: var(--status-progress); }
+  [data-priority="HIGH"] { --kind-color: var(--status-blocked); }
+  [data-priority="IMMEDIATE"] { --kind-color: var(--status-rejected); }
+
+  /* Bilans du tableau des temps (maquette D). */
+  [data-balance="UNDER"] { --kind-color: var(--status-closed); }
+  [data-balance="ON_BUDGET"] { --kind-color: var(--text-muted); }
+  [data-balance="OVER"] { --kind-color: var(--status-rejected); }
+  [data-balance="REMAINING"] { --kind-color: var(--status-progress); }
+
+  [data-type],
+  [data-status],
+  [data-priority],
+  [data-balance] {
+    --kind-ink: color-mix(in oklab, var(--kind-color) 72%, var(--text-primary));
+    --kind-soft: color-mix(in oklab, var(--kind-color) 16%, transparent);
+  }
+
+  /* Utilitaires : couleur de texte et pastille. */
+  .ds-ink { color: var(--kind-ink, var(--text-primary)); }
+  .ds-dot {
+    display: inline-block;
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-radius: var(--ds-radius-pill);
+    background: var(--kind-color, var(--text-muted));
+    flex: none;
+  }
+}
