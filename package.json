@@ -24,5 +24,12 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "check": "npm run check --workspaces --if-present"
+  },
+  "allowScripts": {
+    "@prisma/engines": true,
+    "better-sqlite3": true,
+    "esbuild": true,
+    "fsevents": true,
+    "prisma": true
   }
 }

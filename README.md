@@ -312,6 +312,7 @@ Les commits contenant `feature #12345`, `task #12345` ou `bug #12345` sont autom
 - **Contrat d'API :** schémas TypeBox 1.3 (`backend/src/schemas/`) → validation des requêtes, types des handlers (`@fastify/type-provider-typebox`) et OpenAPI 3.1 (`@fastify/swagger`, interface sur `/api/docs`, JSON sur `/api/docs/json`).
 - **Tests :** `node:test` + `tsx`, chaque fichier sur sa propre base SQLite temporaire construite en appliquant le SQL des migrations versionnées (aucun moteur Prisma requis), puis le projet de démo.
 - **Fuseau horaire :** les entrées du journal et la date du jour par défaut d'une saisie utilisent `APP_TIMEZONE` (défaut : fuseau du système).
+- **Scripts d'installation (npm 11.16+ / 12) :** `allowScripts` (package.json racine) autorise uniquement les dépendances qui en ont besoin : `better-sqlite3` (module natif SQLite), `prisma` et `@prisma/engines` (moteurs Prisma), `esbuild` (utilisé par `tsx`) et `fsevents` (surveillance des fichiers sous macOS). Toute nouvelle dépendance à script d'installation devra y être ajoutée (`npm install-scripts ls` les liste).
 
 ---
 
