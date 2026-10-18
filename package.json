@@ -18,6 +18,7 @@
     "dev": "concurrently --kill-others-on-fail --names api,web --prefix-colors auto \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=@atelier/backend",
     "dev:frontend": "npm run dev --workspace=@atelier/frontend",
+    "app:install": "bash scripts/macos/install-launcher.sh",
     "build": "npm run build --workspace=@atelier/backend && npm run build --workspace=@atelier/frontend",
     "build:backend": "npm run build --workspace=@atelier/backend",
     "build:frontend": "npm run build --workspace=@atelier/frontend",

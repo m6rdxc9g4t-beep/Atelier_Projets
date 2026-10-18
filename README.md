@@ -28,6 +28,8 @@ npm run dev            # API (port 3000) + interface (port 5173)
 
 Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : http://127.0.0.1:3000/api/docs.
 
+**Lancement en double clic (macOS) :** `npm run app:install` crée `~/Applications/Atelier Projets.app` (à glisser dans le Dock). Au double clic, l'application démarre l'API et l'interface en arrière-plan puis ouvre le navigateur ; si elles tournent déjà, elle propose « Ouvrir » ou « Arrêter ». Journal : `~/Library/Logs/Atelier_Projets/dev.log`. À relancer après un déplacement du dépôt ou un changement d'installation de Node.
+
 **IA locale (facultatif) :** installer [Ollama](https://ollama.com), puis `ollama pull qwen2.5-coder` (ou `gemma3`) ; le bouton `🤖 IA Locale` de l'en-tête affiche l'état et permet de choisir le modèle. **Claude CLI (facultatif) :** installer Claude Code (`claude` dans le PATH) ; le bouton « Claude CLI » de la fiche d'un élément ouvre une session dans le dépôt du projet.
 
 | Commande (racine) | Effet |
@@ -36,6 +38,7 @@ Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : h
 | `npm run dev` | API et interface ensemble (Ctrl+C arrête les deux) |
 | `npm run dev:backend` | Serveur Fastify seul, en mode watch (`tsx`) |
 | `npm run dev:frontend` | Interface seule (Vite, http://127.0.0.1:5173) ; `/api` est relayé vers le backend |
+| `npm run app:install` | macOS : crée l'application « Atelier Projets » (lancement en double clic) ; `-- ~/Desktop` pour la créer ailleurs |
 | `npm run build` | Compilation du backend (`backend/dist/`) et de l'interface (`frontend/dist/`) |
 | `npm run openapi` | Après une modification de l'API : régénère `backend/openapi.json` puis les types du frontend |
 | `npm test` | Tests du backend (domaine, CRUD, vues calculées sur la démo), sur une base SQLite temporaire |
