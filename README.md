@@ -16,7 +16,7 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 
 ## ⚡ Démarrage rapide
 
-**Prérequis :** Node.js `22.12+` ou `24+` (LTS conseillée : 24, voir `.nvmrc`), npm 10+, Git.
+**Prérequis :** Node.js `22.12+` ou `24+` (LTS conseillée : 24, voir `.nvmrc`), npm 11 conseillé (le `package-lock.json` est écrit avec npm 11), Git.
 
 ```bash
 npm install            # installe les 3 workspaces
