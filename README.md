@@ -10,8 +10,9 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 
 | Étape | Contenu | État |
 | :--- | :--- | :--- |
-| **Phase 1 — Socle** | Monorepo (npm workspaces), design system (tokens officiels + thèmes clair/sombre), backend Fastify + TypeScript + Prisma/SQLite, migration initiale, seed de démo « App E-Commerce v2 » | ✅ Terminée — en attente de validation |
-| Phases suivantes | API REST métier, frontend React, `git-engine`, `ai-bridge` | ⏳ À venir |
+| **Phase 1 — Socle** | Monorepo (npm workspaces), design system (tokens officiels + thèmes clair/sombre), backend Fastify + TypeScript + Prisma/SQLite, migration initiale, seed de démo « App E-Commerce v2 » | ✅ Validée |
+| **Phase 2 — API REST métier** | CRUD de la hiérarchie, temps et jalons, journal d'avancement horodaté, vues calculées (dashboard, arborescence/Gantt, tableau des temps, fiche tâche), OpenAPI, tests | ✅ Terminée — en attente de validation |
+| Phases suivantes | `git-engine` (commits & Pull Requests), `ai-bridge` (Ollama, Claude CLI), frontend React | ⏳ À venir |
 
 ## ⚡ Démarrage rapide
 
@@ -20,7 +21,7 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 ```bash
 npm install            # installe les 3 workspaces
 npm run setup          # génère le client Prisma, crée la base SQLite (migrations) et insère la démo
-npm run dev:backend    # API Fastify sur http://127.0.0.1:3000 — santé : GET /api/health
+npm run dev:backend    # API Fastify sur http://127.0.0.1:3000 — documentation : http://127.0.0.1:3000/api/docs
 ```
 
 | Commande (racine) | Effet |
@@ -28,6 +29,7 @@ npm run dev:backend    # API Fastify sur http://127.0.0.1:3000 — santé : GET 
 | `npm run setup` | `prisma generate` → `prisma migrate deploy` → seed de démo |
 | `npm run dev:backend` | Serveur Fastify en mode watch (`tsx`) |
 | `npm run build:backend` | Compilation TypeScript → `backend/dist/` (`npm start -w @atelier/backend` pour lancer) |
+| `npm test` | Tests du backend (domaine, CRUD, vues calculées sur la démo), sur une base SQLite temporaire |
 | `npm run db:migrate -- --name <nom>` | Nouvelle migration après modification du schéma (`prisma migrate dev`), puis régénération du client |
 | `npm run db:seed` | Réinsère le projet de démo « App E-Commerce v2 » (idempotent) |
 | `npm run db:reset` | Réinitialise la base, rejoue les migrations puis le seed |
@@ -55,8 +57,12 @@ Atelier_Projets/
 │   └── src/services/          # Client API REST/WebSocket vers le backend
 │
 ├── 📁 backend/                # PILIER 3 : API & Logique Métier (Node.js + Fastify + TypeScript)
-│   ├── prisma/                # ✅ Schéma SQLite (100% local), migrations, seed de démo
-│   ├── src/                   # ✅ Serveur Fastify (GET /api/health), configuration, client Prisma
+│   ├── prisma/                # ✅ Schéma SQLite (100% local), migrations, projet de démo et seed
+│   ├── src/domain/            # ✅ Règles métier pures : durées j/h, avancement, statut dérivé, bilans, journal
+│   ├── src/schemas/           # ✅ Contrat de l'API (TypeBox → validation, types, OpenAPI)
+│   ├── src/services/          # ✅ Cas d'usage (Prisma) : CRUD et vues calculées
+│   ├── src/routes/            # ✅ Routes REST Fastify sous /api (documentation : /api/docs)
+│   ├── test/                  # ✅ Tests node:test (domaine, CRUD, vues sur la démo)
 │   ├── src/git-engine/        # ⏳ Hooks Git locaux, parsing des commits (#ID), Sync GitHub API
 │   └── src/ai-bridge/         # ⏳ Connecteur Ollama (Qwen / Gemma) & exécution Claude CLI
 │
@@ -303,3 +309,48 @@ Les commits contenant `feature #12345`, `task #12345` ou `bug #12345` sont autom
 - **Imports TypeScript :** extensions `.ts` explicites (comme le client Prisma généré) ; `tsc` les réécrit en `.js` au build.
 - **Sécurité locale :** l'API écoute par défaut sur `127.0.0.1` uniquement.
 - **Jeu de démo :** IDs fixes `#101` → `#211` et `#12345`, conformes aux maquettes. Les nouveaux éléments créés ensuite continuent la numérotation après `#12345`.
+- **Contrat d'API :** schémas TypeBox 1.3 (`backend/src/schemas/`) → validation des requêtes, types des handlers (`@fastify/type-provider-typebox`) et OpenAPI 3.1 (`@fastify/swagger`, interface sur `/api/docs`, JSON sur `/api/docs/json`).
+- **Tests :** `node:test` + `tsx`, chaque fichier sur sa propre base SQLite temporaire construite en appliquant le SQL des migrations versionnées (aucun moteur Prisma requis), puis le projet de démo.
+- **Fuseau horaire :** les entrées du journal et la date du jour par défaut d'une saisie utilisent `APP_TIMEZONE` (défaut : fuseau du système).
+
+---
+
+## 🔌 7. API REST du backend
+
+Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`**. Le frontend affiche ces réponses telles quelles : les conversions, agrégats et bilans sont calculés ici.
+
+### Conventions
+
+- **Durées** : stockées en heures, toujours renvoyées sous la forme `{ "hours": 24, "days": 3 }` (1 jour = `hoursPerDay` du projet, 8 h par défaut). En écriture, une estimation ou un budget se saisit soit en heures (`estimatedHours`, `budgetHours`), soit en jours (`estimatedDays`, `budgetDays`) ; les saisies de temps se font en heures.
+- **Dates** : dates calendaires en `AAAA-MM-JJ` ; horodatages en ISO 8601 (UTC).
+- **Écriture** : `POST` → `201` avec la ressource créée, `PATCH` partiel (`null` efface un champ facultatif) → `200`, `DELETE` → `204`. Un champ inconnu est refusé.
+- **Erreurs** : `{ "statusCode", "error", "code", "message" }` — `VALIDATION_ERROR` / `BAD_REQUEST` (400), `NOT_FOUND` (404), `CONFLICT` (409).
+
+### Ressources
+
+| Domaine | Routes |
+| :--- | :--- |
+| Projets | `GET·POST /projects` · `GET·PATCH·DELETE /projects/:projectId` |
+| Hiérarchie | `GET·POST /projects/:projectId/phases` · `GET·PATCH·DELETE /phases/:phaseId` · `GET·POST /phases/:phaseId/epics` · `GET·PATCH·DELETE /epics/:epicId` · `GET·POST /epics/:epicId/stories` · `GET·PATCH·DELETE /stories/:storyId` |
+| Éléments | `GET /projects/:projectId/work-items?type=&status=&phaseId=&epicId=&storyId=&q=` · `GET·POST /stories/:storyId/work-items` · `GET·PATCH·DELETE /work-items/:workItemId` · `POST /work-items/:workItemId/log-entries` |
+| Temps | `GET·POST /work-items/:workItemId/time-entries` · `PATCH·DELETE /time-entries/:timeEntryId` |
+| Jalons | `GET·POST /projects/:projectId/milestones` · `GET·PATCH·DELETE /milestones/:milestoneId` |
+
+### Vues calculées
+
+| Vue du frontend | Route | Contenu |
+| :--- | :--- | :--- |
+| DashboardView | `GET /projects/:projectId/dashboard` | Budget initial / réalisé / reste, % consommé, avancement réel, tendance (`AHEAD` « En avance ✨ », `ON_TRACK`, `BEHIND`), histogramme des 8 statuts × 3 types |
+| GanttView, HierarchyView | `GET /projects/:projectId/tree` | Phase > Epic > Story > Élément avec codes (`PHASE 1`, `EPIC 2`, `STORY 2.1`), agrégats, plages de dates des barres, jalons de phase et de projet, plage globale du Gantt |
+| TimeSheetView | `GET /projects/:projectId/timesheet?epicId=&phaseId=&storyId=&type=&status=` | Par élément : budget, réalisé, bilan ; totaux (nombre, % terminé/résolu, budget, réalisé, reste) |
+| TaskSlideOver | `GET /work-items/:workItemId` | Parent, statut, budget et temps, onglets Description et Journal, saisies de temps, commits liés au `#ID` |
+
+Les trois vues acceptent `?hoursPerDay=` pour afficher les jours avec une autre conversion (sélecteur « 1 Jour = 8 Heures ▾ »), sans modifier les heures stockées.
+
+### Règles métier appliquées
+
+- **Avancement** : un élément `RESOLVED` / `CLOSED` compte pour 100 % (le passer à ce statut fixe son avancement à 100 % sauf valeur fournie) ; un élément `REJECTED` sort du budget et de l'avancement, mais son temps passé reste compté dans le réalisé.
+- **Statut d'un conteneur** (Phase, Epic, Story) : `OPEN` sans élément ou si tous sont à faire, `REJECTED` si tous sont rejetés, `CLOSED` / `RESOLVED` si tous les éléments retenus sont terminés, sinon `IN_PROGRESS` ; la répartition exacte est fournie dans `statusCounts`.
+- **Bilan** (colonne BILAN) : élément terminé → `UNDER` / `ON_BUDGET` / `OVER` selon réalisé − estimé ; élément en cours → `OVER` si l'estimation est déjà dépassée, sinon `REMAINING` (reste à consommer) ; pas de bilan sans estimation ni pour un rejeté.
+- **Journal d'avancement** : `POST /work-items/:id/log-entries` avec `{ "text", "at"?, "hours"? }` ajoute `> **18 Oct 2026 - 16h30 (4.5h passées) :** …` en fin de journal (l'en-tête est informatif : le temps se saisit à part).
+- **Déplacements** : un élément, une story ou un epic ne change de parent qu'à l'intérieur de son projet ; il est placé en fin de liste sauf `position` fournie. Supprimer une phase supprime son contenu mais garde ses jalons, rattachés au projet.
