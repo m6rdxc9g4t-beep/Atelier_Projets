@@ -14,6 +14,14 @@ export function slugify(value: string): string {
   return slug === '' ? 'projet' : slug
 }
 
+/**
+ * Préfixe commun à tous les candidats de uniqueSlug(base) : la base peut être tronquée pour loger le
+ * suffixe (jusqu'à « -1000000000 »), donc chercher les slugs pris avec ce préfixe, pas avec la base entière.
+ */
+export function slugSearchPrefix(base: string): string {
+  return base.slice(0, MAX_SLUG_LENGTH - 12)
+}
+
 /** Ajoute un suffixe numérique (-2, -3…) jusqu'à obtenir un slug libre. */
 export function uniqueSlug(base: string, isTaken: (slug: string) => boolean): string {
   if (!isTaken(base)) return base

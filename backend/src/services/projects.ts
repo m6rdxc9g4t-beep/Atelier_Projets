@@ -1,6 +1,6 @@
 // Projets : CRUD, slug unique, budget saisi en heures ou en jours.
 import { DEFAULT_HOURS_PER_DAY } from '../domain/durations.ts'
-import { slugify, uniqueSlug } from '../domain/slug.ts'
+import { slugify, slugSearchPrefix, uniqueSlug } from '../domain/slug.ts'
 import type { PrismaClient } from '../db/client.ts'
 import type { Prisma } from '../generated/prisma/client.ts'
 import { badRequest, conflict } from '../http/errors.ts'
@@ -15,7 +15,10 @@ function assertGithubPair(owner: string | null, repo: string | null): void {
 }
 
 async function freeSlug(prisma: PrismaClient, base: string): Promise<string> {
-  const taken = await prisma.project.findMany({ where: { slug: { startsWith: base } }, select: { slug: true } })
+  const taken = await prisma.project.findMany({
+    where: { slug: { startsWith: slugSearchPrefix(base) } },
+    select: { slug: true },
+  })
   const slugs = new Set(taken.map((project) => project.slug))
   return uniqueSlug(base, (slug) => slugs.has(slug))
 }

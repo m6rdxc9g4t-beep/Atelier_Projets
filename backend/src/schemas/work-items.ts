@@ -10,10 +10,12 @@ import {
   Hours,
   Id,
   Markdown,
+  MAX_INT,
   Nullable,
   NullableInput,
   Position,
   PrioritySchema,
+  RefId,
   StatusSchema,
   StrictObject,
   Title,
@@ -25,7 +27,7 @@ const Progress = Type.Integer({ minimum: 0, maximum: 100, description: 'Avanceme
 
 export const WorkItemSchema = Type.Object(
   {
-    id: Type.Integer({ minimum: 1, description: '#ID public, cité dans les messages de commit' }),
+    id: Type.Integer({ minimum: 1, maximum: MAX_INT, description: '#ID public, cité dans les messages de commit' }),
     projectId: Id,
     storyId: Id,
     type: WorkItemTypeSchema,
@@ -95,7 +97,7 @@ export const WorkItemUpdateSchema = StrictObject(
   {
     type: Type.Optional(WorkItemTypeSchema),
     title: Type.Optional(Title),
-    storyId: Type.Optional(Type.Integer({ minimum: 1, description: 'Déplace l’élément vers une autre story du même projet' })),
+    storyId: Type.Optional(RefId('Déplace l’élément vers une autre story du même projet')),
     ...workItemInput,
   },
   { description: 'Passer à RESOLVED ou CLOSED fixe l’avancement à 100 % sauf si progress est fourni' },
@@ -108,13 +110,15 @@ export const WorkItemListQuery = Type.Object({
   phaseId: Type.Optional(Id),
   epicId: Type.Optional(Id),
   storyId: Type.Optional(Id),
-  q: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: 'Recherche dans le titre, ou #ID' })),
+  q: Type.Optional(
+    Type.String({ maxLength: 200, description: 'Recherche dans le titre (sans tenir compte de la casse ni des accents), ou #ID' }),
+  ),
 })
 export type WorkItemFilters = Static<typeof WorkItemListQuery>
 
 export const LogEntryCreateSchema = StrictObject(
   {
-    text: Type.String({ minLength: 1, maxLength: 20_000, description: 'Texte Markdown de l’entrée' }),
+    text: Type.String({ minLength: 1, maxLength: 20_000, pattern: '\\S', description: 'Texte Markdown de l’entrée' }),
     at: Type.Optional(DateTime),
     hours: Type.Optional(NullableInput(Type.Number({ minimum: 0, maximum: 24, description: 'Temps mentionné dans l’en-tête' }))),
   },

@@ -1,6 +1,6 @@
 // Conteneurs de la hiérarchie : Phase > Epic > Story.
 import { Type, type Static } from 'typebox'
-import { DateOnly, DateTime, Id, Markdown, Nullable, NullableInput, Position, StrictObject, Title } from './common.ts'
+import { DateOnly, DateTime, Id, Markdown, Nullable, NullableInput, Position, RefId, StrictObject, Title } from './common.ts'
 
 const containerFields = {
   title: Type.String(),
@@ -33,12 +33,12 @@ export type ContainerCreate = Static<typeof ContainerCreateSchema>
 export const PhaseUpdateSchema = StrictObject({ title: Type.Optional(Title), ...containerInput })
 export const EpicUpdateSchema = StrictObject({
   title: Type.Optional(Title),
-  phaseId: Type.Optional(Type.Integer({ minimum: 1, description: 'Déplace l’epic vers une autre phase du même projet' })),
+  phaseId: Type.Optional(RefId('Déplace l’epic vers une autre phase du même projet')),
   ...containerInput,
 })
 export const StoryUpdateSchema = StrictObject({
   title: Type.Optional(Title),
-  epicId: Type.Optional(Type.Integer({ minimum: 1, description: 'Déplace la story vers un autre epic du même projet' })),
+  epicId: Type.Optional(RefId('Déplace la story vers un autre epic du même projet')),
   ...containerInput,
 })
 export type PhaseUpdate = Static<typeof PhaseUpdateSchema>

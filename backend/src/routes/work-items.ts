@@ -29,6 +29,8 @@ const tags = ['Éléments']
 const timeTags = ['Temps']
 
 export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
+  const clock = () => ({ timeZone: app.settings.timeZone, now: app.settings.now() })
+
   app.get(
     '/projects/:projectId/work-items',
     {
@@ -37,7 +39,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         summary: 'Lister les éléments d’un projet (filtres type, statut, phase, epic, story, recherche)',
         params: ProjectParams,
         querystring: WorkItemListQuery,
-        response: { 200: Type.Array(WorkItemSchema), ...errorResponses(404) },
+        response: { 200: Type.Array(WorkItemSchema), ...errorResponses(400, 404) },
       },
     },
     async (request) => listProjectWorkItems(app.prisma, request.params.projectId, request.query),
@@ -50,7 +52,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags,
         summary: 'Lister les éléments d’une story',
         params: StoryParams,
-        response: { 200: Type.Array(WorkItemSchema), ...errorResponses(404) },
+        response: { 200: Type.Array(WorkItemSchema), ...errorResponses(400, 404) },
       },
     },
     async (request) => listStoryWorkItems(app.prisma, request.params.storyId),
@@ -77,7 +79,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags,
         summary: 'Fiche d’un élément : description, journal, temps, commits liés',
         params: WorkItemParams,
-        response: { 200: WorkItemDetailSchema, ...errorResponses(404) },
+        response: { 200: WorkItemDetailSchema, ...errorResponses(400, 404) },
       },
     },
     async (request) => getWorkItemDetail(app.prisma, request.params.workItemId),
@@ -100,7 +102,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.delete(
     '/work-items/:workItemId',
     {
-      schema: { tags, summary: 'Supprimer un élément', params: WorkItemParams, response: { 204: NoContent, ...errorResponses(404) } },
+      schema: { tags, summary: 'Supprimer un élément', params: WorkItemParams, response: { 204: NoContent, ...errorResponses(400, 404) } },
     },
     async (request, reply) => {
       await deleteWorkItem(app.prisma, request.params.workItemId)
@@ -120,7 +122,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) =>
-      reply.code(201).send(await addLogEntry(app.prisma, request.params.workItemId, request.body, app.settings.timeZone)),
+      reply.code(201).send(await addLogEntry(app.prisma, request.params.workItemId, request.body, clock())),
   )
 
   // --- Saisies de temps ---
@@ -131,7 +133,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: timeTags,
         summary: 'Lister les saisies de temps d’un élément',
         params: WorkItemParams,
-        response: { 200: Type.Array(TimeEntrySchema), ...errorResponses(404) },
+        response: { 200: Type.Array(TimeEntrySchema), ...errorResponses(400, 404) },
       },
     },
     async (request) => listTimeEntries(app.prisma, request.params.workItemId),
@@ -149,7 +151,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) =>
-      reply.code(201).send(await createTimeEntry(app.prisma, request.params.workItemId, request.body, app.settings.timeZone)),
+      reply.code(201).send(await createTimeEntry(app.prisma, request.params.workItemId, request.body, clock())),
   )
 
   app.patch(
@@ -173,7 +175,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: timeTags,
         summary: 'Supprimer une saisie de temps',
         params: TimeEntryParams,
-        response: { 204: NoContent, ...errorResponses(404) },
+        response: { 204: NoContent, ...errorResponses(400, 404) },
       },
     },
     async (request, reply) => {

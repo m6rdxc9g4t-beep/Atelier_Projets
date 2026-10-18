@@ -36,10 +36,10 @@ export async function createTimeEntry(
   prisma: PrismaClient,
   workItemId: number,
   input: TimeEntryCreate,
-  timeZone: string,
+  clock: { timeZone: string; now: Date },
 ): Promise<TimeEntryDto> {
   const item = await requireWorkItemProject(prisma, workItemId)
-  const spentOn = inputDate(input.spentOn ?? todayDateOnly(timeZone))
+  const spentOn = inputDate(input.spentOn ?? todayDateOnly(clock.timeZone, clock.now))
   const entry = await prisma.timeEntry.create({
     data: { workItemId, spentOn, hours: roundTo(input.hours, 2), comment: input.comment?.trim() ?? '' },
   })

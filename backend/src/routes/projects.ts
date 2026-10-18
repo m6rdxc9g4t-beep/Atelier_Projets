@@ -28,7 +28,7 @@ export const projectRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
   app.get(
     '/projects/:projectId',
-    { schema: { tags, summary: 'Lire un projet', params: ProjectParams, response: { 200: ProjectSchema, ...errorResponses(404) } } },
+    { schema: { tags, summary: 'Lire un projet', params: ProjectParams, response: { 200: ProjectSchema, ...errorResponses(400, 404) } } },
     async (request) => getProject(app.prisma, request.params.projectId),
   )
 
@@ -53,7 +53,7 @@ export const projectRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags,
         summary: 'Supprimer un projet et tout son contenu',
         params: ProjectParams,
-        response: { 204: NoContent, ...errorResponses(404) },
+        response: { 204: NoContent, ...errorResponses(400, 404) },
       },
     },
     async (request, reply) => {

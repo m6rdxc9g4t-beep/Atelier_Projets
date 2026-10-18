@@ -40,7 +40,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/projects/:projectId/phases',
     {
-      schema: { tags, summary: 'Lister les phases d’un projet', params: ProjectParams, response: { 200: Type.Array(PhaseSchema), ...errorResponses(404) } },
+      schema: { tags, summary: 'Lister les phases d’un projet', params: ProjectParams, response: { 200: Type.Array(PhaseSchema), ...errorResponses(400, 404) } },
     },
     async (request) => listPhases(app.prisma, request.params.projectId),
   )
@@ -59,7 +59,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   )
   app.get(
     '/phases/:phaseId',
-    { schema: { tags, summary: 'Lire une phase', params: PhaseParams, response: { 200: PhaseSchema, ...errorResponses(404) } } },
+    { schema: { tags, summary: 'Lire une phase', params: PhaseParams, response: { 200: PhaseSchema, ...errorResponses(400, 404) } } },
     async (request) => getPhase(app.prisma, request.params.phaseId),
   )
   app.patch(
@@ -82,7 +82,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags,
         summary: 'Supprimer une phase (ses jalons restent rattachés au projet)',
         params: PhaseParams,
-        response: { 204: NoContent, ...errorResponses(404) },
+        response: { 204: NoContent, ...errorResponses(400, 404) },
       },
     },
     async (request, reply) => {
@@ -95,7 +95,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/phases/:phaseId/epics',
     {
-      schema: { tags, summary: 'Lister les epics d’une phase', params: PhaseParams, response: { 200: Type.Array(EpicSchema), ...errorResponses(404) } },
+      schema: { tags, summary: 'Lister les epics d’une phase', params: PhaseParams, response: { 200: Type.Array(EpicSchema), ...errorResponses(400, 404) } },
     },
     async (request) => listEpics(app.prisma, request.params.phaseId),
   )
@@ -114,7 +114,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   )
   app.get(
     '/epics/:epicId',
-    { schema: { tags, summary: 'Lire un epic', params: EpicParams, response: { 200: EpicSchema, ...errorResponses(404) } } },
+    { schema: { tags, summary: 'Lire un epic', params: EpicParams, response: { 200: EpicSchema, ...errorResponses(400, 404) } } },
     async (request) => getEpic(app.prisma, request.params.epicId),
   )
   app.patch(
@@ -132,7 +132,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   )
   app.delete(
     '/epics/:epicId',
-    { schema: { tags, summary: 'Supprimer un epic', params: EpicParams, response: { 204: NoContent, ...errorResponses(404) } } },
+    { schema: { tags, summary: 'Supprimer un epic', params: EpicParams, response: { 204: NoContent, ...errorResponses(400, 404) } } },
     async (request, reply) => {
       await deleteEpic(app.prisma, request.params.epicId)
       return reply.code(204).send(null)
@@ -143,7 +143,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/epics/:epicId/stories',
     {
-      schema: { tags, summary: 'Lister les stories d’un epic', params: EpicParams, response: { 200: Type.Array(StorySchema), ...errorResponses(404) } },
+      schema: { tags, summary: 'Lister les stories d’un epic', params: EpicParams, response: { 200: Type.Array(StorySchema), ...errorResponses(400, 404) } },
     },
     async (request) => listStories(app.prisma, request.params.epicId),
   )
@@ -162,7 +162,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   )
   app.get(
     '/stories/:storyId',
-    { schema: { tags, summary: 'Lire une story', params: StoryParams, response: { 200: StorySchema, ...errorResponses(404) } } },
+    { schema: { tags, summary: 'Lire une story', params: StoryParams, response: { 200: StorySchema, ...errorResponses(400, 404) } } },
     async (request) => getStory(app.prisma, request.params.storyId),
   )
   app.patch(
@@ -180,7 +180,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   )
   app.delete(
     '/stories/:storyId',
-    { schema: { tags, summary: 'Supprimer une story', params: StoryParams, response: { 204: NoContent, ...errorResponses(404) } } },
+    { schema: { tags, summary: 'Supprimer une story', params: StoryParams, response: { 204: NoContent, ...errorResponses(400, 404) } } },
     async (request, reply) => {
       await deleteStory(app.prisma, request.params.storyId)
       return reply.code(204).send(null)

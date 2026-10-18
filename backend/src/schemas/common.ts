@@ -20,28 +20,36 @@ export function StrictObject<Properties extends TProperties>(properties: Propert
 /** Valeur ou null, pour les réponses (anyOf). */
 export const Nullable = <T extends TSchema>(schema: T) => Type.Union([schema, Type.Null()])
 
-/**
- * Valeur ou null, pour les requêtes : `type: [T, "null"]` plutôt qu'un anyOf, sinon la coercition d'Ajv
- * (active pour les querystrings) transformerait un null envoyé en 0 ou en "" au lieu d'effacer le champ.
- */
+/** Valeur ou null, pour les requêtes : `type: [T, "null"]` (null efface un champ facultatif). */
 export function NullableInput<T extends TNumber | TInteger | TString>(schema: T) {
   const { type, ...constraints } = schema as unknown as { type: string } & Record<string, unknown>
   return Type.Unsafe<Static<T> | null>({ ...constraints, type: [type, 'null'] })
 }
 
-export const Id = Type.Integer({ minimum: 1 })
+/** Plus grand entier accepté par une colonne Int de Prisma (32 bits signés). */
+export const MAX_INT = 2_147_483_647
+/** Taille maximale d'un texte Markdown (description, journal d'avancement). */
+export const MARKDOWN_MAX_LENGTH = 100_000
+/** Bornes des durées saisies : très au-delà de tout projet réel, mais loin des débordements numériques. */
+export const MAX_INPUT_HOURS = 1_000_000
+export const MAX_INPUT_DAYS = 100_000
+
+export const Id = Type.Integer({ minimum: 1, maximum: MAX_INT })
+/** Identifiant d'une ressource référencée dans un corps de requête (déplacement, rattachement). */
+export const RefId = (description: string) => Type.Integer({ minimum: 1, maximum: MAX_INT, description })
 export const DateOnly = Type.String({ format: 'date', description: 'Date calendaire AAAA-MM-JJ', examples: ['2026-10-18'] })
 export const DateTime = Type.String({ format: 'date-time', examples: ['2026-10-18T14:30:00.000Z'] })
-export const Title = Type.String({ minLength: 1, maxLength: 200 })
-export const Markdown = Type.String({ maxLength: 100_000, description: 'Texte Markdown' })
-export const Position = Type.Integer({ minimum: 0, description: 'Ordre d’affichage parmi les éléments frères' })
+/** Titre non vide : au moins un caractère visible. */
+export const Title = Type.String({ minLength: 1, maxLength: 200, pattern: '\\S' })
+export const Markdown = Type.String({ maxLength: MARKDOWN_MAX_LENGTH, description: 'Texte Markdown' })
+export const Position = Type.Integer({ minimum: 0, maximum: MAX_INT, description: 'Ordre d’affichage parmi les éléments frères' })
 export const HoursPerDay = Type.Number({
   exclusiveMinimum: 0,
   maximum: MAX_HOURS_PER_DAY,
   description: 'Conversion : 1 jour = hoursPerDay heures',
 })
-export const Hours = Type.Number({ minimum: 0, description: 'Durée en heures' })
-export const Days = Type.Number({ minimum: 0, description: 'Durée en jours (convertie avec hoursPerDay)' })
+export const Hours = Type.Number({ minimum: 0, maximum: MAX_INPUT_HOURS, description: 'Durée en heures' })
+export const Days = Type.Number({ minimum: 0, maximum: MAX_INPUT_DAYS, description: 'Durée en jours (convertie avec hoursPerDay)' })
 
 export const WorkItemTypeSchema = Type.Enum(WORK_ITEM_TYPES, { type: 'string', description: 'FEATURE | TASK | BUG' })
 export const StatusSchema = Type.Enum(WORK_ITEM_STATUSES, { type: 'string', description: 'Un des 8 statuts du workflow' })

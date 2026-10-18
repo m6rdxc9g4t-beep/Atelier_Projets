@@ -185,6 +185,36 @@ describe('tableau des temps (maquette D)', () => {
     assert.deepEqual(active.rows.map((row: Row) => row.id), [12345, 204, 205, 208])
     const bugs = (await get(`/api/projects/${projectId}/timesheet?type=BUG`)).body
     assert.deepEqual(bugs.rows.map((row: Row) => row.id), [103, 107, 209])
+
+    const phase1 = tree.phases[0]
+    const byPhase = (await get(`/api/projects/${projectId}/timesheet?phaseId=${phase1.id}`)).body
+    assert.deepEqual(byPhase.rows.map((row: Row) => row.id), [101, 102, 103, 104, 105, 107, 12345, 106, 108])
+    assert.deepEqual(byPhase.totals.estimate, { hours: 120, days: 15 })
+    const story11 = phase1.epics[0].stories[0]
+    const byStory = (await get(`/api/projects/${projectId}/timesheet?storyId=${story11.id}`)).body
+    assert.deepEqual(byStory.rows.map((row: Row) => row.id), [101, 102, 103])
+    assert.deepEqual(byStory.totals, {
+      count: 3,
+      done: 2,
+      donePercent: 66.7,
+      estimate: { hours: 48, days: 6 },
+      spent: { hours: 50, days: 6.25 },
+      remaining: { hours: -2, days: -0.25 },
+    })
+  })
+
+  it('applique « 1 jour = X heures » demandé par la vue', async () => {
+    const sheet = (await get(`/api/projects/${projectId}/timesheet?hoursPerDay=7`)).body
+    assert.equal(sheet.hoursPerDay, 7)
+    const row101 = sheet.rows.find((row: Row) => row.id === 101)
+    assert.deepEqual(row101.estimate, { hours: 24, days: 3.4286 })
+    assert.deepEqual(row101.balance, { kind: 'UNDER', delta: { hours: -4, days: -0.5714 } })
+    assert.deepEqual(sheet.totals.spent, { hours: 228, days: 32.5714 })
+
+    const tree = (await get(`/api/projects/${projectId}/tree?hoursPerDay=7`)).body
+    assert.equal(tree.hoursPerDay, 7)
+    assert.deepEqual(tree.phases[0].aggregate.estimate, { hours: 120, days: 17.1429 })
+    assert.deepEqual(tree.phases[0].epics[0].stories[0].workItems[0].spent, { hours: 20, days: 2.8571 })
   })
 })
 

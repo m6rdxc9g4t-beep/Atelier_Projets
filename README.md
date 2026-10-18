@@ -323,7 +323,7 @@ Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`
 
 - **Durées** : stockées en heures, toujours renvoyées sous la forme `{ "hours": 24, "days": 3 }` (1 jour = `hoursPerDay` du projet, 8 h par défaut). En écriture, une estimation ou un budget se saisit soit en heures (`estimatedHours`, `budgetHours`), soit en jours (`estimatedDays`, `budgetDays`) ; les saisies de temps se font en heures.
 - **Dates** : dates calendaires en `AAAA-MM-JJ` ; horodatages en ISO 8601 (UTC).
-- **Écriture** : `POST` → `201` avec la ressource créée, `PATCH` partiel (`null` efface un champ facultatif) → `200`, `DELETE` → `204`. Un champ inconnu est refusé.
+- **Écriture** : `POST` → `201` avec la ressource créée, `PATCH` partiel → `200`, `DELETE` → `204`. Les corps JSON sont typés strictement : un champ inconnu, `"50"` à la place de `50` ou `null` sur un champ obligatoire sont refusés ; `null` efface un champ facultatif (dates, estimation, budget, dépôt…).
 - **Erreurs** : `{ "statusCode", "error", "code", "message" }` — `VALIDATION_ERROR` / `BAD_REQUEST` (400), `NOT_FOUND` (404), `CONFLICT` (409).
 
 ### Ressources
@@ -332,9 +332,9 @@ Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`
 | :--- | :--- |
 | Projets | `GET·POST /projects` · `GET·PATCH·DELETE /projects/:projectId` |
 | Hiérarchie | `GET·POST /projects/:projectId/phases` · `GET·PATCH·DELETE /phases/:phaseId` · `GET·POST /phases/:phaseId/epics` · `GET·PATCH·DELETE /epics/:epicId` · `GET·POST /epics/:epicId/stories` · `GET·PATCH·DELETE /stories/:storyId` |
-| Éléments | `GET /projects/:projectId/work-items?type=&status=&phaseId=&epicId=&storyId=&q=` · `GET·POST /stories/:storyId/work-items` · `GET·PATCH·DELETE /work-items/:workItemId` · `POST /work-items/:workItemId/log-entries` |
+| Éléments | `GET /projects/:projectId/work-items?type=&status=&phaseId=&epicId=&storyId=&q=` (`q` : titre sans tenir compte de la casse ni des accents, ou `#ID`) · `GET·POST /stories/:storyId/work-items` · `GET·PATCH·DELETE /work-items/:workItemId` · `POST /work-items/:workItemId/log-entries` |
 | Temps | `GET·POST /work-items/:workItemId/time-entries` · `PATCH·DELETE /time-entries/:timeEntryId` |
-| Jalons | `GET·POST /projects/:projectId/milestones` · `GET·PATCH·DELETE /milestones/:milestoneId` |
+| Jalons | `GET·POST /projects/:projectId/milestones` · `GET·PATCH·DELETE /milestones/:milestoneId` (`reachedAt` : date d'atteinte, jamais dans le futur ; `null` = non atteint) |
 
 ### Vues calculées
 
@@ -349,8 +349,8 @@ Les trois vues acceptent `?hoursPerDay=` pour afficher les jours avec une autre 
 
 ### Règles métier appliquées
 
-- **Avancement** : un élément `RESOLVED` / `CLOSED` compte pour 100 % (le passer à ce statut fixe son avancement à 100 % sauf valeur fournie) ; un élément `REJECTED` sort du budget et de l'avancement, mais son temps passé reste compté dans le réalisé.
+- **Avancement** : un élément `RESOLVED` / `CLOSED` est toujours à 100 % (passer à ce statut le fixe à 100 %, une autre valeur est refusée) ; le rouvrir conserve son avancement, à ajuster ensuite. Un élément `REJECTED` sort du budget et de l'avancement, mais son temps passé reste compté dans le réalisé.
 - **Statut d'un conteneur** (Phase, Epic, Story) : `OPEN` sans élément ou si tous sont à faire, `REJECTED` si tous sont rejetés, `CLOSED` / `RESOLVED` si tous les éléments retenus sont terminés, sinon `IN_PROGRESS` ; la répartition exacte est fournie dans `statusCounts`.
 - **Bilan** (colonne BILAN) : élément terminé → `UNDER` / `ON_BUDGET` / `OVER` selon réalisé − estimé ; élément en cours → `OVER` si l'estimation est déjà dépassée, sinon `REMAINING` (reste à consommer) ; pas de bilan sans estimation ni pour un rejeté.
-- **Journal d'avancement** : `POST /work-items/:id/log-entries` avec `{ "text", "at"?, "hours"? }` ajoute `> **18 Oct 2026 - 16h30 (4.5h passées) :** …` en fin de journal (l'en-tête est informatif : le temps se saisit à part).
+- **Journal d'avancement** : `POST /work-items/:id/log-entries` avec `{ "text", "at"?, "hours"? }` ajoute `> **18 Oct 2026 - 16h30 (4.5h passées) :** …` en fin de journal, de façon atomique (deux ajouts simultanés ne s'écrasent pas), dans la limite de 100 000 caractères. L'en-tête est informatif : le temps se saisit à part.
 - **Déplacements** : un élément, une story ou un epic ne change de parent qu'à l'intérieur de son projet ; il est placé en fin de liste sauf `position` fournie. Supprimer une phase supprime son contenu mais garde ses jalons, rattachés au projet.

@@ -3,10 +3,11 @@
 import { sumHours } from '../domain/durations.ts'
 import { computeCodes } from '../domain/hierarchy.ts'
 import { appendLogEntry, formatLogEntry } from '../domain/implementation-log.ts'
-import { isDone } from '../domain/workflow.ts'
+import { isDone, type WorkItemStatus } from '../domain/workflow.ts'
 import type { PrismaClient } from '../db/client.ts'
 import type { Prisma } from '../generated/prisma/client.ts'
 import { badRequest, notFound } from '../http/errors.ts'
+import { MARKDOWN_MAX_LENGTH } from '../schemas/common.ts'
 import type {
   LogEntryCreate,
   WorkItemCreate,
@@ -18,6 +19,7 @@ import type {
 import {
   assertDateOrder,
   inputDate,
+  inputTimestamp,
   nextPosition,
   requireProject,
   requireStory,
@@ -26,14 +28,28 @@ import {
 } from './common.ts'
 import { toContainerRef, toTimeEntryDto, toWorkItemDto, WORK_ITEM_ROW_OMIT } from './mappers.ts'
 
-/** Ordre hiérarchique : phase, epic, story, puis position de l'élément. */
+/** Ordre hiérarchique (identique à l'arborescence) : à chaque niveau, position puis id. */
 const HIERARCHY_ORDER: Prisma.WorkItemOrderByWithRelationInput[] = [
   { story: { epic: { phase: { position: 'asc' } } } },
+  { story: { epic: { phase: { id: 'asc' } } } },
   { story: { epic: { position: 'asc' } } },
+  { story: { epic: { id: 'asc' } } },
   { story: { position: 'asc' } },
+  { story: { id: 'asc' } },
   { position: 'asc' },
   { id: 'asc' },
 ]
+
+/** Un élément RESOLVED / CLOSED est à 100 % : toute autre valeur fournie est une contradiction (400). */
+function progressFor(status: WorkItemStatus, progress: number | undefined): number | undefined {
+  if (isDone(status)) {
+    if (progress !== undefined && progress !== 100) {
+      throw badRequest('Un élément RESOLVED ou CLOSED est à 100 % d’avancement')
+    }
+    return 100
+  }
+  return progress
+}
 
 /** Heures saisies par WorkItem (somme des TimeEntry). */
 export async function spentHoursByWorkItem(
@@ -58,11 +74,21 @@ async function nextWorkItemPosition(prisma: PrismaClient, storyId: number): Prom
   return nextPosition(max._max.position)
 }
 
-function searchFilter(q: string | undefined): Prisma.WorkItemWhereInput | undefined {
-  const query = q?.trim()
-  if (!query) return undefined
+/** Texte comparable : minuscules, sans accents. */
+function normalize(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr')
+}
+
+/**
+ * Recherche « q » : dans le titre, sans tenir compte de la casse ni des accents, ou par #ID.
+ * Faite en mémoire (projet local) : pas de jokers LIKE (% et _ sont des caractères ordinaires).
+ */
+function matchesQuery(q: string | undefined): (item: { id: number; title: string }) => boolean {
+  const query = q?.trim() ?? ''
+  if (query === '') return () => true
+  const needle = normalize(query)
   const id = /^#?(\d+)$/.exec(query)?.[1]
-  return { OR: [{ title: { contains: query } }, ...(id ? [{ id: Number(id) }] : [])] }
+  return (item) => normalize(item.title).includes(needle) || (id !== undefined && item.id === Number(id))
 }
 
 export async function listProjectWorkItems(
@@ -82,13 +108,14 @@ export async function listProjectWorkItems(
         ...(filters.phaseId !== undefined && { epic: { phaseId: filters.phaseId } }),
       },
     }),
-    ...searchFilter(filters.q),
   }
   const [items, spent] = await Promise.all([
     prisma.workItem.findMany({ where, omit: WORK_ITEM_ROW_OMIT, orderBy: HIERARCHY_ORDER }),
     spentHoursByWorkItem(prisma, { workItem: { projectId } }),
   ])
-  return items.map((item) => toWorkItemDto(item, spent.get(item.id) ?? 0, project.hoursPerDay))
+  return items
+    .filter(matchesQuery(filters.q))
+    .map((item) => toWorkItemDto(item, spent.get(item.id) ?? 0, project.hoursPerDay))
 }
 
 export async function listStoryWorkItems(prisma: PrismaClient, storyId: number): Promise<WorkItemDto[]> {
@@ -153,6 +180,7 @@ export async function createWorkItem(
   const dueDate = inputDate(input.dueDate ?? null)
   assertDateOrder(startDate, dueDate)
   const status = input.status ?? 'OPEN'
+  const progress = progressFor(status, input.progress) ?? 0
 
   const item = await prisma.workItem.create({
     data: {
@@ -165,7 +193,7 @@ export async function createWorkItem(
       description: input.description ?? '',
       implementationLog: input.implementationLog ?? '',
       estimatedHours: resolveHours(input.estimatedHours, input.estimatedDays, project.hoursPerDay, 'estimated') ?? null,
-      progress: input.progress ?? (isDone(status) ? 100 : 0),
+      progress,
       position: input.position ?? (await nextWorkItemPosition(prisma, storyId)),
       startDate,
       dueDate,
@@ -193,12 +221,10 @@ export async function updateWorkItem(
   if (input.description !== undefined) data.description = input.description
   if (input.implementationLog !== undefined) data.implementationLog = input.implementationLog
   if (input.position !== undefined) data.position = input.position
-  if (input.status !== undefined) {
-    data.status = input.status
-    // Passer à Résolue / Terminée vaut 100 % d'avancement, sauf avancement explicite.
-    if (isDone(input.status) && input.progress === undefined) data.progress = 100
-  }
-  if (input.progress !== undefined) data.progress = input.progress
+  if (input.status !== undefined) data.status = input.status
+  // Résolu / terminé ⇒ 100 % ; rouvrir un élément conserve son avancement, sauf valeur fournie.
+  const progress = progressFor(input.status ?? current.status, input.progress)
+  if (progress !== undefined) data.progress = progress
   const estimatedHours = resolveHours(input.estimatedHours, input.estimatedDays, current.project.hoursPerDay, 'estimated')
   if (estimatedHours !== undefined) data.estimatedHours = estimatedHours
 
@@ -222,22 +248,29 @@ export async function deleteWorkItem(prisma: PrismaClient, workItemId: number): 
   await prisma.workItem.delete({ where: { id: workItemId } })
 }
 
-/** Ajoute une entrée horodatée (fuseau `timeZone`) en fin de journal d'avancement. */
+/**
+ * Ajoute une entrée horodatée (heure lue dans `clock.timeZone`) en fin de journal d'avancement.
+ * Lecture et écriture dans une même transaction : deux ajouts simultanés (ex. ai-bridge) ne s'écrasent pas.
+ */
 export async function addLogEntry(
   prisma: PrismaClient,
   workItemId: number,
   input: LogEntryCreate,
-  timeZone: string,
+  clock: { timeZone: string; now: Date },
 ): Promise<WorkItemDetailDto> {
-  const item = await prisma.workItem.findUnique({ where: { id: workItemId }, select: { implementationLog: true } })
-  if (!item) throw notFound(`Élément #${workItemId} introuvable`)
   const text = input.text.trim()
   if (text === '') throw badRequest('Le texte de l’entrée est vide')
+  const at = input.at === undefined ? clock.now : inputTimestamp(input.at, 'at')
+  const entry = formatLogEntry({ text, at, hours: input.hours ?? null }, clock.timeZone)
 
-  const entry = formatLogEntry({ text, at: input.at ? new Date(input.at) : new Date(), hours: input.hours ?? null }, timeZone)
-  await prisma.workItem.update({
-    where: { id: workItemId },
-    data: { implementationLog: appendLogEntry(item.implementationLog, entry) },
+  await prisma.$transaction(async (tx) => {
+    const item = await tx.workItem.findUnique({ where: { id: workItemId }, select: { implementationLog: true } })
+    if (!item) throw notFound(`Élément #${workItemId} introuvable`)
+    const implementationLog = appendLogEntry(item.implementationLog, entry)
+    if (implementationLog.length > MARKDOWN_MAX_LENGTH) {
+      throw badRequest(`Le journal dépasserait ${MARKDOWN_MAX_LENGTH.toLocaleString('fr-FR')} caractères`)
+    }
+    await tx.workItem.update({ where: { id: workItemId }, data: { implementationLog } })
   })
   return getWorkItemDetail(prisma, workItemId)
 }

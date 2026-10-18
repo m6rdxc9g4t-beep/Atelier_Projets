@@ -15,7 +15,7 @@ export const milestoneRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags,
         summary: 'Lister les jalons d’un projet (par date)',
         params: ProjectParams,
-        response: { 200: Type.Array(MilestoneSchema), ...errorResponses(404) },
+        response: { 200: Type.Array(MilestoneSchema), ...errorResponses(400, 404) },
       },
     },
     async (request) => listMilestones(app.prisma, request.params.projectId),
@@ -32,12 +32,12 @@ export const milestoneRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 201: MilestoneSchema, ...errorResponses(400, 404) },
       },
     },
-    async (request, reply) => reply.code(201).send(await createMilestone(app.prisma, request.params.projectId, request.body)),
+    async (request, reply) => reply.code(201).send(await createMilestone(app.prisma, request.params.projectId, request.body, app.settings.now())),
   )
 
   app.get(
     '/milestones/:milestoneId',
-    { schema: { tags, summary: 'Lire un jalon', params: MilestoneParams, response: { 200: MilestoneSchema, ...errorResponses(404) } } },
+    { schema: { tags, summary: 'Lire un jalon', params: MilestoneParams, response: { 200: MilestoneSchema, ...errorResponses(400, 404) } } },
     async (request) => getMilestone(app.prisma, request.params.milestoneId),
   )
 
@@ -52,12 +52,12 @@ export const milestoneRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 200: MilestoneSchema, ...errorResponses(400, 404) },
       },
     },
-    async (request) => updateMilestone(app.prisma, request.params.milestoneId, request.body),
+    async (request) => updateMilestone(app.prisma, request.params.milestoneId, request.body, app.settings.now()),
   )
 
   app.delete(
     '/milestones/:milestoneId',
-    { schema: { tags, summary: 'Supprimer un jalon', params: MilestoneParams, response: { 204: NoContent, ...errorResponses(404) } } },
+    { schema: { tags, summary: 'Supprimer un jalon', params: MilestoneParams, response: { 204: NoContent, ...errorResponses(400, 404) } } },
     async (request, reply) => {
       await deleteMilestone(app.prisma, request.params.milestoneId)
       return reply.code(204).send(null)

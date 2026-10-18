@@ -32,13 +32,13 @@ async function applyMigrations(databaseFile: string): Promise<void> {
   }
 }
 
-export async function createTestContext({ seed = false }: { seed?: boolean } = {}): Promise<TestContext> {
+export async function createTestContext({ seed = false, now }: { seed?: boolean; now?: () => Date } = {}): Promise<TestContext> {
   const dir = await mkdtemp(path.join(tmpdir(), 'atelier-projets-test-'))
   const databaseFile = path.join(dir, 'test.db')
   await applyMigrations(databaseFile)
   const prisma = createPrismaClient(`file:${databaseFile}`)
   const demoProjectId = seed ? await seedDemoProject(prisma) : 0
-  const app = await buildApp({ prisma, logger: false, timeZone: 'Europe/Paris' })
+  const app = await buildApp({ prisma, logger: false, timeZone: 'Europe/Paris', ...(now && { now }) })
   return {
     app,
     prisma,

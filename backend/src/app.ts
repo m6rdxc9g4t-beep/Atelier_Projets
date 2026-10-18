@@ -16,6 +16,7 @@ import Fastify, {
 import { BACKEND_ROOT, systemTimeZone } from './config.ts'
 import type { PrismaClient } from './db/client.ts'
 import { errorHandler } from './http/errors.ts'
+import { createValidatorCompiler } from './http/validation.ts'
 import { healthRoutes } from './routes/health.ts'
 import { hierarchyRoutes } from './routes/hierarchy.ts'
 import { milestoneRoutes } from './routes/milestones.ts'
@@ -26,6 +27,8 @@ import { workItemRoutes } from './routes/work-items.ts'
 export interface AppSettings {
   /** Fuseau IANA des horodatages lisibles (journal d'avancement, date du jour par défaut). */
   timeZone: string
+  /** Horloge (remplaçable dans les tests). */
+  now: () => Date
 }
 
 declare module 'fastify' {
@@ -48,23 +51,34 @@ export interface BuildAppOptions {
   prisma: PrismaClient
   logger?: FastifyServerOptions['logger']
   timeZone?: string
+  now?: () => Date
 }
 
 const { version } = JSON.parse(readFileSync(path.join(BACKEND_ROOT, 'package.json'), 'utf8')) as { version: string }
 
-export async function buildApp({ prisma, logger = true, timeZone = systemTimeZone() }: BuildAppOptions): Promise<App> {
-  const app = Fastify({
-    logger,
-    // Un champ inconnu dans un corps strict (additionalProperties: false) est une erreur 400, pas un champ ignoré.
-    ajv: { customOptions: { removeAdditional: false } },
-  }).withTypeProvider<TypeBoxTypeProvider>()
+export async function buildApp({
+  prisma,
+  logger = true,
+  timeZone = systemTimeZone(),
+  now = () => new Date(),
+}: BuildAppOptions): Promise<App> {
+  const app = Fastify({ logger }).withTypeProvider<TypeBoxTypeProvider>()
 
+  app.setValidatorCompiler(createValidatorCompiler())
   app.decorate('prisma', prisma)
-  app.decorate('settings', { timeZone })
+  app.decorate('settings', { timeZone, now })
   app.addHook('onClose', async () => {
     await prisma.$disconnect()
   })
   app.setErrorHandler(errorHandler)
+  app.setNotFoundHandler((request, reply) =>
+    reply.status(404).send({
+      statusCode: 404,
+      error: 'Not Found',
+      code: 'ROUTE_NOT_FOUND',
+      message: `Route ${request.method} ${request.url} introuvable`,
+    }),
+  )
 
   await app.register(swagger, {
     openapi: {

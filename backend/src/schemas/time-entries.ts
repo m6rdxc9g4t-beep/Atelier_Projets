@@ -15,7 +15,7 @@ export const TimeEntrySchema = Type.Object(
 )
 export type TimeEntryDto = Static<typeof TimeEntrySchema>
 
-const EntryHours = Type.Number({ exclusiveMinimum: 0, maximum: 24, description: 'Heures passées (> 0 et ≤ 24)' })
+const EntryHours = Type.Number({ minimum: 0.01, maximum: 24, description: 'Heures passées (de 0.01 à 24)' })
 const Comment = Type.String({ maxLength: 2000 })
 
 export const TimeEntryCreateSchema = StrictObject(

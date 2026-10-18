@@ -51,6 +51,7 @@ export function resolveHours(
   field: string,
 ): number | null | undefined {
   if (hours !== undefined && days !== undefined) {
+    if (hours === null && days === null) return null // effacer, quelle que soit l'unité
     throw badRequest(`Indiquer ${field}Hours ou ${field}Days, pas les deux`)
   }
   if (days !== undefined) return days === null ? null : daysToHours(days, hoursPerDay)
@@ -73,6 +74,25 @@ export function inputDate(value: string | null): Date | null {
 /** Date saisie : undefined = conserver `current`, null = effacer, chaîne = nouvelle date (00:00 UTC). */
 export function resolveDate(input: string | null | undefined, current: Date | null): Date | null {
   return input === undefined ? current : inputDate(input)
+}
+
+const MIN_TIMESTAMP_YEAR = 1970
+const MAX_TIMESTAMP_YEAR = 9999
+
+/**
+ * Horodatage saisi (ISO 8601) → Date. Refuse (400) ce que le format accepte mais que l'application ne
+ * sait pas stocker ou relire : seconde intercalaire, décalage incomplet, année hors 1970–9999 en UTC.
+ */
+export function inputTimestamp(value: string, field: string, options: { notAfter?: Date } = {}): Date {
+  const date = new Date(value)
+  const year = date.getUTCFullYear()
+  if (Number.isNaN(date.getTime()) || year < MIN_TIMESTAMP_YEAR || year > MAX_TIMESTAMP_YEAR) {
+    throw badRequest(`${field} invalide : « ${value} » (horodatage ISO 8601 entre ${MIN_TIMESTAMP_YEAR} et ${MAX_TIMESTAMP_YEAR})`)
+  }
+  if (options.notAfter && date > options.notAfter) {
+    throw badRequest(`${field} ne peut pas être dans le futur`)
+  }
+  return date
 }
 
 export function assertDateOrder(startDate: Date | null, dueDate: Date | null): void {
