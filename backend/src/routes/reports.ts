@@ -1,4 +1,5 @@
 // Vues calculées consommées telles quelles par le frontend (aucun calcul métier côté client).
+import { todayDateOnly } from '../domain/dates.ts'
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import { errorResponses } from '../schemas/common.ts'
 import { ProjectParams } from '../schemas/projects.ts'
@@ -62,7 +63,8 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
-      const { filename, content } = await getTimesheetCsv(app.prisma, request.params.projectId, request.query)
+      const { timeZone, now } = app.settings
+      const { filename, content } = await getTimesheetCsv(app.prisma, request.params.projectId, request.query, todayDateOnly(timeZone, now()))
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('content-disposition', `attachment; filename="${filename}"`)

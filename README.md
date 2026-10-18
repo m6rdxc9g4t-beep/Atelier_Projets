@@ -15,6 +15,7 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 | **Phase 3 — `git-engine`** | Analyse du dépôt local (`simple-git`, regex `#ID`), hook `post-commit`, synchronisation des Pull Requests GitHub (`@octokit/rest`), modèle `PullRequest` | ✅ Validée |
 | **Phase 4 — Frontend** | Client React (Vite, Tailwind CSS, Zustand, Lucide) : tableau de bord, Gantt, tableau des temps, fiche tâche, paramètres et dépôts ; composants UI purs du design system ; types de l'API générés depuis le contrat OpenAPI | ✅ Validée |
 | **Phase 5 — `ai-bridge`** | IA locale Ollama (Qwen, Gemma) : découpage d'une Story en Features / Tasks estimées, résumé des commits pour le journal d'avancement ; sessions Claude CLI dans le dépôt du projet ; API réservée aux requêtes locales | ✅ Terminée — en attente de validation |
+| **Phase 6 — Planification & suivi** | Gantt interactif (glisser-déposer des barres, bords et jalons, dépendances « fin → début », conflits et replanification, chemin critique), impression PDF du Gantt, export CSV des temps, chronomètre, sauvegardes automatiques de la base, tests de navigateur (Playwright) | ✅ Terminée — en attente de validation |
 
 ## ⚡ Démarrage rapide
 
@@ -42,6 +43,7 @@ Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : h
 | `npm run build` | Compilation du backend (`backend/dist/`) et de l'interface (`frontend/dist/`) |
 | `npm run openapi` | Après une modification de l'API : régénère `backend/openapi.json` puis les types du frontend |
 | `npm test` | Tests du backend (domaine, CRUD, vues calculées sur la démo), sur une base SQLite temporaire |
+| `npm run test:e2e` | Tests de navigateur (Playwright) : API sur une base temporaire (port 3100) et interface (port 5180), sans toucher à `npm run dev`. La première fois : `npm run test:e2e:install` (télécharge Chromium) |
 | `npm run db:migrate -- --name <nom>` | Nouvelle migration après modification du schéma (`prisma migrate dev`), puis régénération du client |
 | `npm run db:seed` | Réinsère le projet de démo « App E-Commerce v2 » (idempotent) |
 | `npm run db:reset` | Réinitialise la base, rejoue les migrations puis le seed |
@@ -49,6 +51,10 @@ Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : h
 | `npm run check` | Tokens du design system, `tsc --noEmit` du backend et du frontend, contrat OpenAPI à jour, aucune couleur en dur dans le frontend |
 
 La configuration est facultative : sans fichier `.env`, la base est créée dans `backend/prisma/dev.db` et l'API écoute sur `127.0.0.1:3000`. Pour changer ces valeurs, copier `backend/.env.example` en `backend/.env`.
+
+**Sauvegardes :** la base est copiée au démarrage puis toutes les 24 h dans `backend/prisma/backups/` (14 copies gardées) ; « Sauvegarder maintenant » et le téléchargement des copies sont dans **Paramètres du projet**. Pour restaurer : arrêter l'application, remplacer `backend/prisma/dev.db` par une copie, relancer.
+
+**Après une mise à jour du dépôt :** `npm install` puis `npm run setup` (applique les nouvelles migrations de la base ; le projet de démo est réinséré, vos projets sont conservés).
 
 ---
 
@@ -245,6 +251,14 @@ Chaque projet est lié à un dépôt Git local et un dépôt GitHub distant :
 
 ---
 
+**Interactions du Gantt :**
+
+- **Glisser une barre** pour la déplacer au jour près ; **glisser un bord** d'un élément pour changer son début ou sa fin ; **glisser un jalon** pour changer sa date. Une phase, un epic ou une story se déplace **avec tout son contenu** (et les jalons de la phase). Au clavier : `Alt` + `←`/`→` (un jour), `Alt` + `Maj` + `←`/`→` (la fin seulement).
+- **Dépendances « fin → début »** : tirer le rond au bout d'une barre jusqu'à un autre élément (ou « Prédécesseur » dans la fiche). Flèche grise : marge respectée ; flèche rouge en pointillés : conflit (le successeur commence avant la fin de son prédécesseur). Les boucles sont refusées.
+- **« N conflits · Replanifier »** décale les successeurs en conflit, en cascade, en conservant leur durée.
+- **Chemin critique** : surligne les éléments dont tout retard repousse la fin du projet.
+- **PDF** : imprime le Gantt affiché en A4 paysage, réduit à la largeur de la page (choisir « Enregistrer au format PDF »). Les stories repliées restent repliées.
+
 ### C. Fiche de Tâche (Double Onglet + Liaison Git/GitHub)
 
 Chaque élément (`#12345`) dispose de deux onglets :
@@ -374,15 +388,18 @@ Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`
 | Éléments | `GET /projects/:projectId/work-items?type=&status=&phaseId=&epicId=&storyId=&q=` (`q` : titre sans tenir compte de la casse ni des accents, ou `#ID`) · `GET·POST /stories/:storyId/work-items` · `GET·PATCH·DELETE /work-items/:workItemId` · `POST /work-items/:workItemId/log-entries` |
 | Temps | `GET·POST /work-items/:workItemId/time-entries` · `PATCH·DELETE /time-entries/:timeEntryId` |
 | Jalons | `GET·POST /projects/:projectId/milestones` · `GET·PATCH·DELETE /milestones/:milestoneId` (`reachedAt` : date d'atteinte, jamais dans le futur ; `null` = non atteint) |
+| Planification | `POST /work-items/:workItemId/dependencies` `{ predecessorId }` · `DELETE /work-items/:workItemId/dependencies/:predecessorId` · `POST /phases\|epics\|stories/:id/shift` `{ days }` (conteneur, contenu daté et jalons de la phase, tout ou rien) · `POST /projects/:projectId/schedule/resolve` (replanifie les conflits) |
+| Chronomètre | `GET /timer` · `POST /timer/start` `{ workItemId }` (arrête et saisit le chronomètre en cours ailleurs) · `POST /timer/stop` `{ comment? }` (crée la saisie : durée arrondie au centième d'heure, plafonnée à 24 h, jour du démarrage) · `DELETE /timer` (abandon) |
+| Export & sauvegardes | `GET /projects/:projectId/timesheet.csv` (mêmes filtres que le tableau des temps ; `;`, virgule décimale, UTF-8 avec BOM pour Excel) · `GET·POST /backups` · `GET /backups/:name` (fichier SQLite) |
 
 ### Vues calculées
 
 | Vue du frontend | Route | Contenu |
 | :--- | :--- | :--- |
 | DashboardView | `GET /projects/:projectId/dashboard` | Budget initial / réalisé / reste, solde (`balance` : `REMAINING` ou `OVER`), % consommé, avancement réel, tendance (`AHEAD` « En avance ✨ », `ON_TRACK`, `BEHIND`), histogramme des 8 statuts × 3 types |
-| GanttView | `GET /projects/:projectId/tree` | Phase > Epic > Story > Élément avec numérotation (`1`, `2`, `2.1`, affichée `PHASE 1`, `EPIC 2`, `STORY 2.1`), agrégats, plages de dates des barres, jalons de phase et de projet, plage globale du Gantt |
+| GanttView | `GET /projects/:projectId/tree` | Phase > Epic > Story > Élément avec numérotation (`1`, `2`, `2.1`, affichée `PHASE 1`, `EPIC 2`, `STORY 2.1`), agrégats, plages de dates des barres, jalons de phase et de projet, plage globale du Gantt ; dépendances (`slackDays`, `conflict`) et chemin critique (`criticalPath`) |
 | TimeSheetView | `GET /projects/:projectId/timesheet?epicId=&phaseId=&storyId=&type=&status=` | Par élément : budget, réalisé, bilan ; totaux (nombre, % terminé/résolu, budget, réalisé, reste et solde `balance`) |
-| TaskSlideOver | `GET /work-items/:workItemId` | Parent, statut, budget et temps, onglets Description et Journal, saisies de temps, commits liés au `#ID` |
+| TaskSlideOver | `GET /work-items/:workItemId` | Parent, statut, budget et temps, onglets Description et Journal, saisies de temps, commits liés au `#ID`, prédécesseurs et successeurs avec leur marge |
 
 Les trois vues et la fiche élément acceptent `?hoursPerDay=` pour afficher les jours avec une autre conversion (sélecteur « 1 Jour = 8 Heures ▾ »), sans modifier les heures stockées.
 
@@ -392,6 +409,7 @@ Les trois vues et la fiche élément acceptent `?hoursPerDay=` pour afficher les
 - **Statut d'un conteneur** (Phase, Epic, Story) : `OPEN` sans élément ou si tous sont à faire, `REJECTED` si tous sont rejetés, `CLOSED` / `RESOLVED` si tous les éléments retenus sont terminés, sinon `IN_PROGRESS` ; la répartition exacte est fournie dans `statusCounts`.
 - **Bilan** (colonne BILAN) : élément terminé → `UNDER` / `ON_BUDGET` / `OVER` selon réalisé − estimé ; élément en cours → `OVER` si l'estimation est déjà dépassée, sinon `REMAINING` (reste à consommer) ; pas de bilan sans estimation ni pour un rejeté.
 - **Journal d'avancement** : `POST /work-items/:id/log-entries` avec `{ "text", "at"?, "hours"? }` ajoute `> **18 Oct 2026 - 16h30 (4.5h passées) :** …` en fin de journal, de façon atomique (deux ajouts simultanés ne s'écrasent pas), dans la limite de 100 000 caractères. L'en-tête est informatif : le temps se saisit à part.
+- **Dépendances** : « fin → début » entre éléments d'un même projet, sans boucle. Marge = jours libres entre la fin du prédécesseur et le début du successeur (0 = enchaînement serré, négative = conflit). Chemin critique : les éléments qui finissent le plus tard, puis, en remontant, leurs prédécesseurs sans marge. Les éléments rejetés et non planifiés sont ignorés.
 - **Déplacements** : un élément, une story ou un epic ne change de parent qu'à l'intérieur de son projet ; il est placé en fin de liste sauf `position` fournie. Supprimer une phase supprime son contenu mais garde ses jalons, rattachés au projet.
 
 ### Git & GitHub (`git-engine`)

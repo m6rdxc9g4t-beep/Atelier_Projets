@@ -2,7 +2,7 @@
 // résolution des conflits de dépendances.
 import { formatDateOnly, parseDateOnly } from '../domain/dates.ts'
 import { effectiveSpan, type DateSpan } from '../domain/hierarchy.ts'
-import { criticalPath, dependencySlack, resolveConflicts, shiftDay, wouldCreateCycle, type Dependency } from '../domain/schedule.ts'
+import { criticalPath, daysBetween, dependencySlack, resolveConflicts, shiftDay, wouldCreateCycle, type Dependency } from '../domain/schedule.ts'
 import type { PrismaClient } from '../db/client.ts'
 import { badRequest, conflict, notFound } from '../http/errors.ts'
 import type {
@@ -62,7 +62,9 @@ export async function workItemDependencies(
     },
   })
   if (!item) throw notFound(`Élément #${workItemId} introuvable`)
-  const own = spanOf(item)
+  // Comme dans le Gantt : un élément rejeté sort du planning (pas de marge ni de conflit).
+  const planned = (other: Dated & { status: string }) => (other.status === 'REJECTED' ? null : spanOf(other))
+  const own = planned(item)
   const ref = (other: typeof item.predecessors[number]['predecessor'], slackDays: number | null): DependencyRefDto => ({
     id: other.id,
     type: other.type,
@@ -71,8 +73,8 @@ export async function workItemDependencies(
     slackDays,
   })
   return {
-    predecessors: item.predecessors.map(({ predecessor }) => ref(predecessor, dependencySlack(spanOf(predecessor), own))),
-    successors: item.successors.map(({ successor }) => ref(successor, dependencySlack(own, spanOf(successor)))),
+    predecessors: item.predecessors.map(({ predecessor }) => ref(predecessor, dependencySlack(planned(predecessor), own))),
+    successors: item.successors.map(({ successor }) => ref(successor, dependencySlack(own, planned(successor)))),
   }
 }
 
@@ -117,8 +119,14 @@ export async function resolveScheduleConflicts(prisma: PrismaClient, projectId: 
     const spans = new Map(items.filter((item) => item.status !== 'REJECTED').map((item) => [item.id, spanOf(item)]))
     const active = dependencies.filter((dependency: Dependency) => spans.has(dependency.predecessorId) && spans.has(dependency.successorId))
     const moved = resolveConflicts(spans, active)
+    const own = new Map(items.map((item) => [item.id, item]))
     for (const [id, span] of moved) {
-      await tx.workItem.update({ where: { id }, data: { startDate: parseDateOnly(span.start), dueDate: parseDateOnly(span.end) } })
+      // Décalage des seules dates renseignées : un élément planifié par sa seule échéance le reste.
+      const item = own.get(id)
+      const before = spans.get(id)
+      if (!item || !before) continue
+      const days = daysBetween(before.start, span.start)
+      await tx.workItem.update({ where: { id }, data: { startDate: shifted(item.startDate, days), dueDate: shifted(item.dueDate, days) } })
     }
     return { moved: [...moved].map(([id, span]) => ({ id, startDate: span.start, dueDate: span.end })).sort((a, b) => a.id - b.id) }
   })

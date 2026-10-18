@@ -16170,7 +16170,7 @@
                     },
                     "keep": {
                       "type": "integer",
-                      "description": "Sauvegardes conservées (BACKUP_KEEP)"
+                      "description": "Sauvegardes conservées de chaque sorte, automatique et manuelle (BACKUP_KEEP)"
                     },
                     "backups": {
                       "type": "array",

@@ -14,7 +14,7 @@ export const BackupListSchema = Type.Object(
   {
     enabled: Type.Boolean({ description: 'false : base en mémoire ou sauvegardes désactivées' }),
     dir: Type.String(),
-    keep: Type.Integer({ description: 'Sauvegardes conservées (BACKUP_KEEP)' }),
+    keep: Type.Integer({ description: 'Sauvegardes conservées de chaque sorte, automatique et manuelle (BACKUP_KEEP)' }),
     backups: Type.Array(BackupSchema, { description: 'Les plus récentes d’abord' }),
   },
   { description: 'Sauvegardes de la base SQLite' },

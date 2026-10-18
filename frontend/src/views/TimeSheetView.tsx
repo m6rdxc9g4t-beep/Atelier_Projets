@@ -1,12 +1,12 @@
 // Maquette D : tableau des temps (budget, réalisé, bilan par élément), filtres epic / type / statut,
 // conversion « 1 jour = X heures » demandée au backend.
-import { Clock3 } from 'lucide-react'
+import { Clock3, Download } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Card, Eyebrow, ErrorNotice, Spinner, StatusBadge, TypeChip } from '../components/ui.tsx'
 import { days, daysAndHours, percent, signedDays } from '../lib/format.ts'
 import { levelCode, STATUS_LABEL, STATUSES, TYPE_LABEL, WORK_ITEM_TYPES } from '../lib/labels.ts'
 import { useApi } from '../lib/use-api.ts'
-import { reportService } from '../services/api.ts'
+import { exportService, reportService } from '../services/api.ts'
 import type { Balance, Project, TimesheetRow, WorkItemStatus, WorkItemType } from '../services/types.ts'
 import { useAppState } from '../store/app.ts'
 
@@ -109,6 +109,19 @@ export function TimeSheetView({ project }: { project: Project }) {
               </option>
             ))}
           </select>
+          <a
+            className="ds-btn"
+            href={exportService.timesheetCsvUrl(project.id, {
+              hoursPerDay: hoursPerDay ?? undefined,
+              epicId: epicId ?? undefined,
+              type: types,
+              status: status ? [status] : [],
+            })}
+            download
+            title="Télécharger le tableau filtré (CSV pour Excel ou Numbers)"
+          >
+            <Download className="size-4" aria-hidden /> CSV
+          </a>
         </div>
       </div>
 

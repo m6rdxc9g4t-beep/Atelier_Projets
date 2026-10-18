@@ -265,6 +265,7 @@ export async function getTimesheetCsv(
   prisma: PrismaClient,
   projectId: number,
   filters: TimesheetFilters,
+  today: string,
 ): Promise<{ filename: string; content: string }> {
   const [sheet, project] = await Promise.all([getTimesheet(prisma, projectId, filters), requireProject(prisma, projectId)])
   const header = ['ID', 'Type', 'Titre', 'Statut', 'Phase', 'Epic', 'Story', 'Budget (j)', 'Réalisé (j)', 'Réalisé (h)', 'Bilan', 'Écart (j)']
@@ -297,6 +298,5 @@ export async function getTimesheetCsv(
     BALANCE_FR[totals.balance.kind] ?? totals.balance.kind,
     totals.balance.delta.days,
   ])
-  const date = new Date().toISOString().slice(0, 10)
-  return { filename: `temps-${project.slug ?? `projet-${project.id}`}-${date}.csv`, content: toCsv(header, rows) }
+  return { filename: `temps-${project.slug ?? `projet-${project.id}`}-${today}.csv`, content: toCsv(header, rows) }
 }

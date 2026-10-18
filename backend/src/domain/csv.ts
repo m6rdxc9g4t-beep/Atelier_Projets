@@ -4,7 +4,8 @@
 export function csvCell(value: string | number | null): string {
   if (value === null) return ''
   if (typeof value === 'number') return String(value).replace('.', ',')
-  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+  // Formule (=, +, -, @), même précédée d'espaces : préfixée d'une apostrophe pour Excel / LibreOffice.
+  const safe = /^[\s\u00a0]*[=+\-@]|^[\t\r]/.test(value) ? `'${value}` : value
   return /[;"\n\r]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe
 }
 

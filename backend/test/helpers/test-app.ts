@@ -18,7 +18,8 @@ export interface TestContext {
   close(): Promise<void>
 }
 
-async function applyMigrations(databaseFile: string): Promise<void> {
+/** Applique les migrations versionnées (SQL tel quel) à un fichier SQLite neuf. */
+export async function applyMigrations(databaseFile: string): Promise<void> {
   const migrationsDir = path.join(BACKEND_ROOT, 'prisma', 'migrations')
   const migrations = (await readdir(migrationsDir, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())

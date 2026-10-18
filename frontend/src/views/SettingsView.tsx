@@ -1,12 +1,12 @@
 // Paramètres du projet : identité, budget et « 1 jour = X heures », dépôt Git local (analyse, hook
 // post-commit) et dépôt GitHub (synchronisation des Pull Requests).
-import { FolderGit2, GitPullRequest, RefreshCw, Save, Trash2, Webhook } from 'lucide-react'
+import { DatabaseBackup, Download, FolderGit2, GitPullRequest, RefreshCw, Save, Trash2, Webhook } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Card, Eyebrow, Field } from '../components/ui.tsx'
 import { dateTime, parseNumber } from '../lib/format.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
-import { gitService, projectService } from '../services/api.ts'
+import { backupService, gitService, projectService } from '../services/api.ts'
 import type { GitHubSyncResult, GitScanResult, Project, ProjectUpdate } from '../services/types.ts'
 import { useApp } from '../store/app.ts'
 
@@ -139,6 +139,7 @@ export function SettingsView({ project }: { project: Project }) {
       <div className="space-y-5">
         <GitCard project={project} />
         <GitHubCard project={project} />
+        <BackupCard />
         <DeleteProject project={project} />
       </div>
     </div>
@@ -255,6 +256,57 @@ function GitHubCard({ project }: { project: Project }) {
             Synchroniser
           </Button>
           {result && <SyncSummary result={result} />}
+        </>
+      )}
+    </ActionCard>
+  )
+}
+
+function fileSize(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} Ko` : `${(bytes / 1024 / 1024).toFixed(1)} Mo`
+}
+
+/** Sauvegardes de toute la base (tous les projets) : automatiques chaque jour, ou à la demande. */
+function BackupCard() {
+  const backups = useApi(() => backupService.list(), [])
+  const { busy, run } = useAction()
+  const data = backups.data
+  return (
+    <ActionCard icon={<DatabaseBackup className="size-4 text-muted" aria-hidden />} title="Sauvegardes de la base">
+      {data && !data.enabled ? (
+        <p className="text-sm text-muted">Sauvegardes désactivées (BACKUP_KEEP=0 ou base en mémoire).</p>
+      ) : (
+        <>
+          <p className="text-sm text-muted">
+            Copie de tous les projets au démarrage puis toutes les 24 h ; les {data?.keep ?? 14} plus récentes sont gardées dans{' '}
+            <code className="break-all font-mono text-xs">{data?.dir ?? 'backend/prisma/backups'}</code>.
+          </p>
+          {data && data.backups.length > 0 && (
+            <ul className="divide-y divide-line rounded-lg border border-line" aria-label="Sauvegardes disponibles">
+              {data.backups.slice(0, 5).map((backup) => (
+                <li key={backup.name} className="flex items-center gap-3 px-3 py-2 text-sm">
+                  <span className="min-w-0 flex-1">
+                    {dateTime(backup.createdAt)} <span className="text-muted">· {backup.reason === 'auto' ? 'auto' : 'manuelle'} · {fileSize(backup.size)}</span>
+                  </span>
+                  <a className="ds-btn" data-variant="ghost" data-size="sm" href={backupService.downloadUrl(backup.name)} download aria-label={`Télécharger la sauvegarde du ${dateTime(backup.createdAt)}`}>
+                    <Download className="size-3.5" aria-hidden />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-muted">Restaurer : arrêter l’application, puis remplacer backend/prisma/dev.db par une sauvegarde.</span>
+            <Button
+              size="sm"
+              icon={<DatabaseBackup className="size-4" />}
+              busy={busy === 'backup'}
+              disabled={!data}
+              onClick={() => run('backup', () => backupService.create(), 'Base sauvegardée')}
+            >
+              Sauvegarder maintenant
+            </Button>
+          </div>
         </>
       )}
     </ActionCard>

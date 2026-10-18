@@ -29,7 +29,9 @@
     "openapi": "npm run openapi --workspace=@atelier/backend && npm run api:types --workspace=@atelier/frontend",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "check": "npm run check --workspaces --if-present"
+    "check": "npm run check --workspaces --if-present",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
   },
   "allowScripts": {
     "@prisma/engines": true,
@@ -39,6 +41,7 @@
     "prisma": true
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "concurrently": "^10.0.6"
   }
 }

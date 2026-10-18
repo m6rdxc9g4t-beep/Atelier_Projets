@@ -72,3 +72,10 @@ export type ClaudePrompt = ResponseOf<'/api/ai/claude/prompt', 'get'>
 export type ClaudeLaunchInput = BodyOf<'/api/ai/claude/launch', 'post'>
 export type ClaudeLaunchResult = ResponseOf<'/api/ai/claude/launch', 'post'>
 export type ClaudePermissionMode = NonNullable<ClaudeLaunchInput['permissionMode']>
+
+export type ProjectDependency = ProjectTree['dependencies'][number]
+export type DependencyRef = WorkItemDetail['predecessors'][number]
+export type TimerState = ResponseOf<'/api/timer', 'get'>
+export type RunningTimer = NonNullable<TimerState['timer']>
+export type BackupList = ResponseOf<'/api/backups', 'get'>
+export type Backup = BackupList['backups'][number]

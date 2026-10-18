@@ -80,6 +80,8 @@ export const milestoneService = {
 }
 
 export const workItemService = {
+  list: (projectId: number, query: { q?: string; type?: WorkItemType[]; status?: WorkItemStatus[] } = {}) =>
+    unwrap(http.GET('/api/projects/{projectId}/work-items', { params: { path: { projectId }, query } })),
   get: (workItemId: number, query: ViewOptions = {}) =>
     unwrap(http.GET('/api/work-items/{workItemId}', { params: { path: { workItemId }, query } })),
   create: (storyId: number, body: WorkItemInput) =>
@@ -116,4 +118,52 @@ export const gitService = {
     unwrap(http.DELETE('/api/projects/{projectId}/git/hook', { params: { path: { projectId } } })),
   syncGitHub: (projectId: number) =>
     unwrap(http.POST('/api/projects/{projectId}/github/sync', { params: { path: { projectId } } })),
+}
+
+/** Gantt interactif : dépendances « fin → début », déplacement d'un conteneur, replanification. */
+export const scheduleService = {
+  addDependency: (workItemId: number, predecessorId: number) =>
+    unwrap(http.POST('/api/work-items/{workItemId}/dependencies', { params: { path: { workItemId } }, body: { predecessorId } })),
+  removeDependency: (workItemId: number, predecessorId: number) =>
+    unwrap(
+      http.DELETE('/api/work-items/{workItemId}/dependencies/{predecessorId}', { params: { path: { workItemId, predecessorId } } }),
+    ),
+  resolve: (projectId: number) =>
+    unwrap(http.POST('/api/projects/{projectId}/schedule/resolve', { params: { path: { projectId } } })),
+  shiftPhase: (phaseId: number, days: number) =>
+    unwrap(http.POST('/api/phases/{phaseId}/shift', { params: { path: { phaseId } }, body: { days } })),
+  shiftEpic: (epicId: number, days: number) =>
+    unwrap(http.POST('/api/epics/{epicId}/shift', { params: { path: { epicId } }, body: { days } })),
+  shiftStory: (storyId: number, days: number) =>
+    unwrap(http.POST('/api/stories/{storyId}/shift', { params: { path: { storyId } }, body: { days } })),
+}
+
+export const timerService = {
+  get: () => unwrap(http.GET('/api/timer')),
+  start: (workItemId: number) => unwrap(http.POST('/api/timer/start', { body: { workItemId } })),
+  stop: (comment?: string) => unwrap(http.POST('/api/timer/stop', { body: comment ? { comment } : {} })),
+  discard: () => unwrap(http.DELETE('/api/timer')),
+}
+
+export const backupService = {
+  list: () => unwrap(http.GET('/api/backups')),
+  create: () => unwrap(http.POST('/api/backups')),
+  /** Lien de téléchargement direct (fichier SQLite). */
+  downloadUrl: (name: string) => `/api/backups/${encodeURIComponent(name)}`,
+}
+
+/** Liens de téléchargement directs (le navigateur enregistre le fichier). */
+export const exportService = {
+  timesheetCsvUrl: (
+    projectId: number,
+    query: ViewOptions & { epicId?: number; type?: WorkItemType[]; status?: WorkItemStatus[] } = {},
+  ) => {
+    const params = new URLSearchParams()
+    if (query.hoursPerDay !== undefined) params.set('hoursPerDay', String(query.hoursPerDay))
+    if (query.epicId !== undefined) params.set('epicId', String(query.epicId))
+    for (const type of query.type ?? []) params.append('type', type)
+    for (const status of query.status ?? []) params.append('status', status)
+    const search = params.toString()
+    return `/api/projects/${projectId}/timesheet.csv${search ? `?${search}` : ''}`
+  },
 }

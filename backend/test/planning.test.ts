@@ -72,6 +72,8 @@ describe('CSV', () => {
     assert.equal(csvCell('a;b'), '"a;b"')
     assert.equal(csvCell('dit "oui"'), '"dit ""oui"""')
     assert.equal(csvCell('=SOMME(A1)'), "'=SOMME(A1)")
+    assert.equal(csvCell(' \u00a0+1+1'), "' \u00a0+1+1")
+    assert.equal(csvCell('Tâche - suite'), 'Tâche - suite')
     assert.equal(csvCell(null), '')
     assert.equal(toCsv(['A', 'B'], [[1, 'x']]), '﻿A;B\r\n1;x\r\n')
   })
@@ -148,6 +150,17 @@ describe('API de planification, chronomètre et export', () => {
     assert.deepEqual((await api('POST', `/api/projects/${projectId}/schedule/resolve`)).body.moved, [])
   })
 
+  it('ne remplit pas les dates laissées vides en replanifiant', async () => {
+    const lone = (await api('POST', `/api/stories/${storyId}/work-items`, { type: 'BUG', title: 'Échéance seule', dueDate: '2026-11-08' })).body
+    assert.equal((await api('POST', `/api/work-items/${lone.id}/dependencies`, { predecessorId: items.c })).status, 204)
+    const { body } = await api('POST', `/api/projects/${projectId}/schedule/resolve`)
+    assert.deepEqual(body.moved, [{ id: lone.id, startDate: '2026-11-11', dueDate: '2026-11-11' }])
+    const after = (await api('GET', `/api/work-items/${lone.id}`)).body
+    assert.equal(after.startDate, null)
+    assert.equal(after.dueDate, '2026-11-11')
+    await api('DELETE', `/api/work-items/${lone.id}`)
+  })
+
   it('supprime une dépendance', async () => {
     assert.equal((await api('DELETE', `/api/work-items/${items.c}/dependencies/${items.b}`)).status, 204)
     assert.equal((await api('DELETE', `/api/work-items/${items.c}/dependencies/${items.b}`)).status, 404)
@@ -193,7 +206,14 @@ describe('API de planification, chronomètre et export', () => {
     assert.equal(stopped.body.capped, false)
     assert.deepEqual((await api('GET', '/api/timer')).body, { timer: null })
 
-    await api('POST', '/api/timer/start', { workItemId: items.c })
+    // Deux démarrages simultanés : un seul chronomètre, aucune erreur.
+    const both = await Promise.all([
+      api('POST', '/api/timer/start', { workItemId: items.c }),
+      api('POST', '/api/timer/start', { workItemId: items.a }),
+    ])
+    assert.deepEqual(both.map((res) => res.status), [200, 200])
+    const running = (await api('GET', '/api/timer')).body.timer
+    assert.ok([items.a, items.c].includes(running.workItemId))
     assert.equal((await api('DELETE', '/api/timer')).status, 204)
     assert.deepEqual((await api('GET', '/api/timer')).body, { timer: null })
     assert.equal((await api('POST', '/api/timer/start', { workItemId: 999999 })).status, 404)
@@ -241,10 +261,40 @@ describe('sauvegardes', () => {
     now = new Date('2026-11-04T08:00:00.000Z')
     await manager.create('auto')
     const names = (await manager.list()).map((backup) => backup.name)
-    assert.deepEqual(names, ['atelier-2026-11-04T08-00-00-000-auto.db', 'atelier-2026-11-03T08-00-00-000-auto.db'])
+    assert.deepEqual(names, [
+      'atelier-2026-11-04T08-00-00-000-auto.db',
+      'atelier-2026-11-03T08-00-00-000-auto.db',
+      'atelier-2026-11-02T08-00-00-000-manual.db',
+    ])
+    // Les copies automatiques ne chassent pas les manuelles : 2 de chaque sorte au plus.
+    now = new Date('2026-11-05T08:00:00.000Z')
+    await manager.create('auto')
+    assert.deepEqual((await manager.list()).map((backup) => backup.name).slice(-2), [
+      'atelier-2026-11-04T08-00-00-000-auto.db',
+      'atelier-2026-11-02T08-00-00-000-manual.db',
+    ])
     assert.ok((await readdir(path.join(dir, 'backups'))).includes('notes.txt'))
     assert.equal(await manager.file('../source.db'), null)
-    assert.equal(await manager.file(first.name), null)
+    assert.ok(await manager.file(first.name))
+  })
+
+  it('enchaîne les sauvegardes simultanées sans fichier partiel restant', async () => {
+    let tick = 0
+    const manager = new BackupManager({
+      databaseFile,
+      dir: path.join(dir, 'chain'),
+      keep: 5,
+      now: () => new Date(Date.UTC(2026, 10, 2, 8, 0, 0, tick++)),
+    })
+    const created = await Promise.all([manager.create('manual'), manager.create('manual'), manager.create('manual')])
+    assert.equal(new Set(created.map((backup) => backup.name)).size, 3)
+    const files = await readdir(path.join(dir, 'chain'))
+    assert.equal(files.length, 3)
+    assert.ok(files.every((name) => !name.endsWith('.partial')))
+
+    const broken = new BackupManager({ databaseFile: path.join(dir, 'absente.db'), dir: path.join(dir, 'broken'), keep: 5 })
+    await assert.rejects(broken.create('manual'))
+    assert.deepEqual(await broken.list(), [])
   })
 
   it('expose les sauvegardes dans l’API', async () => {

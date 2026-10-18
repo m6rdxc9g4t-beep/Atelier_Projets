@@ -26,3 +26,7 @@ coverage/
 
 # Sauvegardes de la base (BACKUP_DIR)
 backend/prisma/backups/
+
+# Résultats des tests de navigateur
+e2e/.results/
+playwright-report/

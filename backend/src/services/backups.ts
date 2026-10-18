@@ -1,7 +1,7 @@
 // Sauvegardes de la base SQLite : copie cohérente à chaud (API « backup » de SQLite via better-sqlite3),
 // automatique au démarrage puis toutes les 24 h, manuelle depuis l'interface ; les plus anciennes sont
-// supprimées au-delà de BACKUP_KEEP. Restauration : arrêter l'application et remplacer le fichier de la base.
-import { mkdir, readdir, rm, stat } from 'node:fs/promises'
+// supprimées au-delà de BACKUP_KEEP (pour chaque sorte, automatique ou manuelle). Restauration : arrêter l'application et remplacer le fichier de la base.
+import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 
@@ -44,7 +44,7 @@ export class BackupManager {
   private readonly databaseFile: string
   private readonly now: () => Date
   private timer: NodeJS.Timeout | null = null
-  private running: Promise<BackupInfo> | null = null
+  private queue: Promise<unknown> | null = null
 
   constructor(options: BackupManagerOptions) {
     this.databaseFile = options.databaseFile
@@ -65,15 +65,11 @@ export class BackupManager {
     return backups.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.name.localeCompare(a.name))
   }
 
-  /** Copie cohérente de la base, même pendant des écritures ; une seule sauvegarde à la fois. */
-  async create(reason: BackupReason): Promise<BackupInfo> {
-    if (this.running) await this.running.catch(() => undefined)
-    this.running = this.doCreate(reason)
-    try {
-      return await this.running
-    } finally {
-      this.running = null
-    }
+  /** Copie cohérente de la base, même pendant des écritures ; les sauvegardes s'enchaînent une à une. */
+  create(reason: BackupReason): Promise<BackupInfo> {
+    const next = (this.queue ?? Promise.resolve()).then(() => this.doCreate(reason))
+    this.queue = next.catch(() => undefined)
+    return next
   }
 
   private async doCreate(reason: BackupReason): Promise<BackupInfo> {
@@ -81,9 +77,15 @@ export class BackupManager {
     const stamp = this.now().toISOString().replace(/:/g, '-').replace('.', '-').replace(/Z$/, '')
     const name = `atelier-${stamp}-${reason}.db`
     const target = path.join(this.dir, name)
+    // Copie dans un fichier temporaire puis renommage : une copie interrompue n'est jamais listée.
+    const partial = `${target}.partial`
     const source = new Database(this.databaseFile, { readonly: true, fileMustExist: true })
     try {
-      await source.backup(target)
+      await source.backup(partial)
+      await rename(partial, target)
+    } catch (error) {
+      await rm(partial, { force: true })
+      throw error
     } finally {
       source.close()
     }
@@ -100,9 +102,14 @@ export class BackupManager {
     return info?.isFile() ? file : null
   }
 
+  /** Garde les `keep` plus récentes de chaque sorte : les copies manuelles ne sont pas chassées par les automatiques. */
   private async prune(): Promise<void> {
     const backups = await this.list()
-    for (const backup of backups.slice(this.keep)) await rm(path.join(this.dir, backup.name), { force: true })
+    for (const reason of ['auto', 'manual'] as const) {
+      for (const backup of backups.filter((candidate) => candidate.reason === reason).slice(this.keep)) {
+        await rm(path.join(this.dir, backup.name), { force: true })
+      }
+    }
   }
 
   /** Sauvegarde automatique si la dernière date de plus de 24 h, vérifiée maintenant puis toutes les heures. */

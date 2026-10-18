@@ -112,6 +112,122 @@
   }
 }
 
+/* Gantt interactif : poignées de redimensionnement, rond de liaison, flèches de dépendance. */
+.gantt-handle {
+  position: absolute;
+  inset-block: 0;
+  inline-size: 0.5rem;
+  cursor: ew-resize;
+  opacity: 0;
+  background: color-mix(in oklab, var(--text-primary) 35%, transparent);
+}
+.group:hover .gantt-handle,
+.gantt-handle:active {
+  opacity: 1;
+}
+.gantt-link-handle {
+  position: absolute;
+  top: 50%;
+  z-index: 6;
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border-radius: 999px;
+  translate: 0 -50%;
+  background: var(--bg-surface);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  cursor: crosshair;
+  touch-action: none;
+  opacity: 0;
+}
+.group:hover .gantt-link-handle {
+  opacity: 1;
+}
+.gantt-links {
+  overflow: visible;
+}
+.gantt-link-line,
+.gantt-link-draft {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+}
+.gantt-link-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 10;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.gantt-link:hover .gantt-link-line {
+  stroke-width: 2.5;
+}
+.gantt-link-head {
+  fill: var(--text-muted);
+}
+.gantt-link[data-tone="critical"] .gantt-link-line {
+  stroke: var(--status-blocked);
+  stroke-width: 2;
+}
+.gantt-link-head[data-tone="critical"] {
+  fill: var(--status-blocked);
+}
+.gantt-link[data-tone="conflict"] .gantt-link-line {
+  stroke: var(--status-rejected);
+  stroke-dasharray: 4 3;
+}
+.gantt-link-head[data-tone="conflict"] {
+  fill: var(--status-rejected);
+}
+.gantt-link-draft {
+  stroke: var(--accent);
+  stroke-dasharray: 5 4;
+}
+
+/* Impression du Gantt (« PDF ») : seule la carte du Gantt, réduite à la largeur d'une page A4 paysage. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  html[data-printing="gantt"],
+  html[data-printing="gantt"] body,
+  html[data-printing="gantt"] #root {
+    height: auto;
+    overflow: visible;
+    background: var(--bg-surface);
+  }
+  html[data-printing="gantt"] body * {
+    visibility: hidden;
+  }
+  html[data-printing="gantt"] .gantt-card,
+  html[data-printing="gantt"] .gantt-card * {
+    visibility: visible;
+  }
+  html[data-printing="gantt"] .gantt-card {
+    position: absolute;
+    inset: 0 auto auto 0;
+    /* Sans requête de conteneur à l'impression : la carte prend la largeur du diagramme (réduit). */
+    container-type: normal;
+    width: max-content;
+    border: 0;
+    box-shadow: none;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  html[data-printing="gantt"] .gantt {
+    --gantt-left: var(--print-left, 21rem);
+    max-height: none;
+    overflow: visible;
+  }
+  html[data-printing="gantt"] .gantt-content {
+    zoom: var(--print-scale, 1);
+  }
+  html[data-printing="gantt"] .gantt-link-handle,
+  html[data-printing="gantt"] .gantt-handle {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

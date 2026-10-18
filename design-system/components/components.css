@@ -279,4 +279,9 @@
     opacity: 0.55;
     background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in oklab, var(--kind-color) 30%, transparent) 5px 7px);
   }
+  /* États de planning : chemin critique, conflit de dépendance, hors chemin critique, en déplacement. */
+  .ds-bar[data-critical] { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--kind-color) 50%, transparent), 0 0 0 2px var(--status-blocked); }
+  .ds-bar[data-conflict] { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--kind-color) 50%, transparent), 0 0 0 2px var(--status-rejected); }
+  .ds-bar[data-faded] { opacity: 0.35; }
+  .ds-bar[data-dragging] { box-shadow: 0 0 0 2px var(--accent), var(--ds-shadow-card); }
 }

@@ -24,6 +24,8 @@ import { levelCode, PRIORITIES, PRIORITY_LABEL, STATUS_LABEL, STATUSES, TYPE_LAB
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
 import { ClaudeLaunchButton, Generating, useAiModel } from '../components/AiDialogs.tsx'
+import { DependenciesSection } from '../components/Dependencies.tsx'
+import { TimerButton } from '../components/Timer.tsx'
 import { aiService, gitService, workItemService } from '../services/api.ts'
 import { ApiError, errorMessage, isAbort } from '../services/client.ts'
 import type { Priority, Project, SummarizeResult, WorkItemDetail, WorkItemStatus, WorkItemType } from '../services/types.ts'
@@ -185,6 +187,8 @@ function TaskContent({ item }: { item: WorkItemDetail }) {
       </section>
 
       <BudgetSection item={item} />
+
+      <DependenciesSection item={item} />
 
       <section>
         <Tabs
@@ -380,9 +384,12 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
     <section className="space-y-4 p-5">
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">Budget &amp; Temps</h3>
-        <Button size="sm" variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding((value) => !value)} aria-expanded={adding}>
-          Saisir temps
-        </Button>
+        <div className="flex items-center gap-2">
+          <TimerButton workItemId={item.id} />
+          <Button size="sm" variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding((value) => !value)} aria-expanded={adding}>
+            Saisir temps
+          </Button>
+        </div>
       </div>
       <dl className="grid grid-cols-3 gap-3">
         <div>

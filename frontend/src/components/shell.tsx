@@ -23,6 +23,7 @@ import { useApi } from '../lib/use-api.ts'
 import { aiService } from '../services/api.ts'
 import type { Project } from '../services/types.ts'
 import { useAppState, type ViewId } from '../store/app.ts'
+import { TimerPill } from './Timer.tsx'
 import { Button, Tabs } from './ui.tsx'
 
 export const VIEWS: { id: ViewId; label: string; short: string; icon: ReactNode }[] = [
@@ -79,6 +80,7 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
         </a>
       )}
       <div className="ml-auto flex items-center gap-2">
+        <TimerPill />
         <div className="flex items-center rounded-lg border border-line bg-sunken p-0.5" role="group" aria-label="Thème">
           <ThemeButton active={theme === 'light'} onClick={() => setTheme('light')} label="Thème clair" icon={<Sun className="size-4" />} />
           <span className="px-0.5 text-muted" aria-hidden>
