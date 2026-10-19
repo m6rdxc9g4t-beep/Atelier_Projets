@@ -1,6 +1,7 @@
 // Cadre de l'application (maquette du README §4) : en-tête, rail de navigation, onglets, notifications.
 import {
   Bot,
+  CalendarCheck,
   CalendarRange,
   Check,
   ChevronDown,
@@ -14,7 +15,6 @@ import {
   Monitor,
   Moon,
   Plus,
-  Rocket,
   Settings,
   Sun,
   X,
@@ -67,9 +67,13 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
     <header className="flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line bg-surface px-3 sm:px-4">
       <Button variant="ghost" icon={<Menu className="size-5" />} aria-label="Afficher ou masquer les libellés du menu" onClick={toggleRail} />
       <SuiteSwitcher />
-      <div className="flex items-center gap-2 pr-1">
-        <Rocket className="size-5 text-accent-ink" aria-hidden />
-        <span className="hidden whitespace-nowrap text-[15px] font-bold tracking-tight sm:inline">Atelier Projets</span>
+      <div className="atelier-brand pr-1" title="Atelier Projets">
+        <span className="atelier-brand__tile" aria-hidden="true">
+          <CalendarCheck />
+        </span>
+        <span className="atelier-brand__name hidden sm:inline">
+          <span className="atelier-brand__prefix">atelier_</span>Projets
+        </span>
       </div>
       <ProjectSwitcher projects={projects} project={project} />
       {github && project?.github && (

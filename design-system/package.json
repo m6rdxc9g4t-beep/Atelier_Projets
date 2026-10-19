@@ -11,13 +11,15 @@
     "./components/*": "./components/*",
     "./tokens/*": "./tokens/*",
     "./themes/*": "./themes/*",
+    "./brand/*": "./brand/*",
     "./package.json": "./package.json"
   },
   "files": [
     "index.css",
     "tokens",
     "themes",
-    "components"
+    "components",
+    "brand"
   ],
   "scripts": {
     "check": "node scripts/check-tokens.mjs"
