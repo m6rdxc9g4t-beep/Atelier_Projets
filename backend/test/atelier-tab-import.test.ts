@@ -245,8 +245,8 @@ describe('POST /api/imports/atelier-tab', () => {
     assert.equal(unknown.statusCode, 404)
   })
 
-  it('CORS : preflight accepté pour 127.0.0.1, localhost et null, refusé ailleurs ; reste de l’API sans CORS', async () => {
-    for (const origin of ['http://127.0.0.1:5175', 'http://localhost:4175', 'null']) {
+  it('CORS : preflight accepté pour 127.0.0.1 et localhost, refusé ailleurs ; reste de l’API sans CORS', async () => {
+    for (const origin of ['http://127.0.0.1:5175', 'http://localhost:4175']) {
       const response = await ctx.app.inject({
         method: 'OPTIONS',
         url: '/api/imports/atelier-tab',
@@ -268,14 +268,14 @@ describe('POST /api/imports/atelier-tab', () => {
     })
     assert.equal(foreign.headers['access-control-allow-origin'], undefined)
 
-    // Requête réelle depuis l'app Electron (Origin: null) : acceptée et lisible.
-    const electron = await post('/api/imports/atelier-tab/preview', envelope(), { origin: 'null' })
-    assert.equal(electron.statusCode, 200)
-    assert.equal(electron.headers['access-control-allow-origin'], 'null')
     // Depuis Atelier Tab dans le navigateur (autre port local).
     const browser = await post('/api/imports/atelier-tab/preview', envelope(), { origin: 'http://127.0.0.1:5175' })
     assert.equal(browser.statusCode, 200)
     assert.equal(browser.headers['access-control-allow-origin'], 'http://127.0.0.1:5175')
+    // Relais de l'app de bureau Tab (processus principal) : aucun en-tête Origin, appel local ordinaire.
+    const relay = await post('/api/imports/atelier-tab/preview', envelope())
+    assert.equal(relay.statusCode, 200)
+    assert.equal(relay.headers['access-control-allow-origin'], undefined)
     // Un autre site reste refusé par le garde local.
     const evil = await post('/api/imports/atelier-tab', envelope(), { origin: 'https://evil.example' })
     assert.equal(evil.statusCode, 403)
@@ -289,6 +289,26 @@ describe('POST /api/imports/atelier-tab', () => {
     assert.equal(isSuiteOrigin('https://127.0.0.1:3000'), false)
     assert.equal(isSuiteOrigin('http://127.0.0.1.evil.example'), false)
     assert.equal(isSuiteOrigin('http://localhost:5175/chemin'), false)
+    assert.equal(isSuiteOrigin('null'), false)
+  })
+
+  it('origine « null » refusée sur les routes d’import (iframe sandbox, data:, fichier local)', async () => {
+    const before = await ctx.prisma.workItem.count()
+    const preflight = await ctx.app.inject({
+      method: 'OPTIONS',
+      url: '/api/imports/atelier-tab',
+      headers: { origin: 'null', 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' },
+    })
+    for (const name of ['access-control-allow-origin', 'access-control-allow-methods', 'access-control-allow-headers']) {
+      assert.equal(preflight.headers[name], undefined, name)
+    }
+    for (const url of ['/api/imports/atelier-tab', '/api/imports/atelier-tab/preview', `/api/imports/atelier-tab/preview?projectId=${projectId}`]) {
+      const response = await post(url, envelope((p) => (p.project.source_table = { id: 'tbl_null', name: 'Null' })), { origin: 'null' })
+      assert.equal(response.statusCode, 403, url)
+      assert.equal(response.json().code, 'FORBIDDEN_ORIGIN')
+      assert.equal(response.headers['access-control-allow-origin'], undefined, 'réponse illisible par la page')
+    }
+    assert.equal(await ctx.prisma.workItem.count(), before)
   })
 })
 

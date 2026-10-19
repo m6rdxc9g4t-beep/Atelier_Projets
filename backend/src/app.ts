@@ -17,7 +17,7 @@ import { BACKEND_ROOT, systemTimeZone } from './config.ts'
 import type { PrismaClient } from './db/client.ts'
 import { errorHandler } from './http/errors.ts'
 import { allowedHosts, createLocalOnlyGuard } from './http/local-only.ts'
-import { isSuiteRoute, suiteCorsHook } from './http/suite-cors.ts'
+import { suiteCorsHook } from './http/suite-cors.ts'
 import { createValidatorCompiler } from './http/validation.ts'
 import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
 import { createOllamaClient } from './ai-bridge/ollama.ts'
@@ -125,10 +125,7 @@ export async function buildApp({
   app.setErrorHandler(errorHandler)
   // CORS des routes de la suite d'abord : une réponse d'erreur du garde reste lisible par l'appelant.
   app.addHook('onRequest', suiteCorsHook)
-  app.addHook(
-    'onRequest',
-    createLocalOnlyGuard(allowedHosts(undefined, [new URL(publicUrl).host, ...extraHosts]), { allowNullOrigin: isSuiteRoute }),
-  )
+  app.addHook('onRequest', createLocalOnlyGuard(allowedHosts(undefined, [new URL(publicUrl).host, ...extraHosts])))
   app.setNotFoundHandler((request, reply) =>
     reply.status(404).send({
       statusCode: 404,

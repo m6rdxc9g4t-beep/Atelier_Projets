@@ -1,6 +1,8 @@
 // CORS des routes ouvertes aux autres applications de la Suite Atelier (docs/SUITE.md §4.1).
 // Seules les routes marquées `config: { suiteCors: true }` répondent aux navigateurs d'une autre origine :
-// http://127.0.0.1:<port>, http://localhost:<port> et « null » (app Electron d'Atelier Tab, fichier local).
+// http://127.0.0.1:<port> et http://localhost:<port>. L'origine « null » est refusée : n'importe quelle page
+// peut l'envoyer (iframe sandbox, URL data:, fichier local) ; l'app de bureau Atelier Tab relaie ses envois
+// depuis son processus principal, sans en-tête Origin (requête locale ordinaire).
 // Le reste de l'API garde la même origine que son interface (aucun en-tête CORS).
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
@@ -10,14 +12,13 @@ const EXPOSED_HEADERS = 'Idempotency-Replayed'
 
 declare module 'fastify' {
   interface FastifyContextConfig {
-    /** Route ouverte aux applications de la Suite Atelier (CORS restreint, origine « null » acceptée). */
+    /** Route ouverte aux applications de la Suite Atelier (CORS restreint aux origines locales en http). */
     suiteCors?: boolean
   }
 }
 
-/** Origine acceptée par les routes de la suite : 127.0.0.1 ou localhost en http, sur n'importe quel port, ou « null ». */
+/** Origine acceptée par les routes de la suite : 127.0.0.1 ou localhost en http, sur n'importe quel port (jamais « null »). */
 export function isSuiteOrigin(origin: string): boolean {
-  if (origin === 'null') return true
   let url: URL
   try {
     url = new URL(origin)
