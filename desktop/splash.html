@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Atelier Projets</title>
+    <link rel="stylesheet" href="../design-system/tokens/colors.css" />
+    <link rel="stylesheet" href="../design-system/themes/light.css" />
+    <link rel="stylesheet" href="../design-system/themes/dark.css" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        background: var(--bg-main);
+        color: var(--text-primary);
+        font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      main {
+        text-align: center;
+      }
+      h1 {
+        margin: 18px 0 6px;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+      p {
+        margin: 0;
+        color: var(--text-muted);
+        min-height: 1.5em;
+      }
+      .ring {
+        width: 34px;
+        height: 34px;
+        margin: 0 auto;
+        border-radius: 50%;
+        border: 3px solid var(--border-color);
+        border-top-color: var(--type-epic);
+        animation: spin 0.9s linear infinite;
+      }
+      small {
+        display: block;
+        margin-top: 14px;
+        color: var(--text-muted);
+        opacity: 0.8;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="ring" aria-hidden="true"></div>
+      <h1>ATELIER PROJETS</h1>
+      <p id="status" role="status">Démarrage…</p>
+      <small id="hint"></small>
+    </main>
+    <script>
+      window.setStatus = (text, hint) => {
+        document.getElementById('status').textContent = text
+        document.getElementById('hint').textContent = hint || ''
+      }
+    </script>
+  </body>
+</html>

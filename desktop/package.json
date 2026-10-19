@@ -1,0 +1,14 @@
+{
+  "name": "@atelier/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Application de bureau d'Atelier Projets (Electron) : fenêtre native qui démarre l'API et l'interface compilée.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.cjs\""
+  },
+  "devDependencies": {
+    "electron": "44.6.0"
+  }
+}

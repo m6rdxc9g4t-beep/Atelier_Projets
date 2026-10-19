@@ -7,7 +7,8 @@
   "workspaces": [
     "design-system",
     "backend",
-    "frontend"
+    "frontend",
+    "desktop"
   ],
   "engines": {
     "node": "^22.12.0 || >=24.0.0",
@@ -19,7 +20,7 @@
     "dev:backend": "npm run dev --workspace=@atelier/backend",
     "dev:frontend": "npm run dev --workspace=@atelier/frontend",
     "app": "npm run build:frontend && concurrently --kill-others-on-fail --names api,web --prefix-colors auto \"npm run dev:backend\" \"npm run preview --workspace=@atelier/frontend\"",
-    "app:install": "bash scripts/macos/install-launcher.sh",
+    "app:install": "bash scripts/macos/install-desktop.sh",
     "build": "npm run build --workspace=@atelier/backend && npm run build --workspace=@atelier/frontend",
     "build:backend": "npm run build --workspace=@atelier/backend",
     "build:frontend": "npm run build --workspace=@atelier/frontend",
@@ -32,7 +33,9 @@
     "test": "npm run test --workspaces --if-present",
     "check": "npm run check --workspaces --if-present",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "app:install:browser": "bash scripts/macos/install-launcher.sh",
+    "app:desktop": "npm start --workspace=@atelier/desktop"
   },
   "allowScripts": {
     "@prisma/engines": true,
