@@ -50,7 +50,7 @@ node desktop/prepare.cjs
 # une application ouverte depuis le Finder ne charge pas ~/.zshrc.
 SAVED_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v -e '/node_modules/\.bin$' -e 'node-gyp-bin' | paste -sd: -)"
 
-echo "→ Création de $APP…"
+echo "→ Création de ${APP}…"
 # Ancienne application (lanceur navigateur ou version précédente) : arrêtée puis remplacée.
 osascript -e "if application \"$NAME\" is running then tell application \"$NAME\" to quit" >/dev/null 2>&1 || true
 sleep 1
