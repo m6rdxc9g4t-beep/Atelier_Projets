@@ -29,7 +29,13 @@ npm run dev            # API (port 3000) + interface (port 5173)
 
 Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : http://127.0.0.1:3000/api/docs.
 
-**Lancement en double clic (macOS) :** `npm run app:install` crée `~/Applications/Atelier Projets.app` (à glisser dans le Dock). Au double clic, l'application démarre l'API et l'interface en arrière-plan puis ouvre le navigateur ; si elles tournent déjà, elle propose « Ouvrir » ou « Arrêter ». Journal : `~/Library/Logs/Atelier_Projets/dev.log`. À relancer après un déplacement du dépôt ou un changement d'installation de Node.
+**Application de bureau (macOS) :** `npm run app:install` crée `~/Applications/Atelier Projets.app` (Electron), à glisser dans le Dock. C'est une vraie application : sa propre fenêtre, son icône et son menu, sans navigateur.
+- Au lancement, elle démarre l'API et l'interface compilée (sur `http://127.0.0.1:4174`, l'adresse « app » de la Suite Atelier). Cmd+Q ou la fermeture de la fenêtre arrête tout.
+- Après un `git pull`, le lancement suivant réinstalle les dépendances si besoin, applique les migrations et recompile (une minute environ, écran « Compilation… ») ; sinon elle s'ouvre en 2 à 3 secondes.
+- Si l'API tourne déjà dans un terminal (`npm run dev`), la fenêtre l'utilise sans la relancer.
+- Liens externes (GitHub, documentation) : navigateur par défaut. Impression PDF du Gantt et téléchargements (CSV, sauvegardes) : boîtes de dialogue de macOS.
+- Journal : `~/Library/Logs/Atelier_Projets/app.log` (menu Aide → Journal de l'application). À relancer après un déplacement du dépôt ou un changement d'installation de Node.
+- L'ancien lanceur qui ouvrait le navigateur reste disponible : `npm run app:install:browser`.
 
 **IA locale (facultatif) :** installer [Ollama](https://ollama.com), puis `ollama pull qwen2.5-coder` (ou `gemma3`) ; le bouton `🤖 IA Locale` de l'en-tête affiche l'état et permet de choisir le modèle. **Claude CLI (facultatif) :** installer Claude Code (`claude` dans le PATH) ; le bouton « Claude CLI » de la fiche d'un élément ouvre une session dans le dépôt du projet.
 
@@ -39,10 +45,11 @@ Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : h
 | `npm run dev` | API et interface ensemble (Ctrl+C arrête les deux) |
 | `npm run dev:backend` | Serveur Fastify seul, en mode watch (`tsx`) |
 | `npm run dev:frontend` | Interface seule (Vite, http://127.0.0.1:5173) ; `/api` est relayé vers le backend |
-| `npm run app:install` | macOS : crée l'application « Atelier Projets » (lancement en double clic) ; `-- ~/Desktop` pour la créer ailleurs |
+| `npm run app:install` | macOS : crée l'application de bureau « Atelier Projets » (Electron) ; `-- ~/Desktop` pour la créer ailleurs |
+| `npm run app:desktop` | Ouvre l'application de bureau depuis le terminal (sans l'installer) |
 | `npm run build` | Compilation du backend (`backend/dist/`) et de l'interface (`frontend/dist/`) |
 | `npm run openapi` | Après une modification de l'API : régénère `backend/openapi.json` puis les types du frontend |
-| `npm test` | Tests du backend (domaine, CRUD, vues calculées sur la démo), sur une base SQLite temporaire |
+| `npm test` | Tests du backend (domaine, CRUD, vues calculées sur la démo), sur une base SQLite temporaire, et de l'application de bureau |
 | `npm run test:e2e` | Tests de navigateur (Playwright) : API sur une base temporaire (port 3100) et interface (port 5180), sans toucher à `npm run dev`. La première fois : `npm run test:e2e:install` (télécharge Chromium) |
 | `npm run db:migrate -- --name <nom>` | Nouvelle migration après modification du schéma (`prisma migrate dev`), puis régénération du client |
 | `npm run db:seed` | Réinsère le projet de démo « App E-Commerce v2 » (idempotent) |
@@ -85,6 +92,9 @@ Atelier_Projets/
 │   ├── src/git-engine/        # ✅ Lecture du dépôt (simple-git), regex #ID, hook post-commit, client GitHub (Octokit)
 │   └── src/ai-bridge/         # ✅ Client Ollama (Qwen / Gemma), prompts IA, lancement de Claude CLI
 │
+├── 📁 desktop/                # Emballage (hors piliers) : application de bureau Electron — fenêtre native qui
+│                              #   lance l'API compilée et sert l'interface compilée ; aucune logique métier ni style
+├── 📁 e2e/                    # Tests de navigateur (Playwright)
 ├── CLAUDE.md                  # Règles d'architecture et conventions de code pour Claude CLI
 └── README.md                  # Spécification fonctionnelle et visuelle d'Atelier_Projets
 ```

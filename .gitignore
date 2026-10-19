@@ -30,3 +30,6 @@ backend/prisma/backups/
 # Résultats des tests de navigateur
 e2e/.results/
 playwright-report/
+
+# Application de bureau : état de la dernière compilation
+desktop/.build-stamp.json
