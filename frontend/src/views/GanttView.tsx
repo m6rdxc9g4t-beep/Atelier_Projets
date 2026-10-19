@@ -19,6 +19,7 @@ import { days, parseDate, percent, shortDate, today } from '../lib/format.ts'
 import { levelCode, STATUS_LABEL, TYPE_LABEL } from '../lib/labels.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
+import { applyTheme } from '../lib/theme.ts'
 import { milestoneService, reportService, scheduleService, workItemService } from '../services/api.ts'
 import type { Aggregate, DateSpan, Milestone, Project, ProjectTree, TreeWorkItem } from '../services/types.ts'
 import { useApp, useAppState, type DialogRequest } from '../store/app.ts'
@@ -530,12 +531,12 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
     const printWidth = content.scrollWidth - left + 21 * 16
     root.style.setProperty('--print-scale', String(Math.min(1, 1040 / printWidth)))
     root.dataset.printing = 'gantt'
-    root.dataset.theme = 'light'
+    applyTheme('light')
     const restore = () => {
       window.removeEventListener('afterprint', restore)
       delete root.dataset.printing
       root.style.removeProperty('--print-scale')
-      if (theme) root.dataset.theme = theme
+      if (theme === 'dark' || theme === 'light') applyTheme(theme)
     }
     window.addEventListener('afterprint', restore)
     window.print()

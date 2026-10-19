@@ -1,8 +1,10 @@
-# 🚀 Atelier_Projets — Gestionnaire de Projets Agile, Git & IA Locale
+# 🚀 Atelier Projets — Gestionnaire de Projets Agile, Git & IA Locale
 
 > **Philosophie :** L'alliance de la rigueur d'**OpenProject** (Gantt, Budgets, Hiérarchie stricte, Phases & Milestones) et de l'esthétique moderne, colorée et fluide de **Linear / GitHub**, propulsée en local avec intégration native Git/GitHub et moteurs IA locaux (Ollama : Qwen, Gemma) + Claude CLI.
 
 Ce fichier est la **spécification fonctionnelle et visuelle** de référence. Les règles d'architecture et les conventions de code sont dans [`CLAUDE.md`](./CLAUDE.md).
+
+**Atelier Projets** fait partie de la **Suite Atelier** avec Atelier Viz (BI) et Atelier Tab (tableur) : son design system est la référence de la suite (voir [§8](#-8-suite-atelier) et [`docs/SUITE.md`](./docs/SUITE.md)). Le dépôt garde son nom technique `Atelier_Projets`.
 
 ---
 
@@ -16,6 +18,7 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 | **Phase 4 — Frontend** | Client React (Vite, Tailwind CSS, Zustand, Lucide) : tableau de bord, Gantt, tableau des temps, fiche tâche, paramètres et dépôts ; composants UI purs du design system ; types de l'API générés depuis le contrat OpenAPI | ✅ Validée |
 | **Phase 5 — `ai-bridge`** | IA locale Ollama (Qwen, Gemma) : découpage d'une Story en Features / Tasks estimées, résumé des commits pour le journal d'avancement ; sessions Claude CLI dans le dépôt du projet ; API réservée aux requêtes locales | ✅ Terminée — en attente de validation |
 | **Phase 6 — Planification & suivi** | Gantt interactif (glisser-déposer des barres, bords et jalons, dépendances « fin → début », conflits et replanification, chemin critique), impression PDF du Gantt, export CSV des temps, chronomètre, sauvegardes automatiques de la base, tests de navigateur (Playwright) | ✅ Terminée — en attente de validation |
+| **Suite Atelier** | Ports 5174 / 4174, thème Clair / Sombre / Système, sélecteur d'applications, import DataFlow depuis Atelier Tab, jeux de données pour Atelier Viz (`docs/SUITE.md`) | ✅ Terminée — en attente de validation |
 
 ## ⚡ Démarrage rapide
 
@@ -24,10 +27,11 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 ```bash
 npm install            # installe les 3 workspaces
 npm run setup          # génère le client Prisma, crée la base SQLite (migrations) et insère la démo
-npm run dev            # API (port 3000) + interface (port 5173)
+npm run dev            # API (port 3000) + interface (port 5174)
 ```
 
-Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : http://127.0.0.1:3000/api/docs.
+Puis ouvrir **http://127.0.0.1:5174** (interface) — documentation de l'API : http://127.0.0.1:3000/api/docs.
+`npm run app` compile l'interface et la sert en aperçu sur **http://127.0.0.1:4174** : c'est l'adresse qu'ouvrent les sélecteurs d'Atelier Viz et d'Atelier Tab. Les ports sont fixes (`strictPort`) : s'ils sont pris, Vite s'arrête avec une erreur au lieu de changer de port.
 
 **Application de bureau (macOS) :** `npm run app:install` crée `~/Applications/Atelier Projets.app` (Electron), à glisser dans le Dock. C'est une vraie application : sa propre fenêtre, son icône et son menu, sans navigateur.
 - Au lancement, elle démarre l'API et l'interface compilée (sur `http://127.0.0.1:4174`, l'adresse « app » de la Suite Atelier). Cmd+Q ou la fermeture de la fenêtre arrête tout.
@@ -44,7 +48,8 @@ Puis ouvrir **http://127.0.0.1:5173** (interface) — documentation de l'API : h
 | `npm run setup` | `prisma generate` → `prisma migrate deploy` → seed de démo |
 | `npm run dev` | API et interface ensemble (Ctrl+C arrête les deux) |
 | `npm run dev:backend` | Serveur Fastify seul, en mode watch (`tsx`) |
-| `npm run dev:frontend` | Interface seule (Vite, http://127.0.0.1:5173) ; `/api` est relayé vers le backend |
+| `npm run dev:frontend` | Interface seule (Vite, http://127.0.0.1:5174) ; `/api` est relayé vers le backend |
+| `npm run app` | Compile l'interface puis lance l'API et l'aperçu (http://127.0.0.1:4174), adresse de la Suite Atelier |
 | `npm run app:install` | macOS : crée l'application de bureau « Atelier Projets » (Electron) ; `-- ~/Desktop` pour la créer ailleurs |
 | `npm run app:desktop` | Ouvre l'application de bureau depuis le terminal (sans l'installer) |
 | `npm run build` | Compilation du backend (`backend/dist/`) et de l'interface (`frontend/dist/`) |
@@ -67,7 +72,7 @@ La configuration est facultative : sans fichier `.env`, la base est créée dans
 
 ## 🏛️ 1. Architecture du Dépôt (Monorepo Strict)
 
-Le développement d'**Atelier_Projets** est strictement découpé en **3 piliers isolés** pour garantir un code propre, modulaire et maintenable :
+Le développement d'**Atelier Projets** est strictement découpé en **3 piliers isolés** pour garantir un code propre, modulaire et maintenable :
 
 ```text
 Atelier_Projets/
@@ -149,8 +154,8 @@ Le système de design repose sur des variables CSS strictes réutilisables dans 
 ```
 
 ```html
-<!-- Thème clair par défaut ; bascule en sombre via l'attribut data-theme -->
-<html data-theme="dark">
+<!-- Thème clair par défaut ; en sombre, l'interface pose data-theme="dark" ET la classe « dark » (Suite Atelier) -->
+<html data-theme="dark" class="dark">
 ```
 
 Les fichiers `themes/light.css` et `themes/dark.css` ne contiennent que les 6 variables de fondation (aucune dépendance métier) et se copient tels quels dans une autre application. Les couleurs de types et de statuts vivent dans `tokens/colors.css`. `npm run check` vérifie que chaque code hex correspond exactement à cette spécification.
@@ -371,7 +376,8 @@ Les commits contenant `feature #12345`, `task #12345` ou `bug #12345` sont autom
   - **couleurs** : la palette par défaut de Tailwind est retirée (`--color-*: initial`) ; les seules couleurs utilisables sont les variables du design system (`bg-surface`, `text-muted`, `bg-phase`…). Un composant porte `data-type`, `data-status`, `data-priority` ou `data-balance` et le design system lui donne sa teinte (`--kind-color`, `--kind-ink` lisible en clair comme en sombre) ;
   - **contrat d'API** : `backend/openapi.json` (exporté par `npm run openapi`) → `frontend/src/services/api.gen.ts` (openapi-typescript, exécuté via `npx` car il dépend de TypeScript 5). `npm run check` signale un contrat ou des types périmés ;
   - **aucun calcul métier** côté client : jours, pourcentages, bilans, histogramme et statuts des conteneurs viennent de l'API ; le frontend ne fait que de la mise en forme (et la mise en page du calendrier du Gantt) ;
-  - préférences (thème, projet, vue) mémorisées dans le navigateur (`localStorage`, facultatif).
+  - préférences (thème, projet, vue) mémorisées dans le navigateur (`localStorage`, facultatif) ;
+  - **thème** : Clair, Sombre ou Système (suit l'OS) ; sur `<html>`, `data-theme="light|dark"` et la classe `dark` en sombre (contrat de la Suite Atelier).
 - **API locale protégée :** l'API n'accepte que les en-têtes `Host` locaux (`127.0.0.1`, `localhost`, `::1`, plus `ALLOWED_HOSTS`) et refuse les écritures dont l'en-tête `Origin` désigne un autre site : un site web visité ne peut pas piloter l'API (DNS rebinding, requêtes intersites). Le `curl` du hook post-commit, sans `Origin`, reste accepté.
 - **IA locale :** `OLLAMA_URL` (défaut `http://localhost:11434`), `OLLAMA_MODEL` (`qwen2.5-coder` ; une seule étiquette installée comme `qwen2.5-coder:7b` est reconnue), `OLLAMA_NUM_CTX` (16384 : fenêtre de contexte demandée, pour que les diffs ne soient pas tronqués), `OLLAMA_TIMEOUT_MS` (180000), `AI_MAX_DIFF_CHARS` (24000) ; `CLAUDE_CLI` (`claude`) et `CLAUDE_TERMINAL_APP` (`Terminal`, ou `iTerm`). Voir `backend/.env.example`.
 - **Scripts d'installation (npm 11.16+ / 12) :** `allowScripts` (package.json racine) autorise uniquement les dépendances qui en ont besoin : `better-sqlite3` (module natif SQLite), `prisma` et `@prisma/engines` (moteurs Prisma), `esbuild` (utilisé par `tsx`) et `fsevents` (surveillance des fichiers sous macOS). Toute nouvelle dépendance à script d'installation devra y être ajoutée (`npm install-scripts ls` les liste).
@@ -380,7 +386,7 @@ Les commits contenant `feature #12345`, `task #12345` ou `bug #12345` sont autom
 
 ## 🔌 7. API REST du backend
 
-Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`**. Le frontend affiche ces réponses telles quelles : les conversions, agrégats et bilans sont calculés ici.
+Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`**. Routes de la Suite Atelier (import Atelier Tab, jeux de données pour Atelier Viz) : voir [§8](#-8-suite-atelier). Le frontend affiche ces réponses telles quelles : les conversions, agrégats et bilans sont calculés ici.
 
 ### Conventions
 
@@ -450,3 +456,67 @@ Les trois vues et la fiche élément acceptent `?hoursPerDay=` pour afficher les
 | `POST /ai/claude/launch` | `{ workItemId \| projectId, permissionMode?: default / plan / acceptEdits, prompt? }` → `{ launched, command, promptFile }` (avec `projectId` : session sans prompt) |
 
 Erreurs IA : `502 AI_UNAVAILABLE` (Ollama arrêté ou délai dépassé), `AI_MODEL_MISSING` (`ollama pull <modèle>`), `AI_INVALID_RESPONSE` (réponse inexploitable : réessayer ou changer de modèle), `AI_ERROR` ; `400` sans commit lié ou sans dépôt local pour Claude CLI.
+
+---
+
+## 🧩 8. Suite Atelier
+
+Atelier Projets, **Atelier Viz** (BI locale) et **Atelier Tab** (tableur + base typée) partagent un contrat commun : [`docs/SUITE.md`](./docs/SUITE.md) (identique dans les trois dépôts). Le design system d'Atelier Projets en est la référence : Viz et Tab copient `themes/light.css`, `themes/dark.css` et `tokens/colors.css` sans les modifier.
+
+| Application | Interface (dev) | Interface (aperçu / app) | API |
+| :--- | :--- | :--- | :--- |
+| Atelier Viz | http://127.0.0.1:5173 | http://127.0.0.1:8000 | http://127.0.0.1:8000/api |
+| **Atelier Projets** | **http://127.0.0.1:5174** | **http://127.0.0.1:4174** | **http://127.0.0.1:3000/api** |
+| Atelier Tab | http://127.0.0.1:5175 | http://127.0.0.1:4175 · app Electron | — |
+
+### Sélecteur « Suite Atelier »
+
+L'icône grille à gauche du nom de l'application ouvre le menu des trois applications (l'application courante est cochée) ; un clic ouvre l'application dans un nouvel onglet. Au clavier : `↓` ou `Entrée` ouvre, `↑` `↓` `Début` `Fin` naviguent, `Échap` ferme et rend le focus ; un clic à l'extérieur ferme aussi.
+
+- **Adresses** : constantes de `frontend/src/lib/suite.ts`, surchargeables au build ou au lancement de Vite par `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL` (ex. `VITE_ATELIER_VIZ_URL=http://127.0.0.1:8001 npm run dev`).
+- **En marche / arrêtée** : à chaque ouverture du menu, `GET <app>/api/health` (Viz : http://127.0.0.1:8000/api/health ; Projets : `/api/health`), délai de 1,5 s, sans bloquer le menu. Atelier Tab n'a pas d'API : pas d'indicateur.
+- **Pourquoi `no-cors`** : l'API de Viz est sur une autre origine et n'autorise pas forcément CORS ; un `fetch` classique serait bloqué par le navigateur et Viz paraîtrait arrêtée. La sonde utilise donc `mode: 'no-cors'` : une réponse (opaque, statut illisible) signifie « en marche », une erreur réseau ou le délai dépassé « arrêtée ». Limite : une API qui répondrait 500 apparaît « en marche ». Une erreur `ERR_CONNECTION_REFUSED` dans la console du navigateur est normale quand Viz est arrêtée.
+
+### Import depuis Atelier Tab (DataFlow v2.1.0)
+
+Deux façons d'importer une table d'Atelier Tab :
+
+1. **Fichier** : menu des projets › « Importer depuis Atelier Tab… » (ou **Paramètres du projet › Suite Atelier**). Choisir le fichier JSON exporté par Atelier Tab, le projet cible (par défaut le projet du même nom, créé au besoin) et le type des nouveaux éléments ; l'aperçu (calculé par l'API, rien n'est écrit) liste les créations, mises à jour, lignes inchangées ou ignorées et les avertissements ; « Importer » écrit puis affiche le résumé.
+2. **Webhook** : dans Atelier Tab, préréglage « Atelier Projets (local) » → `http://127.0.0.1:3000/api/imports/atelier-tab`.
+
+| Route | Effet |
+| :--- | :--- |
+| `POST /imports/atelier-tab/preview` | Aperçu de l'import (ne modifie rien) : destination, compteurs, avertissements, action prévue par ligne |
+| `POST /imports/atelier-tab` | Crée ou met à jour → `{ projectId, storyId, created, updated, unchanged, skipped, warnings, items: [{ recordId, workItemId, action, … }] }` |
+
+- **Paramètres** : `?projectId=` (sinon projet nommé comme `project.name`, créé s'il n'existe pas), `?type=TASK|FEATURE|BUG` (`TASK` par défaut).
+- **Rangement** : Phase « Imports Atelier Tab » › Epic `<workspace.name>` › Story `<source_table.name ?? project.name>`, retrouvés par leur titre et créés au besoin. Une table **déjà importée** garde sa story : les nouvelles lignes rejoignent celle qui regroupe le plus de ses éléments existants (dans le projet `?projectId=` s'il est donné), même si le projet, la story ou la table ont été renommés ou les éléments déplacés (avertissement « Nouveaux éléments rangés avec ceux déjà importés… » si le chemin diffère de l'enveloppe). Aucun conteneur n'est créé quand toutes les lignes existent déjà ; la réponse désigne alors le projet et la story de ces éléments.
+- **Colonnes** (`atelier_mapping`) : `entity_title` → titre (ligne ignorée avec avertissement s'il est vide), `workflow_state` → statut (codes, libellés et synonymes « Ouvert », « Nouveau », « Fait », « Terminé », « Clos », « Bloqué », « Résolu », « Rejeté », « Annulé », sans tenir compte de la casse ni des accents ; inconnu → « À faire » + avertissement), `start_date` / `due_date` → dates, `description` → début de la description ; les autres colonnes (montants HT/TTC, responsable, quantité, case à cocher, `custom`) forment le tableau Markdown « Données Atelier Tab » de la description. Les erreurs de formule (`#DIV/0!`…) sont ignorées avec un avertissement.
+- **Réimport** : chaque élément garde `externalRef = "atelier-tab:<source_table.id ?? project.id>:<record_id>"` (colonne unique de `WorkItem`) ; un nouvel import met à jour l'élément au lieu d'en créer un autre (`updated`, ou `unchanged` si rien n'a changé). Seuls titre, statut, dates et description sont mis à jour : estimation, temps, journal et position restent ceux d'Atelier Projets.
+- **`Idempotency-Key`** : la réponse d'un import est enregistrée (table SQLite `ImportIdempotency`, dans la même transaction que l'import, conservée 30 jours) ; la même clé rejouée renvoie la même réponse (en-tête `Idempotency-Replayed: true`) sans réimporter, même après un redémarrage de l'API. Réutilisée pour un autre contenu : `409 IDEMPOTENCY_KEY_REUSED`.
+- **`X-Atelier-Schema-Version`** : s'il est présent et différent de `2.1.0` → `422 UNSUPPORTED_SCHEMA_VERSION` (de même pour `schema_version` dans le corps).
+- **Jeton** : `ATELIER_IMPORT_TOKEN` dans `backend/.env` ; défini, l'en-tête `Authorization: Bearer <jeton>` est exigé (`401` sinon) des **appels externes** : sans en-tête `Origin` (webhook, relais de l'app de bureau Tab, `curl`) ou d'une autre origine (Atelier Tab dans le navigateur) — à renseigner dans le webhook d'Atelier Tab. L'interface d'Atelier Projets n'en a pas besoin : règle « même origine » = `Origin` égale exactement à `http(s)://<Host>` (schéma, nom et port ; le relais `/api` de Vite garde le `Host` du navigateur). Le jeton est vérifié dès la réception (hook `onRequest`), avant la lecture du corps ; comparaison des empreintes SHA-256 à temps constant. Sans jeton configuré, l'en-tête est ignoré.
+- **CORS** : seules ces deux routes répondent aux autres origines `http://127.0.0.1:<port>` et `http://localhost:<port>` (Atelier Tab dans le navigateur), méthodes `POST, OPTIONS`, en-têtes `Content-Type, Authorization, Idempotency-Key, X-Atelier-Schema-Version`. L'app de bureau Atelier Tab relaie ses envois depuis son processus principal, **sans en-tête `Origin`** : c'est un appel local ordinaire. L'origine `null` est **refusée** partout (`403`, sans en-tête CORS) : n'importe quelle page web peut l'envoyer (iframe sandbox, URL `data:`, fichier local). Le garde « API locale » reste actif : l'en-tête `Host` doit être local et un autre site (`Origin` étranger) est refusé (`403`).
+
+```bash
+curl -X POST 'http://127.0.0.1:3000/api/imports/atelier-tab' \
+  -H 'Content-Type: application/json' -H 'Idempotency-Key: 2f1c…' -H 'X-Atelier-Schema-Version: 2.1.0' \
+  --data @planning-lots.json
+```
+
+### Jeux de données pour Atelier Viz
+
+Lecture seule, calculés par le backend (Atelier Viz les importe avec son connecteur « Atelier Projets », adresse `http://127.0.0.1:3000`) :
+
+| Route | Contenu |
+| :--- | :--- |
+| `GET /exports/datasets` | `[{ name, label, description, rowCount }]` |
+| `GET /exports/datasets/:name?projectId=` | `{ name, label, generatedAt, columns: [{ key, label, type }], rows }` — tous les projets, ou un seul avec `projectId` |
+
+| Jeu | Colonnes (`key`) |
+| :--- | :--- |
+| `work-items` | `id`, `projet`, `phase`, `epic`, `story`, `type`, `statut` (libellé), `statut_code`, `priorite`, `titre`, `heures_estimees`, `heures_passees` (somme des saisies de temps), `ecart_heures` (passées − estimées, vide sans estimation), `avancement`, `debut`, `echeance`, `cree_le`, `maj_le` |
+| `time-entries` | `id`, `element_id`, `element`, `type`, `projet`, `date`, `heures`, `commentaire` |
+| `milestones` | `id`, `projet`, `phase` (vide pour un jalon de projet), `nom`, `date`, `atteint` |
+
+Types : `string`, `number`, `date` (`AAAA-MM-JJ`), `datetime` (ISO 8601), `boolean` ; les clés sont en `snake_case` sans accent, les libellés en français.

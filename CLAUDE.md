@@ -70,3 +70,13 @@ Tu dois utiliser **exactement** ces codes hexadécimaux dans `design-system/toke
 - **Procède toujours par étapes validées.** Ne génère pas tout le projet d'un seul coup sans tester.
 - Après chaque étape, vérifie que le code compile (`tsc --noEmit`) et qu'il n'y a aucune erreur.
 - Écris des commits Git propres en suivant la convention : `feat(scope): description #ID` ou `chore(setup): initial architecture`.
+
+---
+
+## 🧩 5. Suite Atelier
+
+Atelier Projets fait partie de la **Suite Atelier** (avec Atelier Viz et Atelier Tab). Le contrat commun — design system de référence, ports (interface 5174, aperçu 4174, API 3000, `strictPort`), thème (`data-theme` **et** classe `dark` sur `<html>`), sélecteur « Suite Atelier », import DataFlow depuis Atelier Tab et jeux de données pour Atelier Viz — est dans [`docs/SUITE.md`](./docs/SUITE.md), identique dans les trois dépôts : toute modification s'y fait dans les trois à la fois, avec un test côté producteur et côté consommateur.
+
+- `design-system/themes/*.css` et `tokens/colors.css` sont copiés tels quels par Viz et Tab : toute modification se répercute dans leurs copies.
+- Frontend : adresses de la suite dans `frontend/src/lib/suite.ts` (surcharges `VITE_ATELIER_*_URL`), thème dans `frontend/src/lib/theme.ts`.
+- Backend : `routes/suite.ts` (mince) → `services/atelier-tab-import.ts`, `services/exports.ts` ; règles pures dans `domain/atelier-tab.ts` ; CORS limité aux deux routes d'import (`http/suite-cors.ts`, `config: { suiteCors: true }`), origine `null` **refusée** (l'app de bureau Tab relaie sans `Origin`) ; jeton `ATELIER_IMPORT_TOKEN` vérifié en `onRequest` (avant le corps), exigé des appels externes seulement (`isSameOriginRequest`).

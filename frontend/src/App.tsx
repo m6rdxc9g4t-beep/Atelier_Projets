@@ -1,9 +1,10 @@
 // Application : choix du projet, cadre (en-tête, rail, onglets), vue courante, fiche tâche et dialogues.
-import { FolderPlus, PlugZap } from 'lucide-react'
+import { FileUp, FolderPlus, PlugZap } from 'lucide-react'
 import { useEffect } from 'react'
 import { Dialogs } from './components/Dialogs.tsx'
 import { Header, Rail, Toasts, ViewTabs } from './components/shell.tsx'
 import { Button, EmptyState, ErrorNotice, Spinner } from './components/ui.tsx'
+import { applyTheme, onSystemThemeChange, resolveTheme } from './lib/theme.ts'
 import { useApi } from './lib/use-api.ts'
 import { ApiError } from './services/client.ts'
 import { projectService } from './services/api.ts'
@@ -25,8 +26,11 @@ export function App() {
   }))
   const projects = useApi(() => projectService.list(), [])
 
+  // Thème (SUITE.md §1.5) : data-theme + classe « dark » ; en mode Système, suit les changements de l'OS.
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
+    applyTheme(resolveTheme(theme))
+    document.documentElement.dataset.themePreference = theme
+    return theme === 'system' ? onSystemThemeChange(applyTheme) : undefined
   }, [theme])
 
   // Aucun choix, ou projet absent de la liste : s'il vient d'être créé, la liste est relue ; s'il a été
@@ -71,7 +75,7 @@ export function App() {
         </main>
         {project && selectedWorkItemId !== null && <TaskSlideOver key={selectedWorkItemId} workItemId={selectedWorkItemId} project={project} />}
       </div>
-      <Dialogs project={project} />
+      <Dialogs project={project} projects={list ?? []} />
       <Toasts />
     </div>
   )
@@ -94,10 +98,15 @@ function NoProject() {
   const openDialog = useApp((state) => state.openDialog)
   return (
     <EmptyState icon={<FolderPlus className="size-10" />} title="Aucun projet pour l’instant">
-      <p className="mb-4">Créez un projet, ou insérez la démo « App E-Commerce v2 » avec npm run db:seed.</p>
-      <Button variant="primary" icon={<FolderPlus className="size-4" />} onClick={() => openDialog({ kind: 'project' })}>
-        Nouveau projet
-      </Button>
+      <p className="mb-4">Créez un projet, importez une table d’Atelier Tab, ou insérez la démo « App E-Commerce v2 » avec npm run db:seed.</p>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button variant="primary" icon={<FolderPlus className="size-4" />} onClick={() => openDialog({ kind: 'project' })}>
+          Nouveau projet
+        </Button>
+        <Button icon={<FileUp className="size-4" />} onClick={() => openDialog({ kind: 'importTab' })}>
+          Importer depuis Atelier Tab
+        </Button>
+      </div>
     </EmptyState>
   )
 }

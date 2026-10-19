@@ -1,6 +1,6 @@
 // Paramètres du projet : identité, budget et « 1 jour = X heures », dépôt Git local (analyse, hook
 // post-commit) et dépôt GitHub (synchronisation des Pull Requests).
-import { DatabaseBackup, Download, FolderGit2, GitPullRequest, RefreshCw, Save, Trash2, Webhook } from 'lucide-react'
+import { DatabaseBackup, Download, FileUp, FolderGit2, GitPullRequest, LayoutGrid, RefreshCw, Save, Trash2, Webhook } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Card, Eyebrow, Field } from '../components/ui.tsx'
 import { dateTime, parseNumber } from '../lib/format.ts'
@@ -139,6 +139,7 @@ export function SettingsView({ project }: { project: Project }) {
       <div className="space-y-5">
         <GitCard project={project} />
         <GitHubCard project={project} />
+        <SuiteCard project={project} />
         <BackupCard />
         <DeleteProject project={project} />
       </div>
@@ -258,6 +259,27 @@ function GitHubCard({ project }: { project: Project }) {
           {result && <SyncSummary result={result} />}
         </>
       )}
+    </ActionCard>
+  )
+}
+
+/** Suite Atelier : import d'une table d'Atelier Tab, adresse du webhook et des jeux de données pour Atelier Viz. */
+function SuiteCard({ project }: { project: Project }) {
+  const openDialog = useApp((state) => state.openDialog)
+  return (
+    <ActionCard icon={<LayoutGrid className="size-4 text-accent-ink" aria-hidden />} title="Suite Atelier">
+      <p className="text-muted">
+        Importez une table d’Atelier Tab (fichier JSON DataFlow) : ses lignes deviennent des éléments de la phase « Imports Atelier Tab ».
+        Atelier Tab peut aussi les envoyer directement au webhook <code className="font-mono text-xs">http://127.0.0.1:3000/api/imports/atelier-tab</code>.
+      </p>
+      <Button icon={<FileUp className="size-4" />} onClick={() => openDialog({ kind: 'importTab' })}>
+        Importer depuis Atelier Tab…
+      </Button>
+      <p className="text-xs text-muted">
+        Atelier Viz lit les jeux de données du projet (éléments, temps, jalons) sur{' '}
+        <code className="font-mono">/api/exports/datasets/work-items?projectId={project.id}</code> (et{' '}
+        <code className="font-mono">time-entries</code>, <code className="font-mono">milestones</code>).
+      </p>
     </ActionCard>
   )
 }

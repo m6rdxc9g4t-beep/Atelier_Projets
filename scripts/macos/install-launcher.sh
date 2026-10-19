@@ -5,8 +5,9 @@
 #   npm run app:install -- <dossier> → dans un autre dossier (ex. ~/Desktop)
 #
 # Au double clic, l'application :
-#   - démarre l'API et l'interface (npm run dev) en arrière-plan si elles ne tournent pas, puis ouvre
-#     http://127.0.0.1:5173 dans le navigateur par défaut ;
+#   - démarre l'API et l'interface compilée (npm run app) en arrière-plan si elles ne tournent pas, puis ouvre
+#     http://127.0.0.1:4174 dans le navigateur par défaut : c'est l'adresse « aperçu / app » de la Suite Atelier
+#     (docs/SUITE.md §2), celle qu'ouvrent les sélecteurs d'Atelier Viz et d'Atelier Tab ;
 #   - si elles tournent déjà, propose « Ouvrir » ou « Arrêter ».
 # Journal : ~/Library/Logs/Atelier_Projets/dev.log
 #
@@ -70,7 +71,7 @@ PLIST
   echo "REPO=$(quote "$REPO")"
   echo "export PATH=$(quote "$SAVED_PATH")"
   cat <<'LAUNCHER'
-URL='http://127.0.0.1:5173'
+URL='http://127.0.0.1:4174'
 API='http://127.0.0.1:3000/api/health'
 LOG_DIR="$HOME/Library/Logs/Atelier_Projets"
 LOG="$LOG_DIR/dev.log"
@@ -85,14 +86,14 @@ stop_app() {
   if [[ -f "$PID_FILE" ]]; then
     local pid
     pid="$(cat "$PID_FILE")"
-    # Groupe de processus complet : npm, concurrently, tsx (API) et Vite (interface).
+    # Groupe de processus complet : npm, concurrently, tsx (API) et Vite preview (interface).
     kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
     rm -f "$PID_FILE"
   fi
   # Serveurs lancés à la main dans un terminal : on ne les arrête pas, on le signale.
   sleep 1
   if up "$API" || up "$URL"; then
-    alert "L’application tourne aussi dans un terminal (npm run dev) : l’arrêter avec Ctrl+C dans ce terminal."
+    alert "L’application tourne aussi dans un terminal (npm run app ou npm run dev) : l’arrêter avec Ctrl+C dans ce terminal."
   else
     notify "Atelier Projets est arrêté."
   fi
@@ -116,11 +117,11 @@ notify "Démarrage de l’API et de l’interface…"
 cd "$REPO" || exit 1
 printf '\n===== %s : démarrage =====\n' "$(date '+%d/%m/%Y %H:%M:%S')" >>"$LOG"
 set -m   # processus en arrière-plan dans leur propre groupe : « Arrêter » les arrête tous
-nohup npm run dev >>"$LOG" 2>&1 < /dev/null &
+nohup npm run app >>"$LOG" 2>&1 < /dev/null &
 echo $! >"$PID_FILE"
 set +m
 
-for _ in $(seq 1 90); do
+for _ in $(seq 1 150); do
   if up "$API" && up "$URL"; then
     open "$URL"
     notify "Atelier Projets est prêt sur $URL"
@@ -130,7 +131,7 @@ for _ in $(seq 1 90); do
   sleep 1
 done
 
-alert "Le démarrage a échoué ou dépasse 90 s. Journal : $LOG"
+alert "Le démarrage a échoué ou dépasse 150 s (compilation de l’interface comprise). Journal : $LOG"
 open -a Console "$LOG" 2>/dev/null || open "$LOG_DIR"
 exit 1
 LAUNCHER

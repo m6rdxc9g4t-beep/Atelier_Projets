@@ -3,6 +3,8 @@
 // - requêtes d'un autre site (CSRF) : l'en-tête Origin d'une écriture désigne alors un hôte étranger.
 // Seuls les hôtes locaux (et ceux de ALLOWED_HOSTS) sont acceptés. Les outils sans navigateur (curl du hook
 // post-commit, scripts) n'envoient pas d'Origin et restent acceptés.
+// L'origine « null » (iframe sandbox, URL data:, fichier local) est refusée en écriture sur toutes les routes,
+// y compris l'import Atelier Tab : l'app de bureau Tab relaie sans en-tête Origin.
 import type { FastifyRequest } from 'fastify'
 import { HttpError } from './errors.ts'
 

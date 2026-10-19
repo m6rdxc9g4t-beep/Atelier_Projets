@@ -98,7 +98,7 @@ export const ErrorSchema = Type.Object(
 )
 
 /** Réponses d'erreur à documenter pour une route. */
-export function errorResponses<Code extends 400 | 404 | 409>(...statusCodes: Code[]): Record<Code, typeof ErrorSchema> {
+export function errorResponses<Code extends 400 | 401 | 403 | 404 | 409 | 413 | 422>(...statusCodes: Code[]): Record<Code, typeof ErrorSchema> {
   return Object.fromEntries(statusCodes.map((statusCode) => [statusCode, ErrorSchema])) as Record<Code, typeof ErrorSchema>
 }
 

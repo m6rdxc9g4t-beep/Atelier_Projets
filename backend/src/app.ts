@@ -17,6 +17,7 @@ import { BACKEND_ROOT, systemTimeZone } from './config.ts'
 import type { PrismaClient } from './db/client.ts'
 import { errorHandler } from './http/errors.ts'
 import { allowedHosts, createLocalOnlyGuard } from './http/local-only.ts'
+import { suiteCorsHook } from './http/suite-cors.ts'
 import { createValidatorCompiler } from './http/validation.ts'
 import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
 import { createOllamaClient } from './ai-bridge/ollama.ts'
@@ -33,6 +34,7 @@ import { hierarchyRoutes } from './routes/hierarchy.ts'
 import { milestoneRoutes } from './routes/milestones.ts'
 import { projectRoutes } from './routes/projects.ts'
 import { reportRoutes } from './routes/reports.ts'
+import { suiteRoutes } from './routes/suite.ts'
 import { workItemRoutes } from './routes/work-items.ts'
 
 export interface AppSettings {
@@ -52,6 +54,8 @@ export interface AppSettings {
   ai: AiSettings
   /** Sauvegardes de la base (null : base en mémoire ou désactivées). */
   backups: BackupManager | null
+  /** Jeton exigé par l'import Atelier Tab (ATELIER_IMPORT_TOKEN) ; undefined = pas de jeton. */
+  importToken: string | undefined
 }
 
 declare module 'fastify' {
@@ -83,6 +87,8 @@ export interface BuildAppOptions {
   /** Hôtes acceptés en plus des hôtes locaux (en-têtes Host et Origin). */
   allowedHosts?: readonly string[]
   backups?: BackupManager | null
+  /** Jeton de l'import Atelier Tab (ATELIER_IMPORT_TOKEN). */
+  importToken?: string
 }
 
 const { version } = JSON.parse(readFileSync(path.join(BACKEND_ROOT, 'package.json'), 'utf8')) as { version: string }
@@ -99,6 +105,7 @@ export async function buildApp({
   ai = {},
   allowedHosts: extraHosts = [],
   backups = null,
+  importToken,
 }: BuildAppOptions): Promise<App> {
   const app = Fastify({ logger }).withTypeProvider<TypeBoxTypeProvider>()
 
@@ -110,12 +117,14 @@ export async function buildApp({
     maxDiffChars: ai.maxDiffChars ?? 24_000,
     claude: ai.claude ?? createClaudeLauncher(),
   }
-  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github, ai: aiSettings, backups })
+  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github, ai: aiSettings, backups, importToken })
   app.addHook('onClose', async () => {
     backups?.stop()
     await prisma.$disconnect()
   })
   app.setErrorHandler(errorHandler)
+  // CORS des routes de la suite d'abord : une réponse d'erreur du garde reste lisible par l'appelant.
+  app.addHook('onRequest', suiteCorsHook)
   app.addHook('onRequest', createLocalOnlyGuard(allowedHosts(undefined, [new URL(publicUrl).host, ...extraHosts])))
   app.setNotFoundHandler((request, reply) =>
     reply.status(404).send({
@@ -130,7 +139,7 @@ export async function buildApp({
     openapi: {
       openapi: '3.1.0',
       info: {
-        title: 'Atelier_Projets — API',
+        title: 'Atelier Projets — API',
         version,
         description:
           'API REST locale : hiérarchie Projet > Phase > Epic > Story > Élément, temps, jalons et vues calculées. ' +
@@ -148,6 +157,10 @@ export async function buildApp({
         { name: 'Git & GitHub', description: 'Analyse du dépôt local, hook post-commit, Pull Requests' },
         { name: 'IA locale & Claude CLI', description: 'Ollama (Qwen, Gemma) : découpage de Story, résumé des commits ; sessions Claude CLI' },
         { name: 'Vues', description: 'Dashboard, arborescence (Gantt) et tableau des temps calculés' },
+        {
+          name: 'Suite Atelier',
+          description: 'Import DataFlow depuis Atelier Tab, jeux de données pour Atelier Viz (docs/SUITE.md)',
+        },
       ],
     },
   })
@@ -166,6 +179,7 @@ export async function buildApp({
       await api.register(scheduleRoutes)
       await api.register(timerRoutes)
       await api.register(backupRoutes)
+      await api.register(suiteRoutes)
     },
     { prefix: '/api' },
   )
