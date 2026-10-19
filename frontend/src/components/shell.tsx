@@ -14,7 +14,6 @@ import {
   Monitor,
   Moon,
   Plus,
-  Rocket,
   Settings,
   Sun,
   X,
@@ -25,6 +24,7 @@ import { useApi } from '../lib/use-api.ts'
 import { aiService } from '../services/api.ts'
 import type { Project } from '../services/types.ts'
 import { useAppState, type Theme, type ViewId } from '../store/app.ts'
+import { AtelierBrand } from './AtelierBrand.tsx'
 import { SuiteSwitcher } from './SuiteSwitcher.tsx'
 import { TimerPill } from './Timer.tsx'
 import { Button, Tabs } from './ui.tsx'
@@ -67,9 +67,8 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
     <header className="flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line bg-surface px-3 sm:px-4">
       <Button variant="ghost" icon={<Menu className="size-5" />} aria-label="Afficher ou masquer les libellés du menu" onClick={toggleRail} />
       <SuiteSwitcher />
-      <div className="flex items-center gap-2 pr-1">
-        <Rocket className="size-5 text-accent-ink" aria-hidden />
-        <span className="hidden whitespace-nowrap text-[15px] font-bold tracking-tight sm:inline">Atelier Projets</span>
+      <div className="pr-1">
+        <AtelierBrand nameClassName="hidden sm:inline" />
       </div>
       <ProjectSwitcher projects={projects} project={project} />
       {github && project?.github && (
