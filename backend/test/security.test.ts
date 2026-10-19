@@ -23,7 +23,7 @@ describe('API réservée aux requêtes locales', () => {
   })
 
   it('accepte les hôtes locaux et ceux de ALLOWED_HOSTS', async () => {
-    for (const host of ['127.0.0.1:3000', 'localhost:5173', '[::1]:3000', 'mon-mac.local:3000']) {
+    for (const host of ['127.0.0.1:3000', 'localhost:5174', '[::1]:3000', 'mon-mac.local:3000']) {
       assert.equal((await request('GET', { host })).statusCode, 200, host)
     }
   })
@@ -40,7 +40,7 @@ describe('API réservée aux requêtes locales', () => {
     assert.equal(foreign.json().code, 'FORBIDDEN_ORIGIN')
     assert.equal((await request('PATCH', { host: '127.0.0.1:3000', origin: 'null' })).statusCode, 403)
     assert.equal((await request('GET', { host: '127.0.0.1:3000', origin: 'https://evil.example' })).statusCode, 200)
-    assert.equal((await request('PATCH', { host: '127.0.0.1:5173', origin: 'http://127.0.0.1:5173' })).statusCode, 200)
+    assert.equal((await request('PATCH', { host: '127.0.0.1:5174', origin: 'http://127.0.0.1:5174' })).statusCode, 200)
     assert.equal((await request('PATCH', { host: '127.0.0.1:3000' })).statusCode, 200, 'curl du hook post-commit')
   })
 })

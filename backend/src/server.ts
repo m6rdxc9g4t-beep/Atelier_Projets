@@ -24,6 +24,7 @@ const app = await buildApp({
   gitScanMaxCommits: config.gitScanMaxCommits,
   github: createOctokitClient({ token: config.githubToken, baseUrl: config.githubApiUrl }),
   allowedHosts: config.allowedHosts,
+  importToken: config.importToken,
   ai: {
     ollama: createOllamaClient({ baseUrl: config.ollamaUrl, timeoutMs: config.ollamaTimeoutMs, contextTokens: config.ollamaContextTokens }),
     model: config.ollamaModel,

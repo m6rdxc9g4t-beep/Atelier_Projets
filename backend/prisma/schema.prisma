@@ -195,6 +195,9 @@ model WorkItem {
   position          Int            @default(0)
   startDate         DateTime?
   dueDate           DateTime?
+  /// Identité dans une application source de la Suite Atelier (« atelier-tab:<table>:<record> »),
+  /// null pour un élément créé dans Atelier Projets. Un réimport met à jour l'élément au lieu d'en créer un autre.
+  externalRef       String?        @unique
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -338,4 +341,23 @@ model RunningTimer {
   comment    String   @default("")
 
   workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+}
+
+// -----------------------------------------------------------------------------
+// Suite Atelier : import DataFlow depuis Atelier Tab
+// -----------------------------------------------------------------------------
+
+/// Réponse d'un import déjà traité, retrouvée par son en-tête Idempotency-Key : une même clé rejouée
+/// (nouvelle tentative du webhook, double clic) renvoie la même réponse sans réimporter.
+model ImportIdempotency {
+  /// Valeur de l'en-tête Idempotency-Key.
+  key         String   @id
+  /// Empreinte SHA-256 de la requête (corps + paramètres) : une clé réutilisée pour un autre contenu est refusée.
+  requestHash String
+  statusCode  Int
+  /// Corps JSON de la réponse renvoyée.
+  response    String
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }

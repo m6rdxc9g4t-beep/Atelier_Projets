@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Atelier_Projets — API",
+    "title": "Atelier Projets — API",
     "version": "0.1.0",
     "description": "API REST locale : hiérarchie Projet > Phase > Epic > Story > Élément, temps, jalons et vues calculées. Durées stockées en heures, restituées en heures et en jours (1 jour = hoursPerDay heures)."
   },
@@ -16318,6 +16318,1782 @@
           }
         }
       }
+    },
+    "/api/imports/atelier-tab/preview": {
+      "post": {
+        "summary": "Aperçu d’un import DataFlow v2.1.0 d’Atelier Tab (rien n’est modifié)",
+        "tags": [
+          "Suite Atelier"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "target_system",
+                  "schema_version",
+                  "exported_at",
+                  "workspace",
+                  "project"
+                ],
+                "properties": {
+                  "target_system": {
+                    "type": "string",
+                    "enum": [
+                      "atelier_projets"
+                    ]
+                  },
+                  "schema_version": {
+                    "type": "string",
+                    "description": "Version du schéma : 2.1.0 (une autre version est refusée en 422)",
+                    "examples": [
+                      "2.1.0"
+                    ]
+                  },
+                  "exported_at": {
+                    "type": "string",
+                    "description": "Horodatage ISO 8601 de l’export"
+                  },
+                  "workspace": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "project": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "columns_schema",
+                      "records"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "source_table": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "summary_metrics": {
+                        "type": "object",
+                        "required": [
+                          "total_rows",
+                          "computed_totals"
+                        ],
+                        "properties": {
+                          "total_rows": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "computed_totals": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      },
+                      "columns_schema": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "col_letter",
+                            "id",
+                            "label",
+                            "type",
+                            "atelier_mapping"
+                          ],
+                          "properties": {
+                            "col_letter": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{1,3}$",
+                              "description": "Lettre de colonne (A, B… AA)"
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "enum": [
+                                "text",
+                                "number",
+                                "currency",
+                                "percent",
+                                "select",
+                                "date",
+                                "checkbox",
+                                "owner",
+                                "formula"
+                              ],
+                              "type": "string"
+                            },
+                            "atelier_mapping": {
+                              "enum": [
+                                "entity_title",
+                                "workflow_state",
+                                "financial_ht",
+                                "financial_ttc",
+                                "assignee",
+                                "due_date",
+                                "start_date",
+                                "quantity",
+                                "description",
+                                "flag",
+                                "custom"
+                              ],
+                              "type": "string",
+                              "description": "Rôle de la colonne côté Atelier Projets"
+                            }
+                          }
+                        },
+                        "minItems": 1
+                      },
+                      "records": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "row_index",
+                            "record_id",
+                            "values"
+                          ],
+                          "properties": {
+                            "row_index": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "description": "Numéro de ligne affiché dans Atelier Tab (1 = première ligne)"
+                            },
+                            "record_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "values": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "object",
+                                "required": [
+                                  "raw",
+                                  "computed"
+                                ],
+                                "properties": {
+                                  "raw": {
+                                    "type": "string",
+                                    "description": "Saisie d’origine en texte, formule incluse (« =C1*1.2 ») ; vide : \"\""
+                                  },
+                                  "computed": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Valeur évaluée, ou code d’erreur de formule (« #DIV/0! »)"
+                                  }
+                                },
+                                "description": "Cellule exportée sous double forme"
+                              }
+                            }
+                          }
+                        },
+                        "maxItems": 10000
+                      },
+                      "summary_rows": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "row_index",
+                            "record_id",
+                            "values"
+                          ],
+                          "properties": {
+                            "row_index": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "description": "Numéro de ligne affiché dans Atelier Tab (1 = première ligne)"
+                            },
+                            "record_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "values": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "object",
+                                "required": [
+                                  "raw",
+                                  "computed"
+                                ],
+                                "properties": {
+                                  "raw": {
+                                    "type": "string",
+                                    "description": "Saisie d’origine en texte, formule incluse (« =C1*1.2 ») ; vide : \"\""
+                                  },
+                                  "computed": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Valeur évaluée, ou code d’erreur de formule (« #DIV/0! »)"
+                                  }
+                                },
+                                "description": "Cellule exportée sous double forme"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "description": "Enveloppe DataFlow v2.1.0 produite par Atelier Tab (docs/DATAFLOW_SPEC.md d’Atelier Tab)"
+              }
+            }
+          },
+          "description": "Enveloppe DataFlow v2.1.0 produite par Atelier Tab (docs/DATAFLOW_SPEC.md d’Atelier Tab)"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "query",
+            "name": "projectId",
+            "required": false,
+            "description": "Projet cible ; sinon le projet nommé comme project.name (créé au besoin)"
+          },
+          {
+            "schema": {
+              "enum": [
+                "FEATURE",
+                "TASK",
+                "BUG"
+              ],
+              "type": "string"
+            },
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "description": "Type des éléments créés : TASK par défaut"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Une même clé rejouée renvoie la même réponse sans réimporter"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-atelier-schema-version",
+            "required": false,
+            "description": "Si présent : 2.1.0, sinon 422"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "description": "Bearer <jeton> : exigé si ATELIER_IMPORT_TOKEN est configuré"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aperçu : ce que l’import ferait (rien n’est modifié)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "projectId",
+                    "storyId",
+                    "created",
+                    "updated",
+                    "unchanged",
+                    "skipped",
+                    "warnings",
+                    "items",
+                    "target"
+                  ],
+                  "properties": {
+                    "projectId": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "storyId": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "created": {
+                      "type": "integer"
+                    },
+                    "updated": {
+                      "type": "integer"
+                    },
+                    "unchanged": {
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "type": "integer"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "recordId",
+                          "rowIndex",
+                          "workItemId",
+                          "action",
+                          "title",
+                          "status",
+                          "startDate",
+                          "dueDate",
+                          "reason"
+                        ],
+                        "properties": {
+                          "recordId": {
+                            "type": "string"
+                          },
+                          "rowIndex": {
+                            "type": "integer"
+                          },
+                          "workItemId": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 2147483647
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "action": {
+                            "enum": [
+                              "created",
+                              "updated",
+                              "unchanged",
+                              "skipped"
+                            ],
+                            "type": "string",
+                            "description": "created / updated / unchanged (réimport sans changement) / skipped (ligne ignorée) — prévu (aperçu) ou fait (import)"
+                          },
+                          "title": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "enum": [
+                                  "OPEN",
+                                  "IN_PROGRESS",
+                                  "IN_REVIEW",
+                                  "ON_HOLD",
+                                  "BLOCKED",
+                                  "RESOLVED",
+                                  "CLOSED",
+                                  "REJECTED"
+                                ],
+                                "type": "string",
+                                "description": "Un des 8 statuts du workflow"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "startDate": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "dueDate": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "target": {
+                      "type": "object",
+                      "required": [
+                        "project",
+                        "phase",
+                        "epic",
+                        "story",
+                        "type"
+                      ],
+                      "properties": {
+                        "project": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name",
+                            "exists"
+                          ],
+                          "properties": {
+                            "id": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 2147483647
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "exists": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        "phase": {
+                          "type": "object",
+                          "required": [
+                            "title",
+                            "exists"
+                          ],
+                          "properties": {
+                            "title": {
+                              "type": "string"
+                            },
+                            "exists": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        "epic": {
+                          "type": "object",
+                          "required": [
+                            "title",
+                            "exists"
+                          ],
+                          "properties": {
+                            "title": {
+                              "type": "string"
+                            },
+                            "exists": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        "story": {
+                          "type": "object",
+                          "required": [
+                            "title",
+                            "exists"
+                          ],
+                          "properties": {
+                            "title": {
+                              "type": "string"
+                            },
+                            "exists": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        "type": {
+                          "enum": [
+                            "FEATURE",
+                            "TASK",
+                            "BUG"
+                          ],
+                          "type": "string",
+                          "description": "FEATURE | TASK | BUG"
+                        }
+                      }
+                    }
+                  },
+                  "description": "Aperçu : ce que l’import ferait (rien n’est modifié)"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/imports/atelier-tab": {
+      "post": {
+        "summary": "Import DataFlow v2.1.0 d’Atelier Tab : crée ou met à jour les éléments (externalRef), idempotent par Idempotency-Key",
+        "tags": [
+          "Suite Atelier"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "target_system",
+                  "schema_version",
+                  "exported_at",
+                  "workspace",
+                  "project"
+                ],
+                "properties": {
+                  "target_system": {
+                    "type": "string",
+                    "enum": [
+                      "atelier_projets"
+                    ]
+                  },
+                  "schema_version": {
+                    "type": "string",
+                    "description": "Version du schéma : 2.1.0 (une autre version est refusée en 422)",
+                    "examples": [
+                      "2.1.0"
+                    ]
+                  },
+                  "exported_at": {
+                    "type": "string",
+                    "description": "Horodatage ISO 8601 de l’export"
+                  },
+                  "workspace": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "project": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "columns_schema",
+                      "records"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "source_table": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "summary_metrics": {
+                        "type": "object",
+                        "required": [
+                          "total_rows",
+                          "computed_totals"
+                        ],
+                        "properties": {
+                          "total_rows": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "computed_totals": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      },
+                      "columns_schema": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "col_letter",
+                            "id",
+                            "label",
+                            "type",
+                            "atelier_mapping"
+                          ],
+                          "properties": {
+                            "col_letter": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{1,3}$",
+                              "description": "Lettre de colonne (A, B… AA)"
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "enum": [
+                                "text",
+                                "number",
+                                "currency",
+                                "percent",
+                                "select",
+                                "date",
+                                "checkbox",
+                                "owner",
+                                "formula"
+                              ],
+                              "type": "string"
+                            },
+                            "atelier_mapping": {
+                              "enum": [
+                                "entity_title",
+                                "workflow_state",
+                                "financial_ht",
+                                "financial_ttc",
+                                "assignee",
+                                "due_date",
+                                "start_date",
+                                "quantity",
+                                "description",
+                                "flag",
+                                "custom"
+                              ],
+                              "type": "string",
+                              "description": "Rôle de la colonne côté Atelier Projets"
+                            }
+                          }
+                        },
+                        "minItems": 1
+                      },
+                      "records": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "row_index",
+                            "record_id",
+                            "values"
+                          ],
+                          "properties": {
+                            "row_index": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "description": "Numéro de ligne affiché dans Atelier Tab (1 = première ligne)"
+                            },
+                            "record_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "values": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "object",
+                                "required": [
+                                  "raw",
+                                  "computed"
+                                ],
+                                "properties": {
+                                  "raw": {
+                                    "type": "string",
+                                    "description": "Saisie d’origine en texte, formule incluse (« =C1*1.2 ») ; vide : \"\""
+                                  },
+                                  "computed": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Valeur évaluée, ou code d’erreur de formule (« #DIV/0! »)"
+                                  }
+                                },
+                                "description": "Cellule exportée sous double forme"
+                              }
+                            }
+                          }
+                        },
+                        "maxItems": 10000
+                      },
+                      "summary_rows": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "row_index",
+                            "record_id",
+                            "values"
+                          ],
+                          "properties": {
+                            "row_index": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "description": "Numéro de ligne affiché dans Atelier Tab (1 = première ligne)"
+                            },
+                            "record_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "values": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "object",
+                                "required": [
+                                  "raw",
+                                  "computed"
+                                ],
+                                "properties": {
+                                  "raw": {
+                                    "type": "string",
+                                    "description": "Saisie d’origine en texte, formule incluse (« =C1*1.2 ») ; vide : \"\""
+                                  },
+                                  "computed": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Valeur évaluée, ou code d’erreur de formule (« #DIV/0! »)"
+                                  }
+                                },
+                                "description": "Cellule exportée sous double forme"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "description": "Enveloppe DataFlow v2.1.0 produite par Atelier Tab (docs/DATAFLOW_SPEC.md d’Atelier Tab)"
+              }
+            }
+          },
+          "description": "Enveloppe DataFlow v2.1.0 produite par Atelier Tab (docs/DATAFLOW_SPEC.md d’Atelier Tab)"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "query",
+            "name": "projectId",
+            "required": false,
+            "description": "Projet cible ; sinon le projet nommé comme project.name (créé au besoin)"
+          },
+          {
+            "schema": {
+              "enum": [
+                "FEATURE",
+                "TASK",
+                "BUG"
+              ],
+              "type": "string"
+            },
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "description": "Type des éléments créés : TASK par défaut"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Une même clé rejouée renvoie la même réponse sans réimporter"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "x-atelier-schema-version",
+            "required": false,
+            "description": "Si présent : 2.1.0, sinon 422"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "description": "Bearer <jeton> : exigé si ATELIER_IMPORT_TOKEN est configuré"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultat de l’import : identifiants du projet et de la story, compteurs, avertissements, lignes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "projectId",
+                    "storyId",
+                    "created",
+                    "updated",
+                    "unchanged",
+                    "skipped",
+                    "warnings",
+                    "items"
+                  ],
+                  "properties": {
+                    "projectId": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "storyId": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "created": {
+                      "type": "integer"
+                    },
+                    "updated": {
+                      "type": "integer"
+                    },
+                    "unchanged": {
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "type": "integer"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "recordId",
+                          "rowIndex",
+                          "workItemId",
+                          "action",
+                          "title",
+                          "status",
+                          "startDate",
+                          "dueDate",
+                          "reason"
+                        ],
+                        "properties": {
+                          "recordId": {
+                            "type": "string"
+                          },
+                          "rowIndex": {
+                            "type": "integer"
+                          },
+                          "workItemId": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 2147483647
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "action": {
+                            "enum": [
+                              "created",
+                              "updated",
+                              "unchanged",
+                              "skipped"
+                            ],
+                            "type": "string",
+                            "description": "created / updated / unchanged (réimport sans changement) / skipped (ligne ignorée) — prévu (aperçu) ou fait (import)"
+                          },
+                          "title": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "enum": [
+                                  "OPEN",
+                                  "IN_PROGRESS",
+                                  "IN_REVIEW",
+                                  "ON_HOLD",
+                                  "BLOCKED",
+                                  "RESOLVED",
+                                  "CLOSED",
+                                  "REJECTED"
+                                ],
+                                "type": "string",
+                                "description": "Un des 8 statuts du workflow"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "startDate": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "dueDate": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "description": "Résultat de l’import : identifiants du projet et de la story, compteurs, avertissements, lignes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/exports/datasets": {
+      "get": {
+        "summary": "Jeux de données proposés à Atelier Viz (nom, libellé, description, nombre de lignes)",
+        "tags": [
+          "Suite Atelier"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "label",
+                      "description",
+                      "rowCount"
+                    ],
+                    "properties": {
+                      "name": {
+                        "enum": [
+                          "work-items",
+                          "time-entries",
+                          "milestones"
+                        ],
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "rowCount": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/exports/datasets/{name}": {
+      "get": {
+        "summary": "Contenu d’un jeu de données (colonnes typées et lignes), tous projets ou un seul",
+        "tags": [
+          "Suite Atelier"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "in": "query",
+            "name": "projectId",
+            "required": false,
+            "description": "Limite le jeu à un projet (tous par défaut)"
+          },
+          {
+            "schema": {
+              "enum": [
+                "work-items",
+                "time-entries",
+                "milestones"
+              ],
+              "type": "string"
+            },
+            "in": "path",
+            "name": "name",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Jeu de données tabulaire : date → AAAA-MM-JJ, datetime → ISO 8601, cellule vide → null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "label",
+                    "generatedAt",
+                    "columns",
+                    "rows"
+                  ],
+                  "properties": {
+                    "name": {
+                      "enum": [
+                        "work-items",
+                        "time-entries",
+                        "milestones"
+                      ],
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "generatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "label",
+                          "type"
+                        ],
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "description": "Clé en snake_case sans accent, utilisée dans rows"
+                          },
+                          "label": {
+                            "type": "string",
+                            "description": "Libellé français"
+                          },
+                          "type": {
+                            "enum": [
+                              "string",
+                              "number",
+                              "date",
+                              "datetime",
+                              "boolean"
+                            ],
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "description": "Jeu de données tabulaire : date → AAAA-MM-JJ, datetime → ISO 8601, cellule vide → null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -16361,6 +18137,10 @@
     {
       "name": "Vues",
       "description": "Dashboard, arborescence (Gantt) et tableau des temps calculés"
+    },
+    {
+      "name": "Suite Atelier",
+      "description": "Import DataFlow depuis Atelier Tab, jeux de données pour Atelier Viz (docs/SUITE.md)"
     }
   ]
 }

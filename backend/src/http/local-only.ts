@@ -3,6 +3,8 @@
 // - requêtes d'un autre site (CSRF) : l'en-tête Origin d'une écriture désigne alors un hôte étranger.
 // Seuls les hôtes locaux (et ceux de ALLOWED_HOSTS) sont acceptés. Les outils sans navigateur (curl du hook
 // post-commit, scripts) n'envoient pas d'Origin et restent acceptés.
+// Routes de la Suite Atelier (import Atelier Tab) : l'origine « null » de l'app Electron d'Atelier Tab est
+// aussi acceptée (option allowNullOrigin) ; l'en-tête Host reste contrôlé.
 import type { FastifyRequest } from 'fastify'
 import { HttpError } from './errors.ts'
 
@@ -25,7 +27,12 @@ export function allowedHosts(listenHost: string | undefined, extra: readonly str
   return hosts
 }
 
-export function createLocalOnlyGuard(hosts: ReadonlySet<string>) {
+export interface LocalOnlyOptions {
+  /** Routes qui acceptent aussi l'origine « null » (application de bureau, fichier local). */
+  allowNullOrigin?: (request: FastifyRequest) => boolean
+}
+
+export function createLocalOnlyGuard(hosts: ReadonlySet<string>, options: LocalOnlyOptions = {}) {
   return async (request: FastifyRequest): Promise<void> => {
     const host = request.headers.host
     if (!host || !hosts.has(hostName(host))) {
@@ -33,6 +40,7 @@ export function createLocalOnlyGuard(hosts: ReadonlySet<string>) {
     }
     const origin = request.headers.origin
     if (origin !== undefined && UNSAFE_METHODS.has(request.method)) {
+      if (origin === 'null' && options.allowNullOrigin?.(request)) return
       let originHost: string | null = null
       try {
         originHost = new URL(origin).hostname
