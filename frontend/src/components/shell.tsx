@@ -1,7 +1,6 @@
 // Cadre de l'application (maquette du README §4) : en-tête, rail de navigation, onglets, notifications.
 import {
   Bot,
-  CalendarCheck,
   CalendarRange,
   Check,
   ChevronDown,
@@ -25,6 +24,7 @@ import { useApi } from '../lib/use-api.ts'
 import { aiService } from '../services/api.ts'
 import type { Project } from '../services/types.ts'
 import { useAppState, type Theme, type ViewId } from '../store/app.ts'
+import { AtelierBrand } from './AtelierBrand.tsx'
 import { SuiteSwitcher } from './SuiteSwitcher.tsx'
 import { TimerPill } from './Timer.tsx'
 import { Button, Tabs } from './ui.tsx'
@@ -67,13 +67,8 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
     <header className="flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line bg-surface px-3 sm:px-4">
       <Button variant="ghost" icon={<Menu className="size-5" />} aria-label="Afficher ou masquer les libellés du menu" onClick={toggleRail} />
       <SuiteSwitcher />
-      <div className="atelier-brand pr-1" title="Atelier Projets">
-        <span className="atelier-brand__tile" aria-hidden="true">
-          <CalendarCheck />
-        </span>
-        <span className="atelier-brand__name hidden sm:inline">
-          <span className="atelier-brand__prefix">atelier_</span>Projets
-        </span>
+      <div className="pr-1">
+        <AtelierBrand nameClassName="hidden sm:inline" />
       </div>
       <ProjectSwitcher projects={projects} project={project} />
       {github && project?.github && (
