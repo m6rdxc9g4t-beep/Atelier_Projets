@@ -112,8 +112,20 @@ export function matchStatus(text: string): WorkItemStatus | null {
 
 // --- Cellules ----------------------------------------------------------------------------------------
 
-/** Codes d'erreur du moteur de formules d'Atelier Tab (#DIV/0!, #REF!, #NAME?…). */
-const FORMULA_ERROR = /^#[A-Z0-9/]+[!?]$/
+/**
+ * Codes d'erreur du moteur de formules d'Atelier Tab (liste fermée, src/engine/formula/values.ts : ERROR_CODES).
+ * Un texte saisi qui leur ressemble (« #URGENT! ») reste une valeur.
+ */
+export const FORMULA_ERROR_CODES: ReadonlySet<string> = new Set([
+  '#REF!',
+  '#DIV/0!',
+  '#VALUE!',
+  '#NAME?',
+  '#NUM!',
+  '#N/A',
+  '#CYCLE!',
+  '#ERROR!',
+])
 
 const NUMBER_FORMAT = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
 
@@ -126,7 +138,7 @@ function cellText(cell: DataflowCell | undefined): CellText {
   if (typeof computed === 'number') return { text: Number.isFinite(computed) ? NUMBER_FORMAT.format(computed) : null }
   if (typeof computed === 'boolean') return { text: computed ? 'Oui' : 'Non' }
   if (typeof computed === 'string') {
-    if (FORMULA_ERROR.test(computed.trim())) return { text: null, error: computed.trim() }
+    if (FORMULA_ERROR_CODES.has(computed.trim())) return { text: null, error: computed.trim() }
     const text = computed.trim()
     return { text: text === '' ? null : text }
   }

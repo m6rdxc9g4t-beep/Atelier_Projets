@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { after, before, describe, it } from 'node:test'
-import { matchStatus, planAtelierTabImport, type DataflowEnvelope } from '../src/domain/atelier-tab.ts'
+import { FORMULA_ERROR_CODES, matchStatus, planAtelierTabImport, type DataflowEnvelope } from '../src/domain/atelier-tab.ts'
 import { isSameOriginRequest, isSuiteOrigin } from '../src/http/suite-cors.ts'
 import { assertImportToken } from '../src/services/atelier-tab-import.ts'
 import { createTestContext, type TestContext } from './helpers/test-app.ts'
@@ -67,6 +67,32 @@ describe('correspondance des statuts (SUITE.md §1.4)', () => {
     assert.match(description, /\| Responsable \| Marie Dubois \|/)
     assert.doesNotMatch(description, /Échéance/, 'la colonne due_date sert de date, pas de donnée')
     assert.deepEqual(plan.warnings, ['Ligne 2 : statut « Validé » inconnu, « À faire » retenu.'])
+  })
+})
+
+describe('erreurs de formule (liste fermée d’Atelier Tab)', () => {
+  const plan = (computed: string) =>
+    planAtelierTabImport(
+      envelope((p) => {
+        p.project.records = [{ row_index: 1, record_id: 'r1', values: { A: cell('Lot'), D: { raw: '=X', computed } } }]
+      }),
+    )
+
+  it('ignore les 8 codes du moteur, avec avertissement', () => {
+    assert.equal(FORMULA_ERROR_CODES.size, 8)
+    for (const code of ['#REF!', '#DIV/0!', '#VALUE!', '#NAME?', '#NUM!', '#N/A', '#CYCLE!', '#ERROR!']) {
+      const result = plan(code)
+      assert.doesNotMatch(result.items[0]!.description, new RegExp(code.replace(/[/?!]/g, '\\$&')), code)
+      assert.ok(result.warnings.some((warning) => warning.includes(`erreur de formule ${code}`)), code)
+    }
+  })
+
+  it('garde un texte qui ressemble à un code (« #URGENT! », « #TODO? »)', () => {
+    for (const text of ['#URGENT!', '#TODO?', '#A1!', '#REF', '#N/A!']) {
+      const result = plan(text)
+      assert.ok(result.items[0]!.description.includes(text), text)
+      assert.ok(!result.warnings.some((warning) => warning.includes('erreur de formule')), text)
+    }
   })
 })
 
