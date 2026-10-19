@@ -36,18 +36,21 @@ const TRANSACTION_TIMEOUT_MS = 120_000
 export interface ImportRequest {
   envelope: DataflowEnvelope
   options: ImportOptions
-  headers: { idempotencyKey?: string; schemaVersion?: string; authorization?: string }
+  headers: { idempotencyKey?: string; schemaVersion?: string }
 }
 
 // --- Contrôles d'en-tête -------------------------------------------------------------------------------
 
-/** Jeton ATELIER_IMPORT_TOKEN : ignoré s'il n'est pas configuré, exigé (Bearer) sinon. */
+const sha256 = (text: string): Buffer => createHash('sha256').update(text, 'utf8').digest()
+
+/**
+ * Jeton ATELIER_IMPORT_TOKEN : ignoré s'il n'est pas configuré, exigé (Bearer) sinon.
+ * Comparaison des empreintes SHA-256 (longueur fixe) : ni le contenu ni la longueur du jeton ne fuient par le temps de réponse.
+ */
 export function assertImportToken(expected: string | undefined, authorization: string | undefined): void {
   if (!expected) return
   const match = /^Bearer\s+(.+)$/i.exec(authorization?.trim() ?? '')
-  const given = Buffer.from(match?.[1]?.trim() ?? '')
-  const wanted = Buffer.from(expected)
-  if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) {
+  if (!timingSafeEqual(sha256(match?.[1]?.trim() ?? ''), sha256(expected))) {
     throw new HttpError(401, 'UNAUTHORIZED', 'Jeton d’import absent ou invalide (en-tête Authorization: Bearer <ATELIER_IMPORT_TOKEN>)')
   }
 }

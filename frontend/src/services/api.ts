@@ -170,7 +170,10 @@ export const exportService = {
   },
 }
 
-/** Suite Atelier : import d'un fichier DataFlow d'Atelier Tab (aperçu sans écriture, puis import). */
+/**
+ * Suite Atelier : import d'un fichier DataFlow d'Atelier Tab (aperçu sans écriture, puis import).
+ * Pas de jeton : l'interface est de même origine que l'API (ATELIER_IMPORT_TOKEN n'est exigé que des appels externes).
+ */
 export const atelierTabService = {
   preview: (body: AtelierTabEnvelope, query: AtelierTabImportOptions = {}) =>
     unwrap(http.POST('/api/imports/atelier-tab/preview', { params: { query }, body })),

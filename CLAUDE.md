@@ -79,4 +79,4 @@ Atelier Projets fait partie de la **Suite Atelier** (avec Atelier Viz et Atelier
 
 - `design-system/themes/*.css` et `tokens/colors.css` sont copiés tels quels par Viz et Tab : toute modification se répercute dans leurs copies.
 - Frontend : adresses de la suite dans `frontend/src/lib/suite.ts` (surcharges `VITE_ATELIER_*_URL`), thème dans `frontend/src/lib/theme.ts`.
-- Backend : `routes/suite.ts` (mince) → `services/atelier-tab-import.ts`, `services/exports.ts` ; règles pures dans `domain/atelier-tab.ts` ; CORS limité aux deux routes d'import (`http/suite-cors.ts`, `config: { suiteCors: true }`).
+- Backend : `routes/suite.ts` (mince) → `services/atelier-tab-import.ts`, `services/exports.ts` ; règles pures dans `domain/atelier-tab.ts` ; CORS limité aux deux routes d'import (`http/suite-cors.ts`, `config: { suiteCors: true }`), origine `null` **refusée** (l'app de bureau Tab relaie sans `Origin`) ; jeton `ATELIER_IMPORT_TOKEN` vérifié en `onRequest` (avant le corps), exigé des appels externes seulement (`isSameOriginRequest`).

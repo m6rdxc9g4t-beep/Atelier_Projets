@@ -16659,7 +16659,7 @@
             "in": "header",
             "name": "authorization",
             "required": false,
-            "description": "Bearer <jeton> : exigé si ATELIER_IMPORT_TOKEN est configuré"
+            "description": "Bearer <jeton> : exigé des appels externes (sans Origin ou d’une autre origine) si ATELIER_IMPORT_TOKEN est configuré"
           }
         ],
         "responses": {
@@ -17460,7 +17460,7 @@
             "in": "header",
             "name": "authorization",
             "required": false,
-            "description": "Bearer <jeton> : exigé si ATELIER_IMPORT_TOKEN est configuré"
+            "description": "Bearer <jeton> : exigé des appels externes (sans Origin ou d’une autre origine) si ATELIER_IMPORT_TOKEN est configuré"
           }
         ],
         "responses": {

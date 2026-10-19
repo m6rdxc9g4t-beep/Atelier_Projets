@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { after, before, describe, it } from 'node:test'
 import { matchStatus, planAtelierTabImport, type DataflowEnvelope } from '../src/domain/atelier-tab.ts'
-import { isSuiteOrigin } from '../src/http/suite-cors.ts'
+import { isSameOriginRequest, isSuiteOrigin } from '../src/http/suite-cors.ts'
+import { assertImportToken } from '../src/services/atelier-tab-import.ts'
 import { createTestContext, type TestContext } from './helpers/test-app.ts'
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/atelier-tab-planning.json', import.meta.url), 'utf8')) as DataflowEnvelope
@@ -319,15 +320,27 @@ describe('jeton ATELIER_IMPORT_TOKEN', () => {
   })
   after(() => ctx.close())
 
-  it('exige Authorization: Bearer <jeton> quand il est configuré', async () => {
-    const send = (headers: Record<string, string>) =>
-      ctx.app.inject({ method: 'POST', url: '/api/imports/atelier-tab/preview', payload: envelope(), headers })
+  const send = (headers: Record<string, string>, url = '/api/imports/atelier-tab/preview') =>
+    ctx.app.inject({ method: 'POST', url, payload: envelope(), headers })
+
+  it('exige Authorization: Bearer <jeton> des appels externes', async () => {
+    // Appel sans Origin (webhook, relais de l'app de bureau Tab, curl) sans jeton : refusé.
+    const noOrigin = await send({})
+    assert.equal(noOrigin.statusCode, 401)
+    assert.equal(noOrigin.json().code, 'UNAUTHORIZED')
+    // Atelier Tab dans le navigateur (autre origine locale) : refusé, erreur lisible.
     const missing = await send({ origin: 'http://127.0.0.1:5175' })
     assert.equal(missing.statusCode, 401)
-    assert.equal(missing.json().code, 'UNAUTHORIZED')
     assert.equal(missing.headers['access-control-allow-origin'], 'http://127.0.0.1:5175', 'erreur lisible par l’appelant')
+    // Même hôte, autre port (Host 127.0.0.1:3000, Origin 127.0.0.1:5175) : pas « même origine ».
+    assert.equal((await send({ host: '127.0.0.1:3000', origin: 'http://127.0.0.1:5175' })).statusCode, 401)
     assert.equal((await send({ authorization: 'Bearer autre' })).statusCode, 401)
+    assert.equal((await send({ authorization: 'Bearer secret-loca' })).statusCode, 401, 'préfixe du jeton')
+    assert.equal((await send({ authorization: 'Bearer secret-local-plus' })).statusCode, 401, 'jeton plus long')
+    assert.equal((await send({ authorization: 'secret-local' })).statusCode, 401, 'sans « Bearer »')
     assert.equal((await send({ authorization: 'Bearer secret-local' })).statusCode, 200)
+    const browser = await send({ origin: 'http://127.0.0.1:5175', authorization: 'Bearer secret-local' })
+    assert.equal(browser.statusCode, 200)
     const imported = await ctx.app.inject({
       method: 'POST',
       url: '/api/imports/atelier-tab',
@@ -336,6 +349,69 @@ describe('jeton ATELIER_IMPORT_TOKEN', () => {
     })
     assert.equal(imported.statusCode, 200)
     assert.equal(imported.json().created, 3)
+  })
+
+  it('n’est pas exigé de l’interface de Projets (même origine, y compris via le relais /api de Vite)', async () => {
+    for (const [host, origin] of [
+      ['127.0.0.1:5174', 'http://127.0.0.1:5174'], // npm run dev (relais Vite, Host conservé)
+      ['localhost:4174', 'http://localhost:4174'], // aperçu
+      ['127.0.0.1:3000', 'http://127.0.0.1:3000'],
+      ['127.0.0.1:80', 'http://127.0.0.1'], // port par défaut implicite
+    ] as const) {
+      const preview = await send({ host, origin })
+      assert.equal(preview.statusCode, 200, `${origin} → ${preview.body}`)
+    }
+    const imported = await send({ host: '127.0.0.1:5174', origin: 'http://127.0.0.1:5174' }, '/api/imports/atelier-tab')
+    assert.equal(imported.statusCode, 200, imported.body)
+  })
+
+  it('est vérifié avant la lecture du corps', async () => {
+    // Corps illisible : sans jeton, 401 (et non 400) — le corps n'a pas été analysé.
+    const response = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/imports/atelier-tab',
+      payload: '{ pas du JSON',
+      headers: { 'content-type': 'application/json' },
+    })
+    assert.equal(response.statusCode, 401)
+    const valid = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/imports/atelier-tab',
+      payload: '{ pas du JSON',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer secret-local' },
+    })
+    assert.equal(valid.statusCode, 400, 'avec le jeton, le corps est ensuite analysé')
+    // Preflight CORS : jamais de jeton (le navigateur n'envoie pas Authorization).
+    const preflight = await ctx.app.inject({
+      method: 'OPTIONS',
+      url: '/api/imports/atelier-tab',
+      headers: { origin: 'http://127.0.0.1:5175', 'access-control-request-method': 'POST' },
+    })
+    assert.equal(preflight.statusCode, 204)
+  })
+
+  it('isSameOriginRequest : Origin = schéma + Host exacts', () => {
+    const same = (host: string | undefined, origin: string | undefined) => isSameOriginRequest({ headers: { host, origin } } as any)
+    assert.equal(same('127.0.0.1:5174', 'http://127.0.0.1:5174'), true)
+    assert.equal(same('LOCALHOST:4174', 'http://localhost:4174'), true)
+    assert.equal(same('127.0.0.1', 'http://127.0.0.1:80'.replace(':80', '')), true)
+    assert.equal(same('[::1]:3000', 'http://[::1]:3000'), true)
+    assert.equal(same('127.0.0.1:3000', undefined), false, 'sans Origin : appel externe')
+    assert.equal(same('127.0.0.1:3000', 'null'), false)
+    assert.equal(same('127.0.0.1:3000', 'http://127.0.0.1:5175'), false)
+    assert.equal(same('127.0.0.1:3000', 'http://localhost:3000'), false)
+    assert.equal(same('127.0.0.1:3000', 'file://'), false)
+    assert.equal(same('127.0.0.1:3000', 'http://127.0.0.1:3000/chemin'), false)
+    assert.equal(same(undefined, 'http://127.0.0.1:3000'), false)
+    assert.equal(same('127.0.0.1:3000@evil.example', 'http://evil.example'), false)
+  })
+
+  it('assertImportToken : comparaison d’empreintes, quelle que soit la longueur', () => {
+    assert.doesNotThrow(() => assertImportToken(undefined, undefined))
+    assert.doesNotThrow(() => assertImportToken('abc', 'Bearer abc'))
+    for (const given of [undefined, '', 'Bearer ', 'Bearer ab', 'Bearer abcd', 'Bearer ' + 'x'.repeat(10_000)]) {
+      assert.throws(() => assertImportToken('abc', given), (error: any) => error.statusCode === 401, String(given?.length))
+    }
   })
 
   it('est ignoré quand aucun jeton n’est configuré', async () => {

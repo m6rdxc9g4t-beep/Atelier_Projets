@@ -28,6 +28,26 @@ export function isSuiteOrigin(origin: string): boolean {
   return url.protocol === 'http:' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost') && url.pathname === '/' && origin === url.origin
 }
 
+/**
+ * Requête de l'interface d'Atelier Projets elle-même : l'en-tête Origin désigne exactement l'hôte servi
+ * (en-tête Host, port compris — le relais /api de Vite garde le Host d'origine, changeOrigin: false).
+ * Un navigateur ne peut pas forger Origin ni Host : une page d'une autre origine (même locale, autre port)
+ * ou un appel sans Origin (webhook, relais de l'app de bureau Tab, curl) n'est pas « même origine ».
+ */
+export function isSameOriginRequest(request: FastifyRequest): boolean {
+  const { origin, host } = request.headers
+  // Host strictement « nom[:port] » ou « [ipv6][:port] » (pas de « @ », de chemin…) avant de le lire comme une URL.
+  if (origin === undefined || !host || !/^(?:\[[0-9a-f:.]+\]|[a-z0-9.-]+)(?::\d{1,5})?$/i.test(host)) return false
+  try {
+    const from = new URL(origin)
+    if ((from.protocol !== 'http:' && from.protocol !== 'https:') || origin !== from.origin) return false
+    // Host normalisé comme une URL du même schéma (port par défaut retiré, minuscules).
+    return new URL(`${from.protocol}//${host}`).host === from.host
+  } catch {
+    return false
+  }
+}
+
 /** La requête vise-t-elle une route de la suite ? (la route est résolue avant les hooks onRequest) */
 export function isSuiteRoute(request: FastifyRequest): boolean {
   return request.routeOptions.config?.suiteCors === true

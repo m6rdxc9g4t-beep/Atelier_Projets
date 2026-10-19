@@ -75,7 +75,7 @@ export const ImportHeaders = Type.Object({
     Type.String({ minLength: 1, maxLength: 200, description: 'Une même clé rejouée renvoie la même réponse sans réimporter' }),
   ),
   'x-atelier-schema-version': Type.Optional(Type.String({ description: 'Si présent : 2.1.0, sinon 422' })),
-  authorization: Type.Optional(Type.String({ description: 'Bearer <jeton> : exigé si ATELIER_IMPORT_TOKEN est configuré' })),
+  authorization: Type.Optional(Type.String({ description: 'Bearer <jeton> : exigé des appels externes (sans Origin ou d’une autre origine) si ATELIER_IMPORT_TOKEN est configuré' })),
 })
 
 const ImportAction = Type.Enum(['created', 'updated', 'unchanged', 'skipped'], {

@@ -2,6 +2,7 @@
 // Routes minces : validation par les schémas, logique dans services/atelier-tab-import.ts et services/exports.ts.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import type { FastifyRequest } from 'fastify'
+import { isSameOriginRequest } from '../http/suite-cors.ts'
 import {
   DataflowEnvelopeSchema,
   ImportHeaders,
@@ -35,17 +36,22 @@ export const suiteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     headers: ImportHeaders,
     body: DataflowEnvelopeSchema,
   }
-  const toRequest = (request: FastifyRequest<{ Body: ImportRequest['envelope']; Querystring: ImportRequest['options'] }>): ImportRequest => {
+  const toRequest = (request: FastifyRequest<{ Body: ImportRequest['envelope']; Querystring: ImportRequest['options'] }>): ImportRequest => ({
+    envelope: request.body,
+    options: request.query,
+    headers: {
+      idempotencyKey: header(request, 'idempotency-key'),
+      schemaVersion: header(request, 'x-atelier-schema-version'),
+    },
+  })
+  /**
+   * Jeton ATELIER_IMPORT_TOKEN, contrôlé dans onRequest : avant la lecture et la validation du corps (jusqu'à 20 Mo),
+   * après le CORS et le garde local (hooks globaux). Exigé des appels externes — sans Origin (webhook, relais de l'app
+   * de bureau Tab) ou d'une autre origine (Tab dans le navigateur) — mais pas de l'interface de Projets (même origine).
+   */
+  const requireImportToken = async (request: FastifyRequest): Promise<void> => {
+    if (!app.settings.importToken || isSameOriginRequest(request)) return
     assertImportToken(app.settings.importToken, header(request, 'authorization'))
-    return {
-      envelope: request.body,
-      options: request.query,
-      headers: {
-        idempotencyKey: header(request, 'idempotency-key'),
-        schemaVersion: header(request, 'x-atelier-schema-version'),
-        authorization: header(request, 'authorization'),
-      },
-    }
   }
 
   app.post(
@@ -53,6 +59,7 @@ export const suiteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     {
       bodyLimit: IMPORT_BODY_LIMIT,
       config: { suiteCors: true },
+      onRequest: requireImportToken,
       schema: {
         ...importSchema,
         summary: 'Aperçu d’un import DataFlow v2.1.0 d’Atelier Tab (rien n’est modifié)',
@@ -67,6 +74,7 @@ export const suiteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     {
       bodyLimit: IMPORT_BODY_LIMIT,
       config: { suiteCors: true },
+      onRequest: requireImportToken,
       schema: {
         ...importSchema,
         summary: 'Import DataFlow v2.1.0 d’Atelier Tab : crée ou met à jour les éléments (externalRef), idempotent par Idempotency-Key',
