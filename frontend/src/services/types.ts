@@ -79,3 +79,9 @@ export type TimerState = ResponseOf<'/api/timer', 'get'>
 export type RunningTimer = NonNullable<TimerState['timer']>
 export type BackupList = ResponseOf<'/api/backups', 'get'>
 export type Backup = BackupList['backups'][number]
+
+export type AtelierTabEnvelope = BodyOf<'/api/imports/atelier-tab', 'post'>
+export type AtelierTabImportOptions = NonNullable<paths['/api/imports/atelier-tab']['post']['parameters']['query']>
+export type AtelierTabPreview = ResponseOf<'/api/imports/atelier-tab/preview', 'post'>
+export type AtelierTabImportResult = ResponseOf<'/api/imports/atelier-tab', 'post'>
+export type AtelierTabImportItem = AtelierTabImportResult['items'][number]

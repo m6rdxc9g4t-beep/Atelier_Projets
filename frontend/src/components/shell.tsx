@@ -9,7 +9,9 @@ import {
   FolderPlus,
   LayoutDashboard,
   Link2,
+  FileUp,
   Menu,
+  Monitor,
   Moon,
   Plus,
   Rocket,
@@ -22,7 +24,8 @@ import { githubLabel } from '../lib/format.ts'
 import { useApi } from '../lib/use-api.ts'
 import { aiService } from '../services/api.ts'
 import type { Project } from '../services/types.ts'
-import { useAppState, type ViewId } from '../store/app.ts'
+import { useAppState, type Theme, type ViewId } from '../store/app.ts'
+import { SuiteSwitcher } from './SuiteSwitcher.tsx'
 import { TimerPill } from './Timer.tsx'
 import { Button, Tabs } from './ui.tsx'
 
@@ -63,9 +66,10 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line bg-surface px-3 sm:px-4">
       <Button variant="ghost" icon={<Menu className="size-5" />} aria-label="Afficher ou masquer les libellés du menu" onClick={toggleRail} />
+      <SuiteSwitcher />
       <div className="flex items-center gap-2 pr-1">
         <Rocket className="size-5 text-accent-ink" aria-hidden />
-        <span className="hidden text-[15px] font-extrabold tracking-wide sm:inline">ATELIER_PROJETS</span>
+        <span className="hidden whitespace-nowrap text-[15px] font-bold tracking-tight sm:inline">Atelier Projets</span>
       </div>
       <ProjectSwitcher projects={projects} project={project} />
       {github && project?.github && (
@@ -81,12 +85,16 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
       )}
       <div className="ml-auto flex items-center gap-2">
         <TimerPill />
-        <div className="flex items-center rounded-lg border border-line bg-sunken p-0.5" role="group" aria-label="Thème">
-          <ThemeButton active={theme === 'light'} onClick={() => setTheme('light')} label="Thème clair" icon={<Sun className="size-4" />} />
-          <span className="px-0.5 text-muted" aria-hidden>
-            /
-          </span>
-          <ThemeButton active={theme === 'dark'} onClick={() => setTheme('dark')} label="Thème sombre" icon={<Moon className="size-4" />} />
+        <div className="flex items-center gap-0.5 rounded-lg border border-line bg-sunken p-0.5" role="group" aria-label="Thème">
+          {THEMES.map((option) => (
+            <ThemeButton
+              key={option.id}
+              active={theme === option.id}
+              onClick={() => setTheme(option.id)}
+              label={option.label}
+              icon={option.icon}
+            />
+          ))}
         </div>
         <AiButton />
       </div>
@@ -94,12 +102,19 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
   )
 }
 
+const THEMES: { id: Theme; label: string; icon: ReactNode }[] = [
+  { id: 'light', label: 'Thème clair', icon: <Sun className="size-4" /> },
+  { id: 'dark', label: 'Thème sombre', icon: <Moon className="size-4" /> },
+  { id: 'system', label: 'Thème du système', icon: <Monitor className="size-4" /> },
+]
+
 function ThemeButton({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
+      title={label}
       aria-pressed={active}
       className={`grid size-7 place-items-center rounded-md transition-colors ${active ? 'bg-elevated text-accent-ink' : 'text-muted hover:text-fg'}`}
     >
@@ -178,6 +193,17 @@ function ProjectSwitcher({ projects, project }: { projects: Project[]; project: 
             >
               <FolderPlus className="size-4" aria-hidden />
               Nouveau projet
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-accent-ink hover:bg-hover"
+              onClick={() => {
+                setOpen(false)
+                openDialog({ kind: 'importTab' })
+              }}
+            >
+              <FileUp className="size-4" aria-hidden />
+              Importer depuis Atelier Tab…
             </button>
           </div>
         </div>

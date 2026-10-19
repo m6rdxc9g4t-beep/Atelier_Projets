@@ -2,6 +2,8 @@
 // les agrégats (budget, avancement, bilans, histogramme) arrivent déjà calculés.
 import { http, unwrap } from './client.ts'
 import type {
+  AtelierTabEnvelope,
+  AtelierTabImportOptions,
   BreakdownInput,
   ClaudeLaunchInput,
   ContainerInput,
@@ -166,4 +168,13 @@ export const exportService = {
     const search = params.toString()
     return `/api/projects/${projectId}/timesheet.csv${search ? `?${search}` : ''}`
   },
+}
+
+/** Suite Atelier : import d'un fichier DataFlow d'Atelier Tab (aperçu sans écriture, puis import). */
+export const atelierTabService = {
+  preview: (body: AtelierTabEnvelope, query: AtelierTabImportOptions = {}) =>
+    unwrap(http.POST('/api/imports/atelier-tab/preview', { params: { query }, body })),
+  /** idempotencyKey : un double envoi (double clic, nouvelle tentative) n'importe qu'une fois. */
+  import: (body: AtelierTabEnvelope, query: AtelierTabImportOptions, idempotencyKey: string) =>
+    unwrap(http.POST('/api/imports/atelier-tab', { params: { query, header: { 'idempotency-key': idempotencyKey } }, body })),
 }

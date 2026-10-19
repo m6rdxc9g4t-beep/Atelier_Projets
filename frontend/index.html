@@ -1,17 +1,25 @@
 <!doctype html>
-<html lang="fr" data-theme="dark">
+<html lang="fr" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Atelier_Projets</title>
+    <title>Atelier Projets</title>
     <script>
-      // Applique le thème mémorisé avant le premier rendu (évite un flash clair → sombre).
-      try {
-        const saved = JSON.parse(localStorage.getItem('atelier-projets:ui') || '{}').state
-        const theme = saved && saved.theme ? saved.theme : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-        document.documentElement.dataset.theme = theme
-      } catch {}
+      // Applique le thème avant le premier rendu (évite un flash clair → sombre). Suite Atelier : en sombre,
+      // data-theme="dark" ET la classe « dark » sur <html> ; préférence Clair, Sombre ou Système (défaut).
+      ;(function () {
+        var root = document.documentElement
+        var preference = 'system'
+        try {
+          var saved = JSON.parse(localStorage.getItem('atelier-projets:ui') || '{}').state
+          if (saved && (saved.theme === 'light' || saved.theme === 'dark' || saved.theme === 'system')) preference = saved.theme
+        } catch (error) {}
+        var dark = preference === 'dark' || (preference === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        root.dataset.themePreference = preference
+        root.dataset.theme = dark ? 'dark' : 'light'
+        root.classList.toggle('dark', dark)
+      })()
     </script>
   </head>
   <body>

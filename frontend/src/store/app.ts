@@ -4,9 +4,11 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
+import type { ThemePreference } from '../lib/theme.ts'
 import type { WorkItemType } from '../services/types.ts'
 
-export type Theme = 'light' | 'dark'
+/** Préférence de thème : Clair, Sombre ou Système (voir lib/theme.ts). */
+export type Theme = ThemePreference
 export type ViewId = 'dashboard' | 'gantt' | 'timesheet' | 'settings'
 
 /** Ce qu'un dialogue de création ou de modification doit produire. */
@@ -23,6 +25,7 @@ export type DialogRequest =
   | { kind: 'breakdown'; storyId: number; label: string }
   | { kind: 'claude'; workItemId: number }
   | { kind: 'linkRepo'; workItemId: number | null }
+  | { kind: 'importTab' }
 
 export interface Toast {
   id: number
@@ -84,8 +87,10 @@ const safeStorage: StateStorage = {
   },
 }
 
+/** Avant la relecture du stockage : la préférence appliquée par index.html (Système par défaut). */
 function initialTheme(): Theme {
-  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
+  const preference = document.documentElement.dataset.themePreference
+  return preference === 'light' || preference === 'dark' ? preference : 'system'
 }
 
 let toastSequence = 0

@@ -9,12 +9,14 @@ import { hierarchyService, milestoneService, projectService, reportService, work
 import type { Priority, Project, WorkItemType } from '../services/types.ts'
 import { useApp, type DialogRequest } from '../store/app.ts'
 import { AiPanel, BreakdownDialog, ClaudeDialog, LinkRepoDialog } from './AiDialogs.tsx'
+import { ImportTabDialog } from './ImportTabDialog.tsx'
 import { Button, Field, Modal, TypeChip } from './ui.tsx'
 
-export function Dialogs({ project }: { project: Project | undefined }) {
+export function Dialogs({ project, projects }: { project: Project | undefined; projects: Project[] }) {
   const dialog = useApp((state) => state.dialog)
   if (!dialog) return null
   if (dialog.kind === 'project') return <ProjectDialog />
+  if (dialog.kind === 'importTab') return <ImportTabDialog projects={projects} current={project} />
   if (dialog.kind === 'ai') return <AiPanel project={project} />
   if (dialog.kind === 'breakdown') return <BreakdownDialog request={dialog} />
   if (dialog.kind === 'claude') return <ClaudeDialog request={dialog} />
