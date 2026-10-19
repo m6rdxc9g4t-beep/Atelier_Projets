@@ -455,3 +455,102 @@ describe('jeton ATELIER_IMPORT_TOKEN', () => {
     }
   })
 })
+
+describe('réimport après renommage (projet, story ou table)', () => {
+  let ctx: TestContext
+  let projectId: number
+  let storyId: number
+  before(async () => {
+    ctx = await createTestContext({ now: () => NOW })
+    const first = await ctx.app.inject({ method: 'POST', url: '/api/imports/atelier-tab', payload: envelope() })
+    assert.equal(first.statusCode, 200, first.body)
+    ;({ projectId, storyId } = first.json())
+  })
+  after(() => ctx.close())
+
+  const post = (url: string, payload: unknown) => ctx.app.inject({ method: 'POST', url, payload: payload as object })
+  const containers = async () =>
+    Promise.all([ctx.prisma.project.count(), ctx.prisma.phase.count(), ctx.prisma.epic.count(), ctx.prisma.story.count()])
+
+  it('projet et story renommés, rien de nouveau : aucun conteneur créé, réponse sur les éléments existants', async () => {
+    await ctx.prisma.project.update({ where: { id: projectId }, data: { name: 'Rénovation (renommé)' } })
+    await ctx.prisma.story.update({ where: { id: storyId }, data: { title: 'Lots (renommé)' } })
+    const before = await containers()
+
+    const preview = await post('/api/imports/atelier-tab/preview', envelope())
+    assert.equal(preview.statusCode, 200, preview.body)
+    const planned = preview.json()
+    assert.deepEqual([planned.projectId, planned.storyId, planned.created], [projectId, storyId, 0])
+    assert.deepEqual(planned.target.project, { id: projectId, name: 'Rénovation (renommé)', exists: true })
+    assert.deepEqual(planned.target.story, { title: 'Lots (renommé)', exists: true })
+
+    const response = await post('/api/imports/atelier-tab', envelope())
+    assert.equal(response.statusCode, 200, response.body)
+    const body = response.json()
+    assert.deepEqual([body.projectId, body.storyId, body.created], [projectId, storyId, 0])
+    assert.ok(!body.warnings.some((warning: string) => /autre projet|rangés/.test(warning)), body.warnings.join('\n'))
+    assert.deepEqual(await containers(), before, 'ni projet, ni phase, ni epic, ni story vides')
+  })
+
+  it('table renommée (même id) : les éléments restent dans leur story', async () => {
+    const before = await containers()
+    const renamed = envelope((p) => (p.project.source_table.name = 'Planning v2'))
+    const body = (await post('/api/imports/atelier-tab', renamed)).json()
+    assert.deepEqual([body.projectId, body.storyId, body.created], [projectId, storyId, 0])
+    assert.deepEqual(await containers(), before)
+  })
+
+  it('nouvelle ligne d’une table déjà importée dont le projet a été renommé : rangée avec les autres', async () => {
+    const before = await containers()
+    const payload = envelope((p) => {
+      p.project.source_table.name = 'Planning v2'
+      p.project.records.push({ row_index: 4, record_id: 'rec_04', values: { A: cell('Menuiseries'), B: cell('Nouveau') } })
+    })
+    const preview = (await post('/api/imports/atelier-tab/preview', payload)).json()
+    assert.deepEqual([preview.projectId, preview.storyId, preview.created], [projectId, storyId, 1])
+    assert.equal(preview.target.story.exists, true)
+
+    const response = await post('/api/imports/atelier-tab', payload)
+    assert.equal(response.statusCode, 200, response.body)
+    const body = response.json()
+    assert.deepEqual([body.projectId, body.storyId, body.created], [projectId, storyId, 1])
+    assert.ok(
+      body.warnings.includes(
+        'Nouveaux éléments rangés avec ceux déjà importés de cette table : Rénovation (renommé) › Imports Atelier Tab › Espace Architecture › Lots (renommé).',
+      ),
+      body.warnings.join('\n'),
+    )
+    const created = await ctx.prisma.workItem.findUniqueOrThrow({ where: { externalRef: 'atelier-tab:tbl_planning_lots:rec_04' } })
+    assert.deepEqual([created.projectId, created.storyId], [projectId, storyId])
+    assert.deepEqual(await containers(), before, 'pas de projet « Rénovation Urbaine 2026 » recréé')
+  })
+
+  it('éléments déplacés dans une autre story : les nouveaux les rejoignent (story majoritaire)', async () => {
+    const epic = await ctx.prisma.story.findUniqueOrThrow({ where: { id: storyId }, select: { epicId: true } })
+    const other = await ctx.prisma.story.create({ data: { epicId: epic.epicId, title: 'Rangement manuel', position: 99 } })
+    await ctx.prisma.workItem.updateMany({ where: { storyId }, data: { storyId: other.id } })
+    const payload = envelope((p) => {
+      p.project.records.push({ row_index: 5, record_id: 'rec_05', values: { A: cell('Peinture') } })
+    })
+    const body = (await post('/api/imports/atelier-tab', payload)).json()
+    assert.deepEqual([body.storyId, body.created], [other.id, 1])
+    const created = await ctx.prisma.workItem.findUniqueOrThrow({ where: { externalRef: 'atelier-tab:tbl_planning_lots:rec_05' } })
+    assert.equal(created.storyId, other.id)
+  })
+
+  it('projectId vers un autre projet, tout existe ailleurs : aucun conteneur créé, avertissements de déplacement', async () => {
+    const target = await ctx.prisma.project.create({ data: { name: 'Autre', slug: 'autre' } })
+    const before = await containers()
+    const payload = envelope((p) => {
+      p.project.records.push({ row_index: 4, record_id: 'rec_04', values: { A: cell('Menuiseries'), B: cell('Nouveau') } })
+      p.project.records.push({ row_index: 5, record_id: 'rec_05', values: { A: cell('Peinture') } })
+    })
+    const response = await post(`/api/imports/atelier-tab?projectId=${target.id}`, payload)
+    assert.equal(response.statusCode, 200, response.body)
+    const body = response.json()
+    assert.deepEqual([body.projectId, body.storyId, body.created], [target.id, null, 0])
+    assert.equal(body.warnings.filter((warning: string) => warning.includes('existe déjà dans un autre projet')).length, 5)
+    assert.deepEqual(await containers(), before)
+    assert.equal(await ctx.prisma.phase.count({ where: { projectId: target.id } }), 0)
+  })
+})

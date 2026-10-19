@@ -194,6 +194,8 @@ export interface ImportPlan {
   projectName: string
   epicTitle: string
   storyTitle: string
+  /** Préfixe commun des externalRef de cette source : « atelier-tab:<source_table.id ?? project.id>: ». */
+  sourceRef: string
   items: PlannedItem[]
   skipped: SkippedRecord[]
   warnings: string[]
@@ -201,7 +203,12 @@ export interface ImportPlan {
 
 /** Identité stable d'un enregistrement : « atelier-tab:<source_table.id ?? project.id>:<record_id> ». */
 export function externalRefOf(envelope: DataflowEnvelope, recordId: string): string {
-  return `${EXTERNAL_REF_PREFIX}:${envelope.project.source_table?.id ?? envelope.project.id}:${recordId}`
+  return `${sourceRefOf(envelope)}${recordId}`
+}
+
+/** Préfixe des externalRef d'une source (table d'Atelier Tab, ou projet sans table). */
+export function sourceRefOf(envelope: DataflowEnvelope): string {
+  return `${EXTERNAL_REF_PREFIX}:${envelope.project.source_table?.id ?? envelope.project.id}:`
 }
 
 const SINGLE_ROLES = ['entity_title', 'workflow_state', 'start_date', 'due_date', 'description'] as const
@@ -322,5 +329,5 @@ export function planAtelierTabImport(
     })
   }
 
-  return { projectName, epicTitle, storyTitle, items, skipped, warnings }
+  return { projectName, epicTitle, storyTitle, sourceRef: sourceRefOf(envelope), items, skipped, warnings }
 }

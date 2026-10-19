@@ -1,7 +1,9 @@
 // Import DataFlow depuis Atelier Tab (docs/SUITE.md §4.1) : aperçu (aucune écriture) et import idempotent.
 // Rangement : Projet › Phase « Imports Atelier Tab » › Epic <workspace.name> › Story <table ou projet>,
 // conteneurs retrouvés par leur titre et créés au besoin. Chaque élément garde son externalRef : un réimport
-// met à jour l'élément existant (où qu'il ait été déplacé) au lieu d'en créer un autre.
+// met à jour l'élément existant (où qu'il ait été déplacé) au lieu d'en créer un autre. Une table déjà importée
+// garde sa story (celle de ses éléments existants), même si le projet, la story ou la table ont été renommés ;
+// aucun conteneur n'est créé quand il n'y a rien à créer.
 //
 // Idempotence : la réponse d'un import est enregistrée dans la table ImportIdempotency, dans la même
 // transaction que l'import. Une table SQLite plutôt qu'un cache en mémoire : la clé survit à un redémarrage
@@ -75,9 +77,11 @@ export function assertSchemaVersion(header: string | undefined, envelope: Datafl
 
 interface Target {
   project: { id: number; name: string } | null
-  phaseId: number | null
-  epicId: number | null
-  storyId: number | null
+  phase: { id: number | null; title: string }
+  epic: { id: number | null; title: string }
+  story: { id: number | null; title: string }
+  /** Story retrouvée par les éléments déjà importés de la même source (et non par les titres). */
+  fromSource: boolean
 }
 
 interface ExistingItem {
@@ -92,14 +96,54 @@ interface ExistingItem {
 
 type Action = 'created' | 'updated' | 'unchanged'
 
-async function findTarget(tx: Tx, plan: ImportPlan, options: ImportOptions): Promise<Target> {
-  let project: { id: number; name: string } | null
-  if (options.projectId !== undefined) {
-    project = await tx.project.findUnique({ where: { id: options.projectId }, select: { id: true, name: true } })
-    if (!project) throw notFound(`Projet #${options.projectId} introuvable`)
-  } else {
-    project = await tx.project.findFirst({ where: { name: plan.projectName }, select: { id: true, name: true }, orderBy: { id: 'asc' } })
+/**
+ * Story qui regroupe le plus d'éléments déjà importés de cette source (externalRef « atelier-tab:<table>: »),
+ * éventuellement limitée à un projet ; null si la source n'a jamais été importée (ou pas dans ce projet).
+ * Ainsi, après un renommage du projet, de la story ou de la table, les éléments restent ensemble.
+ */
+async function findSourceStory(tx: Tx, sourceRef: string, projectId: number | undefined): Promise<Omit<Target, 'fromSource'> | null> {
+  const rows = await tx.workItem.findMany({
+    where: { externalRef: { startsWith: sourceRef }, ...(projectId !== undefined && { projectId }) },
+    select: { storyId: true, externalRef: true },
+  })
+  const counts = new Map<number, number>()
+  // LIKE de SQLite ignore la casse ASCII : préfixe revérifié à l'identique.
+  for (const row of rows) if (row.externalRef?.startsWith(sourceRef)) counts.set(row.storyId, (counts.get(row.storyId) ?? 0) + 1)
+  let best: number | null = null
+  for (const [storyId, n] of counts) {
+    if (best === null || n > counts.get(best)! || (n === counts.get(best)! && storyId < best)) best = storyId
   }
+  if (best === null) return null
+  const story = await tx.story.findUniqueOrThrow({
+    where: { id: best },
+    select: {
+      id: true,
+      title: true,
+      epic: { select: { id: true, title: true, phase: { select: { id: true, title: true, project: { select: { id: true, name: true } } } } } },
+    },
+  })
+  return {
+    project: story.epic.phase.project,
+    phase: { id: story.epic.phase.id, title: story.epic.phase.title },
+    epic: { id: story.epic.id, title: story.epic.title },
+    story: { id: story.id, title: story.title },
+  }
+}
+
+/**
+ * Destination des nouveaux éléments :
+ * 1. la story des éléments déjà importés de la même source (dans le projet demandé, si projectId est donné) ;
+ * 2. sinon, par les titres : projet (projectId ou nom) › phase « Imports Atelier Tab » › epic › story.
+ */
+async function findTarget(tx: Tx, plan: ImportPlan, options: ImportOptions): Promise<Target> {
+  const requested =
+    options.projectId === undefined ? null : await tx.project.findUnique({ where: { id: options.projectId }, select: { id: true, name: true } })
+  if (options.projectId !== undefined && !requested) throw notFound(`Projet #${options.projectId} introuvable`)
+  const source = await findSourceStory(tx, plan.sourceRef, options.projectId)
+  if (source) return { ...source, fromSource: true }
+  const project =
+    requested ??
+    (await tx.project.findFirst({ where: { name: plan.projectName }, select: { id: true, name: true }, orderBy: { id: 'asc' } }))
   const phase = project
     ? await tx.phase.findFirst({ where: { projectId: project.id, title: IMPORT_PHASE_TITLE }, select: { id: true }, orderBy: { id: 'asc' } })
     : null
@@ -109,7 +153,13 @@ async function findTarget(tx: Tx, plan: ImportPlan, options: ImportOptions): Pro
   const story = epic
     ? await tx.story.findFirst({ where: { epicId: epic.id, title: plan.storyTitle }, select: { id: true }, orderBy: { id: 'asc' } })
     : null
-  return { project, phaseId: phase?.id ?? null, epicId: epic?.id ?? null, storyId: story?.id ?? null }
+  return {
+    project,
+    phase: { id: phase?.id ?? null, title: IMPORT_PHASE_TITLE },
+    epic: { id: epic?.id ?? null, title: plan.epicTitle },
+    story: { id: story?.id ?? null, title: plan.storyTitle },
+    fromSource: false,
+  }
 }
 
 async function findExisting(tx: Tx, plan: ImportPlan): Promise<Map<string, ExistingItem>> {
@@ -137,6 +187,7 @@ function actionFor(item: PlannedItem, existing: ExistingItem | undefined): Actio
   return same ? 'unchanged' : 'updated'
 }
 
+/** Éléments existants rangés hors du projet de destination (calculé après résolution de la destination). */
 function movedWarnings(plan: ImportPlan, existing: Map<string, ExistingItem>, projectId: number | null): string[] {
   if (projectId === null) return []
   return plan.items.flatMap((item) => {
@@ -145,6 +196,24 @@ function movedWarnings(plan: ImportPlan, existing: Map<string, ExistingItem>, pr
       ? [`Ligne ${item.rowIndex} : l’élément #${current.id} existe déjà dans un autre projet, il y est mis à jour.`]
       : []
   })
+}
+
+/**
+ * Réimport après renommage (projet, story ou table) : les nouveaux éléments rejoignent ceux déjà importés de la
+ * même source, pas une nouvelle arborescence nommée d'après l'enveloppe. Signalé quand le chemin diffère.
+ */
+function sourceWarnings(plan: ImportPlan, target: Target, options: ImportOptions, creating: boolean): string[] {
+  if (!target.fromSource || !creating || !target.project) return []
+  const same =
+    (options.projectId !== undefined || target.project.name === plan.projectName) &&
+    target.phase.title === IMPORT_PHASE_TITLE &&
+    target.epic.title === plan.epicTitle &&
+    target.story.title === plan.storyTitle
+  return same
+    ? []
+    : [
+        `Nouveaux éléments rangés avec ceux déjà importés de cette table : ${target.project.name} › ${target.phase.title} › ${target.epic.title} › ${target.story.title}.`,
+      ]
 }
 
 function itemRow(item: PlannedItem, workItemId: number | null, action: Action) {
@@ -182,6 +251,7 @@ export async function previewAtelierTabImport(prisma: PrismaClient, request: Imp
   const plan = planAtelierTabImport(envelope, { maxDescriptionLength: MARKDOWN_MAX_LENGTH })
   const target = await findTarget(prisma, plan, options)
   const existing = await findExisting(prisma, plan)
+  const creating = plan.items.some((item) => !existing.has(item.externalRef))
   const items = sortedByRow([
     ...plan.items.map((item) => {
       const current = existing.get(item.externalRef)
@@ -191,18 +261,18 @@ export async function previewAtelierTabImport(prisma: PrismaClient, request: Imp
   ])
   return {
     projectId: target.project?.id ?? null,
-    storyId: target.storyId,
+    storyId: target.story.id,
     created: count(items, 'created'),
     updated: count(items, 'updated'),
     unchanged: count(items, 'unchanged'),
     skipped: count(items, 'skipped'),
-    warnings: [...plan.warnings, ...movedWarnings(plan, existing, target.project?.id ?? null)],
+    warnings: [...plan.warnings, ...sourceWarnings(plan, target, options, creating), ...movedWarnings(plan, existing, target.project?.id ?? null)],
     items,
     target: {
       project: { id: target.project?.id ?? null, name: target.project?.name ?? plan.projectName, exists: target.project !== null },
-      phase: { title: IMPORT_PHASE_TITLE, exists: target.phaseId !== null },
-      epic: { title: plan.epicTitle, exists: target.epicId !== null },
-      story: { title: plan.storyTitle, exists: target.storyId !== null },
+      phase: { title: target.phase.title, exists: target.phase.id !== null },
+      epic: { title: target.epic.title, exists: target.epic.id !== null },
+      story: { title: target.story.title, exists: target.story.id !== null },
       type: options.type ?? 'TASK',
     },
   }
@@ -222,7 +292,9 @@ async function createProject(tx: Tx, name: string): Promise<{ id: number; name: 
 
 async function ensureContainers(tx: Tx, plan: ImportPlan, target: Target): Promise<{ projectId: number; storyId: number }> {
   const project = target.project ?? (await createProject(tx, plan.projectName))
-  let { phaseId, epicId, storyId } = target
+  let phaseId = target.phase.id
+  let epicId = target.epic.id
+  let storyId = target.story.id
   if (phaseId === null) {
     const max = await tx.phase.aggregate({ where: { projectId: project.id }, _max: { position: true } })
     phaseId = (
@@ -295,17 +367,21 @@ export async function importFromAtelierTab(
         }
         const target = await findTarget(tx, plan, options)
         const existing = await findExisting(tx, plan)
-        const warnings = [...plan.warnings, ...movedWarnings(plan, existing, target.project?.id ?? null)]
-        const rows: ReturnType<typeof itemRow>[] = []
+        const creating = plan.items.some((item) => !existing.has(item.externalRef))
         let projectId = target.project?.id ?? null
-        let storyId = target.storyId
+        let storyId = target.story.id
+        const rows: ReturnType<typeof itemRow>[] = []
 
         if (plan.items.length > 0) {
-          const containers = await ensureContainers(tx, plan, target)
-          projectId = containers.projectId
-          storyId = containers.storyId
-          const max = await tx.workItem.aggregate({ where: { storyId }, _max: { position: true } })
-          let position = nextPosition(max._max.position)
+          // Conteneurs créés seulement s'il reste des éléments à créer (sinon : réimport pur, rien de vide).
+          let position = 0
+          if (creating) {
+            const containers = await ensureContainers(tx, plan, target)
+            projectId = containers.projectId
+            storyId = containers.storyId
+            const max = await tx.workItem.aggregate({ where: { storyId }, _max: { position: true } })
+            position = nextPosition(max._max.position)
+          }
 
           for (const item of plan.items) {
             const current = existing.get(item.externalRef)
@@ -321,8 +397,8 @@ export async function importFromAtelierTab(
               const created = await tx.workItem.create({
                 data: {
                   ...fields,
-                  projectId,
-                  storyId,
+                  projectId: projectId!,
+                  storyId: storyId!,
                   type,
                   externalRef: item.externalRef,
                   progress: isDone(item.status) ? 100 : 0,
@@ -343,6 +419,7 @@ export async function importFromAtelierTab(
           }
         }
 
+        const warnings = [...plan.warnings, ...sourceWarnings(plan, target, options, creating), ...movedWarnings(plan, existing, projectId)]
         const items = sortedByRow([...rows, ...skippedRows(plan)])
         const result: ImportResultDto = {
           projectId,
