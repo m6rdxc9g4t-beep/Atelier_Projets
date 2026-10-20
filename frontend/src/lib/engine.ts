@@ -21,12 +21,16 @@ export function claudeBlockedReason(status: AiStatus | null): string | null {
   return null
 }
 
-/** Choix effectif : « Claude » grisé retombe sur « Auto » (comme Atelier Viz). */
+/**
+ * Choix effectif (comme Atelier Viz et Atelier Tab) : « Claude » retombe sur « Auto » **hors ligne seulement**.
+ * En ligne, un Claude explicitement choisi mais indisponible reste « Claude » : la requête part telle quelle et
+ * le serveur répond une erreur claire (502 CLAUDE_UNAVAILABLE) au lieu de répondre en silence par Ollama.
+ */
 export function effectiveChoice(choice: EngineChoice, status: AiStatus | null): EngineChoice {
-  return choice === 'claude' && status !== null && claudeBlockedReason(status) !== null ? 'auto' : choice
+  return choice === 'claude' && status !== null && !status.onlineMode ? 'auto' : choice
 }
 
-/** Moteur qui répondra : Auto = Claude si en ligne et disponible, sinon Ollama. */
+/** Moteur qui répondra : Auto = Claude si en ligne et disponible, sinon Ollama ; Claude choisi en ligne = Claude (ou une erreur). */
 export function answeringEngine(choice: EngineChoice, status: AiStatus | null): AiEngine {
   const effective = effectiveChoice(choice, status)
   if (effective === 'auto') return status?.auto ?? 'ollama'
@@ -34,8 +38,35 @@ export function answeringEngine(choice: EngineChoice, status: AiStatus | null): 
 }
 
 /** Modèle Claude valide (une préférence mémorisée peut avoir été modifiée à la main). */
-export function safeClaudeModel(model: string | null | undefined): ClaudeModel {
+export function safeClaudeModel(model: unknown): ClaudeModel {
   return CLAUDE_MODELS.find((candidate) => candidate === model) ?? 'sonnet'
+}
+
+/** Moteur valide (préférence mémorisée), sinon « Auto ». */
+export function safeEngineChoice(choice: unknown): EngineChoice {
+  return ENGINE_CHOICES.find((option) => option.id === choice)?.id ?? 'auto'
+}
+
+/** Nom de modèle Ollama plausible (« qwen2.5-coder:7b », « hf.co/org/modele:Q4_K_M »), sinon null (modèle du serveur). */
+export function safeOllamaModel(model: unknown): string | null {
+  if (typeof model !== 'string') return null
+  const name = model.trim()
+  return name.length > 0 && name.length <= 200 && /^[\w.:/@+-]+$/.test(name) ? name : null
+}
+
+export interface AiPreferences {
+  aiEngine: EngineChoice
+  claudeModel: ClaudeModel
+  aiModel: string | null
+}
+
+/**
+ * Préférences IA relues du stockage local (modifiable à la main, ou par une ancienne version) : chaque valeur
+ * est validée, une valeur inconnue reprend sa valeur par défaut (Auto, Sonnet, modèle Ollama du serveur).
+ */
+export function restoreAiPreferences(saved: unknown): AiPreferences {
+  const values = typeof saved === 'object' && saved !== null ? (saved as Record<string, unknown>) : {}
+  return { aiEngine: safeEngineChoice(values.aiEngine), claudeModel: safeClaudeModel(values.claudeModel), aiModel: safeOllamaModel(values.aiModel) }
 }
 
 /** « Claude · Sonnet », « Ollama · qwen2.5-coder:7b ». */

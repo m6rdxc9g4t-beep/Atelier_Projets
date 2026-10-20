@@ -61,7 +61,8 @@ export const SUITE_APPS: readonly SuiteApp[] = [
     short: 'Projets',
     description: 'Projets agiles, Git, temps passé',
     url: PROJETS_URL,
-    // Application courante : son API est jointe par l'interface elle-même (même origine, proxy /api).
+    // Application courante : jamais sondée par le sélecteur, toujours « en marche » (docs/SUITE.md §3).
+    // Adresse gardée pour une vérification sur sa propre origine (même origine, proxy /api).
     healthUrls: ['/api/health'],
   },
 ]

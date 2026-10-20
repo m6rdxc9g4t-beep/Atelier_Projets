@@ -62,6 +62,28 @@ test('sélecteur « Suite Atelier » : trois applications, courante cochée, cla
   await expect(menu).toBeHidden()
 })
 
+test('application courante toujours « en marche », sans être sondée (§3)', async ({ page, request }) => {
+  await page.route(/^http:\/\/127\.0\.0\.1:(4175|5175)\/api\/health$/, (route) => route.abort())
+  await openProject(page, await demoProjectId(request))
+  await expect(page.locator('header').getByRole('button', { name: 'Suite Atelier : changer d’application' })).toBeVisible()
+  // Même si sa propre route de santé ne répondait pas, Projets affiche ce menu : il est « en marche ».
+  const ownHealth: string[] = []
+  const origin = new URL(page.url()).origin
+  await page.route(
+    (url) => url.origin === origin && url.pathname === '/api/health',
+    (route) => {
+      ownHealth.push(route.request().url())
+      return route.abort()
+    },
+  )
+  const trigger = page.getByRole('button', { name: 'Suite Atelier : changer d’application' })
+  await trigger.click()
+  const items = page.getByRole('menu', { name: 'Suite Atelier' }).getByRole('menuitemradio')
+  await expect(items.nth(1)).toHaveAccessibleName('Atelier Tab — Arrêtée')
+  await expect(items.nth(2)).toHaveAccessibleName('Atelier Projets (application courante) — En marche')
+  expect(ownHealth, 'aucune sonde de l’application courante').toEqual([])
+})
+
 test('Atelier Tab « en marche » s’il répond sur 4175 (app, aperçu) ou sur 5175 (dev)', async ({ page, request }) => {
   const projectId = await demoProjectId(request)
   const probed: string[] = []

@@ -4,6 +4,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
+import { restoreAiPreferences } from '../lib/engine.ts'
 import type { ThemePreference } from '../lib/theme.ts'
 import type { ClaudeModel, EngineChoice, WorkItemType } from '../services/types.ts'
 
@@ -138,6 +139,11 @@ export const useApp = create<AppState>()(
     {
       name: 'atelier-projets:ui',
       storage: createJSONStorage(() => safeStorage),
+      // Le stockage local peut contenir n'importe quoi (modifié à la main, ancienne version) : préférences IA validées.
+      merge: (persisted, current) => {
+        const saved = typeof persisted === 'object' && persisted !== null ? (persisted as Partial<AppState>) : {}
+        return { ...current, ...saved, ...restoreAiPreferences(saved) }
+      },
       partialize: (state) => ({
         theme: state.theme,
         projectId: state.projectId,

@@ -1,6 +1,8 @@
 // « Moteur : Auto · Ollama · Claude » (docs/SUITE.md §5.2), même disposition et mêmes libellés qu'Atelier Viz :
 // commande segmentée, modèle (Ollama ou Claude), ligne bouclier qui dit exactement ce qui est envoyé à Claude.
-// « Claude » est grisé hors ligne ou indisponible, avec l'explication. Le choix est mémorisé (store de l'interface).
+// « Claude » est grisé hors ligne ou indisponible, avec l'explication. Hors ligne, un choix « Claude » mémorisé
+// devient « Auto » ; en ligne, il reste « Claude » même indisponible (le serveur répond alors une erreur claire,
+// jamais Ollama en silence). Le choix est mémorisé (store de l'interface).
 import { CloudOff, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useEffect, useId } from 'react'
 import {
@@ -19,7 +21,7 @@ import { useAppState } from '../store/app.ts'
 
 export interface Engine {
   status: AiStatus | null
-  /** Choix affiché (Claude grisé → Auto). */
+  /** Choix affiché (hors ligne : Claude → Auto ; en ligne, Claude indisponible reste Claude : erreur du serveur). */
   choice: EngineChoice
   setChoice: (choice: EngineChoice) => void
   /** Moteur qui répondra. */

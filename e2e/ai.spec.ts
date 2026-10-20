@@ -46,3 +46,24 @@ test('mode hors ligne par défaut, pastilles des moteurs, Claude grisé dans le 
   await header.getByRole('switch', { name: 'En ligne' }).click()
   await expect(header.getByRole('switch', { name: 'Hors ligne' })).toHaveAttribute('aria-checked', 'false')
 })
+
+test('préférences IA du stockage local invalides : valeurs par défaut (Auto)', async ({ page, request }) => {
+  const scenario = await createScenario(request, 'IA préférences')
+  await page.addInitScript((projectId) => {
+    if (sessionStorage.getItem('e2e-init')) return
+    const state = { theme: 'dark', view: 'gantt', projectId, aiEngine: 'gpt-9', claudeModel: 'claude-3', aiModel: { name: 42 } }
+    localStorage.setItem('atelier-projets:ui', JSON.stringify({ state, version: 0 }))
+    sessionStorage.setItem('e2e-init', '1')
+  }, scenario.projectId)
+  await page.goto('/')
+  const row = page.getByRole('button', { name: new RegExp(`${scenario.storyTitle} : du `) }).first()
+  await row.hover()
+  await page.getByRole('button', { name: 'Générer les sous-tâches (IA)' }).first().click()
+  const dialog = page.getByRole('dialog', { name: /Générer les sous-tâches/ })
+  const engines = dialog.getByRole('radiogroup', { name: 'Moteur' })
+  await expect(engines.getByRole('radio', { name: 'Auto' })).toHaveAttribute('aria-checked', 'true')
+  await expect(engines.getByRole('radio', { name: 'Ollama' })).toHaveAttribute('aria-checked', 'false')
+  await engines.getByRole('radio', { name: 'Ollama' }).click()
+  await expect(dialog.getByRole('combobox', { name: 'Modèle Ollama' })).toHaveValue('')
+  await dialog.getByRole('button', { name: 'Annuler' }).click()
+})
