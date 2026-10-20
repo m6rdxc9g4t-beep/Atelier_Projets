@@ -67,7 +67,7 @@ interface Row {
   collapsible: boolean
   add?: { label: string; dialog: DialogRequest }
   edit?: DialogRequest
-  /** ✨ Découpage de la story par l'IA locale. */
+  /** ✨ Découpage de la story par l’IA (Ollama ou Claude). */
   breakdown?: DialogRequest
   /** Clés des lignes parentes (phase, epic, story) : elles suivent le déplacement d'un conteneur. */
   parents: string[]
@@ -857,7 +857,7 @@ function GanttRow(props: GanttRowProps) {
         </button>
         <span className="absolute right-16 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-line bg-surface p-0.5 shadow-card group-focus-within:flex group-hover:flex print:hidden!">
           {row.breakdown && (
-            <RowAction label="Générer les sous-tâches (IA locale)" onClick={() => row.breakdown && openDialog(row.breakdown)}>
+            <RowAction label="Générer les sous-tâches (IA)" onClick={() => row.breakdown && openDialog(row.breakdown)}>
               <Sparkles className="size-3.5" />
             </RowAction>
           )}

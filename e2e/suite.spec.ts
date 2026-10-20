@@ -32,6 +32,8 @@ test('thème : data-theme et classe « dark » sur <html>, choix Clair / Sombre 
 })
 
 test('sélecteur « Suite Atelier » : trois applications, courante cochée, clavier et Échap', async ({ page, request }) => {
+  // Atelier Tab arrêté : ni l'app de bureau / l'aperçu (4175), ni le serveur de dev (5175) ne répondent.
+  await page.route(/^http:\/\/127\.0\.0\.1:(4175|5175)\/api\/health$/, (route) => route.abort())
   await openProject(page, await demoProjectId(request))
   const trigger = page.getByRole('button', { name: 'Suite Atelier : changer d’application' })
   await trigger.focus()
@@ -44,9 +46,9 @@ test('sélecteur « Suite Atelier » : trois applications, courante cochée, cla
   await expect(items.nth(0)).toHaveAttribute('href', /^http:\/\/127\.0\.0\.1:8000/)
   await expect(items.nth(1)).toHaveAttribute('href', /^http:\/\/127\.0\.0\.1:4175/)
   await expect(items.nth(2)).toHaveAttribute('aria-checked', 'true')
-  // Projets répond (même origine) ; Atelier Tab n'a pas d'API, donc pas d'indicateur.
+  // Projets répond (même origine) ; Atelier Tab ne répond sur aucune de ses deux adresses de santé.
   await expect(items.nth(2)).toHaveAccessibleName(/En marche/)
-  await expect(items.nth(1)).toHaveAccessibleName('Atelier Tab')
+  await expect(items.nth(1)).toHaveAccessibleName('Atelier Tab — Arrêtée')
 
   await page.keyboard.press('ArrowUp')
   await expect(items.nth(2)).toBeFocused()
@@ -58,6 +60,59 @@ test('sélecteur « Suite Atelier » : trois applications, courante cochée, cla
   await expect(menu).toBeVisible()
   await page.locator('main').click({ position: { x: 600, y: 400 } })
   await expect(menu).toBeHidden()
+})
+
+test('application courante toujours « en marche », sans être sondée (§3)', async ({ page, request }) => {
+  await page.route(/^http:\/\/127\.0\.0\.1:(4175|5175)\/api\/health$/, (route) => route.abort())
+  await openProject(page, await demoProjectId(request))
+  await expect(page.locator('header').getByRole('button', { name: 'Suite Atelier : changer d’application' })).toBeVisible()
+  // Même si sa propre route de santé ne répondait pas, Projets affiche ce menu : il est « en marche ».
+  const ownHealth: string[] = []
+  const origin = new URL(page.url()).origin
+  await page.route(
+    (url) => url.origin === origin && url.pathname === '/api/health',
+    (route) => {
+      ownHealth.push(route.request().url())
+      return route.abort()
+    },
+  )
+  const trigger = page.getByRole('button', { name: 'Suite Atelier : changer d’application' })
+  await trigger.click()
+  const items = page.getByRole('menu', { name: 'Suite Atelier' }).getByRole('menuitemradio')
+  await expect(items.nth(1)).toHaveAccessibleName('Atelier Tab — Arrêtée')
+  await expect(items.nth(2)).toHaveAccessibleName('Atelier Projets (application courante) — En marche')
+  expect(ownHealth, 'aucune sonde de l’application courante').toEqual([])
+})
+
+test('Atelier Tab « en marche » s’il répond sur 4175 (app, aperçu) ou sur 5175 (dev)', async ({ page, request }) => {
+  const projectId = await demoProjectId(request)
+  const probed: string[] = []
+  let answering = '5175'
+  await page.route(/^http:\/\/127\.0\.0\.1:(4175|5175)\/api\/health$/, (route) => {
+    const port = new URL(route.request().url()).port
+    probed.push(port)
+    return port === answering
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', app: 'atelier-tab' }) })
+      : route.abort()
+  })
+  await openProject(page, projectId)
+  const trigger = page.getByRole('button', { name: 'Suite Atelier : changer d’application' })
+  const menu = page.getByRole('menu', { name: 'Suite Atelier' })
+  const tab = menu.getByRole('menuitemradio').nth(1)
+
+  await trigger.click()
+  await expect(tab).toHaveAccessibleName('Atelier Tab — En marche')
+  expect([...new Set(probed)].sort()).toEqual(['4175', '5175'])
+  await page.keyboard.press('Escape')
+
+  answering = '4175'
+  await trigger.click()
+  await expect(tab).toHaveAccessibleName('Atelier Tab — En marche')
+  await page.keyboard.press('Escape')
+
+  answering = 'aucun'
+  await trigger.click()
+  await expect(tab).toHaveAccessibleName('Atelier Tab — Arrêtée')
 })
 
 test('importer un fichier DataFlow d’Atelier Tab : aperçu puis import', async ({ page, request }) => {

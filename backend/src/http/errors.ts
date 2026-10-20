@@ -22,6 +22,8 @@ export const notFound = (message: string): HttpError => new HttpError(404, 'NOT_
 export const badRequest = (message: string): HttpError => new HttpError(400, 'BAD_REQUEST', message)
 /** Conflit avec l'état existant (slug déjà pris…). */
 export const conflict = (message: string): HttpError => new HttpError(409, 'CONFLICT', message)
+/** Action refusée par un réglage (ex. Claude en mode hors ligne). */
+export const forbidden = (code: string, message: string): HttpError => new HttpError(403, code, message)
 /** Service externe (GitHub) en échec. */
 export const badGateway = (code: string, message: string): HttpError => new HttpError(502, code, message)
 

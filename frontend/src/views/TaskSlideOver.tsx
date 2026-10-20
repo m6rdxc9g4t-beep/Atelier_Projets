@@ -23,7 +23,9 @@ import { dateTime, days, fromNow, hours, longDate, parseNumber, signedDays, toda
 import { levelCode, PRIORITIES, PRIORITY_LABEL, STATUS_LABEL, STATUSES, TYPE_LABEL, WORK_ITEM_TYPES } from '../lib/labels.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
-import { ClaudeLaunchButton, Generating, useAiModel } from '../components/AiDialogs.tsx'
+import { ClaudeLaunchButton, Generating, SENDS } from '../components/AiDialogs.tsx'
+import { EnginePicker, useEngine } from '../components/EnginePicker.tsx'
+import { CLAUDE_MODEL_LABEL, engineResultLabel } from '../lib/engine.ts'
 import { DependenciesSection } from '../components/Dependencies.tsx'
 import { TimerButton } from '../components/Timer.tsx'
 import { aiService, gitService, workItemService } from '../services/api.ts'
@@ -568,13 +570,13 @@ function LogTab({ item }: { item: WorkItemDetail }) {
   const [spent, setSpent] = useState('')
   const [summary, setSummary] = useState<SummarizeResult | null>(null)
   const [summarizing, setSummarizing] = useState(false)
-  const model = useAiModel()
+  const engine = useEngine()
   const { busy, run } = useAction()
 
-  // 🤖 Résumer mes commits : l'IA locale rédige l'entrée à partir des git diff ; elle reste modifiable
+  // 🤖 Résumer mes commits : l'IA (Ollama ou Claude) rédige l'entrée à partir des git diff ; elle reste modifiable
   // dans le formulaire et n'est enregistrée qu'avec « Ajouter au journal ».
   const pending = useRef<AbortController | null>(null)
-  // Fiche fermée pendant un résumé : la requête est annulée (et Ollama libéré côté backend).
+  // Fiche fermée pendant un résumé : la requête est annulée (Ollama ou Claude interrompu côté backend).
   useEffect(() => () => pending.current?.abort(), [])
 
   const summarize = async () => {
@@ -583,7 +585,7 @@ function LogTab({ item }: { item: WorkItemDetail }) {
     pending.current = controller
     setSummarizing(true)
     try {
-      const result = await aiService.summarize({ workItemId: item.id, ...(model && { model }) }, controller.signal)
+      const result = await aiService.summarize({ workItemId: item.id, ...engine.request }, controller.signal)
       // Un brouillon saisi à la main est conservé : le résumé s'ajoute à la suite (ou remplace le précédent résumé).
       setText((current) => (current.trim() === '' || current === summary?.text ? result.text : `${current.trimEnd()}\n\n${result.text}`))
       setSummary(result)
@@ -619,11 +621,30 @@ function LogTab({ item }: { item: WorkItemDetail }) {
 
   return (
     <div className="space-y-4">
-      {summarizing && <Generating label="L’IA locale lit les commits et leurs diffs…" active={summarizing} />}
+      {item.commits.length > 0 && (
+        <details className="rounded-lg border border-line p-3" open={engine.choice !== 'auto' || undefined}>
+          <summary className="cursor-pointer text-sm text-muted">
+            Résumé des commits · moteur{' '}
+            <span className="font-medium text-fg">
+              {engine.engine === 'claude' ? `Claude (${CLAUDE_MODEL_LABEL[engine.claudeModel]})` : 'Ollama (local)'}
+            </span>
+          </summary>
+          <div className="mt-3">
+            <EnginePicker engine={engine} sends={SENDS.summary(engine.status?.maxDiffChars ?? 24_000)} />
+          </div>
+        </details>
+      )}
+      {summarizing && (
+        <Generating
+          label={engine.engine === 'claude' ? 'Claude lit les commits et leurs diffs…' : 'L’IA locale lit les commits et leurs diffs…'}
+          active={summarizing}
+        />
+      )}
       {adding && summary && (
         <div className="space-y-1 rounded-lg border border-line p-3 text-xs text-muted">
           <p className="flex items-center gap-1.5 font-medium text-fg">
-            <Bot className="size-3.5 text-accent-ink" aria-hidden /> Proposition de {summary.model} à partir de {summary.commits.length} commit(s) — à relire
+            <Bot className="size-3.5 text-accent-ink" aria-hidden /> Proposition · {engineResultLabel(summary.engine, summary.model)} · à partir de{' '}
+            {summary.commits.length} commit(s) — à relire
           </p>
           <p className="font-mono">
             {summary.commits.map((commit) => `${commit.shortHash}${commit.diff === 'full' ? '' : commit.diff === 'truncated' ? ' (diff tronqué)' : ' (sans diff)'}`).join(' · ')}
@@ -691,7 +712,7 @@ function LogTab({ item }: { item: WorkItemDetail }) {
               title={
                 item.commits.length === 0
                   ? `Aucun commit lié : citer #${item.id} dans un message de commit puis analyser le dépôt`
-                  : 'Rédiger une entrée du journal à partir des git diff des commits liés (IA locale)'
+                  : `Rédiger une entrée du journal à partir des git diff des commits liés (${engine.engine === 'claude' ? 'Claude' : 'IA locale'})`
               }
               onClick={summarize}
             >

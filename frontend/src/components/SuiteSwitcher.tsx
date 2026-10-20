@@ -1,10 +1,11 @@
 // Sélecteur « Suite Atelier » (docs/SUITE.md §3) : icône grille à gauche du nom de l'application, menu des
-// trois applications (courante cochée), indicateur « en marche / arrêtée » pour celles qui ont une API.
+// trois applications (courante cochée), indicateur « en marche / arrêtée » pour les trois (Tab : route de santé seule ;
+// l'application courante est toujours « en marche », sans être sondée).
 // Clavier : Entrée / Espace / ↓ ouvrent le menu, ↑ ↓ Début Fin naviguent, Échap ferme et rend le focus,
 // Tab ou un clic à l'extérieur ferment. Les vérifications de santé ne bloquent jamais le menu.
 import { BarChart3, CalendarCheck, Check, LayoutGrid, Table2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { checkHealth, CURRENT_APP, SUITE_APPS, type SuiteAppId, type SuiteStatus } from '../lib/suite.ts'
+import { checkAnyHealth, CURRENT_APP, SUITE_APPS, type SuiteAppId, type SuiteStatus } from '../lib/suite.ts'
 
 /** Icônes de la marque commune (docs/SUITE.md §1.6 et §3), dans la tuile au dégradé cyan. */
 const ICONS: Record<SuiteAppId, ReactNode> = {
@@ -37,9 +38,10 @@ export function SuiteSwitcher() {
     if (!open) return
     let cancelled = false
     for (const app of SUITE_APPS) {
-      if (!app.healthUrl) continue
+      // L'application courante n'est jamais sondée : elle est « en marche » puisqu'elle affiche ce menu (§3).
+      if (app.id === CURRENT_APP || app.healthUrls.length === 0) continue
       setHealth((current) => ({ ...current, [app.id]: 'checking' }))
-      void checkHealth(app.healthUrl).then((status) => {
+      void checkAnyHealth(app.healthUrls).then((status) => {
         if (!cancelled) setHealth((current) => ({ ...current, [app.id]: status }))
       })
     }
@@ -128,7 +130,7 @@ export function SuiteSwitcher() {
           </p>
           {SUITE_APPS.map((app, index) => {
             const current = app.id === CURRENT_APP
-            const state = app.healthUrl ? (health[app.id] ?? 'checking') : null
+            const state: Health | null = current ? 'up' : app.healthUrls.length > 0 ? (health[app.id] ?? 'checking') : null
             const content = (
               <>
                 <span className="atelier-brand__tile atelier-brand__tile--sm" aria-hidden="true">

@@ -89,6 +89,112 @@
         }
       }
     },
+    "/api/settings": {
+      "get": {
+        "summary": "Réglages de l’application (mode hors ligne / en ligne)",
+        "tags": [
+          "Réglages"
+        ],
+        "responses": {
+          "200": {
+            "description": "Réglages de l’application",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "onlineMode"
+                  ],
+                  "properties": {
+                    "onlineMode": {
+                      "type": "boolean",
+                      "description": "En ligne : Claude peut être utilisé. Hors ligne (défaut) : rien ne part vers Claude, toute requête explicite est refusée (403)."
+                    }
+                  },
+                  "description": "Réglages de l’application"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Modifier les réglages : activer ou couper le mode en ligne (pris en compte immédiatement)",
+        "tags": [
+          "Réglages"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "onlineMode": {
+                    "type": "boolean",
+                    "description": "Activer (true) ou couper (false) le mode en ligne"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réglages de l’application",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "onlineMode"
+                  ],
+                  "properties": {
+                    "onlineMode": {
+                      "type": "boolean",
+                      "description": "En ligne : Claude peut être utilisé. Hors ligne (défaut) : rien ne part vers Claude, toute requête explicite est refusée (403)."
+                    }
+                  },
+                  "description": "Réglages de l’application"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects": {
       "get": {
         "summary": "Lister les projets",
@@ -13932,20 +14038,34 @@
     },
     "/api/ai/status": {
       "get": {
-        "summary": "État d’Ollama (modèles installés) et de Claude CLI",
+        "summary": "État des moteurs (Ollama : modèles installés ; Claude : CLI, connexion), mode en ligne et moteur retenu par Auto",
         "tags": [
           "IA locale & Claude CLI"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "description": "Revérifier la connexion de Claude (sinon cache de 60 s) ; au plus une revérification forcée toutes les 10 s"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "État de l’IA locale (Ollama) et de Claude CLI",
+            "description": "État des moteurs d’IA (Ollama, Claude), du mode en ligne et du moteur retenu par « Auto »",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
                     "ollama",
-                    "claude"
+                    "claude",
+                    "onlineMode",
+                    "auto",
+                    "maxDiffChars"
                   ],
                   "properties": {
                     "ollama": {
@@ -14040,34 +14160,41 @@
                       "type": "object",
                       "required": [
                         "available",
+                        "installed",
+                        "loggedIn",
+                        "authMethod",
+                        "error",
+                        "warning",
+                        "checkedAt",
+                        "models",
+                        "defaultModel",
+                        "timeoutMs",
                         "version",
                         "command",
                         "canOpenTerminal",
-                        "terminalApp",
-                        "error"
+                        "terminalApp"
                       ],
                       "properties": {
                         "available": {
-                          "type": "boolean"
+                          "type": "boolean",
+                          "description": "Moteur Claude utilisable maintenant : en ligne, CLI installée et connectée"
                         },
-                        "version": {
+                        "installed": {
+                          "type": "boolean",
+                          "description": "CLI trouvée (CLAUDE_CLI, PATH, ~/.local/bin, /opt/homebrew/bin, /usr/local/bin)"
+                        },
+                        "loggedIn": {
                           "anyOf": [
                             {
-                              "type": "string"
+                              "type": "boolean",
+                              "description": "« claude auth status » (null : non vérifié, hors ligne ou CLI absente)"
                             },
                             {
                               "type": "null"
                             }
                           ]
                         },
-                        "command": {
-                          "type": "string"
-                        },
-                        "canOpenTerminal": {
-                          "type": "boolean",
-                          "description": "Ouverture automatique d’un terminal (macOS)"
-                        },
-                        "terminalApp": {
+                        "authMethod": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -14080,6 +14207,82 @@
                         "error": {
                           "anyOf": [
                             {
+                              "type": "string",
+                              "description": "Raison de l’indisponibilité du moteur, en français"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "warning": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "Avertissement non bloquant (clé API au lieu de l’abonnement)"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "checkedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "Date de la dernière vérification de la connexion (cache 60 s)"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "models": {
+                          "type": "array",
+                          "items": {
+                            "enum": [
+                              "sonnet",
+                              "opus",
+                              "haiku"
+                            ],
+                            "type": "string",
+                            "description": "Modèle Claude (alias de la CLI). Défaut : sonnet"
+                          }
+                        },
+                        "defaultModel": {
+                          "enum": [
+                            "sonnet",
+                            "opus",
+                            "haiku"
+                          ],
+                          "type": "string",
+                          "description": "Modèle Claude (alias de la CLI). Défaut : sonnet"
+                        },
+                        "timeoutMs": {
+                          "type": "integer",
+                          "description": "Délai maximal d’une réponse (CLAUDE_TIMEOUT_MS)"
+                        },
+                        "version": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "command": {
+                          "type": "string",
+                          "description": "Exécutable trouvé, ou la commande configurée"
+                        },
+                        "canOpenTerminal": {
+                          "type": "boolean",
+                          "description": "Ouverture automatique d’un terminal (macOS) pour une session interactive"
+                        },
+                        "terminalApp": {
+                          "anyOf": [
+                            {
                               "type": "string"
                             },
                             {
@@ -14088,9 +14291,25 @@
                           ]
                         }
                       }
+                    },
+                    "onlineMode": {
+                      "type": "boolean",
+                      "description": "Mode en ligne (Claude permis) ; hors ligne par défaut"
+                    },
+                    "auto": {
+                      "enum": [
+                        "ollama",
+                        "claude"
+                      ],
+                      "type": "string",
+                      "description": "Moteur qui a effectivement répondu"
+                    },
+                    "maxDiffChars": {
+                      "type": "integer",
+                      "description": "Taille maximale cumulée des diffs transmis (AI_MAX_DIFF_CHARS)"
                     }
                   },
-                  "description": "État de l’IA locale (Ollama) et de Claude CLI"
+                  "description": "État des moteurs d’IA (Ollama, Claude), du mode en ligne et du moteur retenu par « Auto »"
                 }
               }
             }
@@ -14100,7 +14319,7 @@
     },
     "/api/ai/breakdown-story": {
       "post": {
-        "summary": "Proposer le découpage d’une Story en Features et Tasks estimées en jours (rien n’est enregistré)",
+        "summary": "Proposer le découpage d’une Story en Features et Tasks estimées en jours, par Ollama ou Claude (rien n’est enregistré)",
         "tags": [
           "IA locale & Claude CLI"
         ],
@@ -14119,12 +14338,30 @@
                     "minimum": 1,
                     "maximum": 2147483647
                   },
+                  "engine": {
+                    "enum": [
+                      "auto",
+                      "ollama",
+                      "claude"
+                    ],
+                    "type": "string",
+                    "description": "Moteur : auto (Claude si en ligne et disponible, sinon Ollama), ollama, claude (refusé hors ligne : 403). Défaut : auto"
+                  },
                   "model": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200,
                     "pattern": "\\S",
                     "description": "Modèle Ollama (défaut : OLLAMA_MODEL)"
+                  },
+                  "claudeModel": {
+                    "enum": [
+                      "sonnet",
+                      "opus",
+                      "haiku"
+                    ],
+                    "type": "string",
+                    "description": "Modèle Claude (alias de la CLI). Défaut : sonnet"
                   },
                   "instructions": {
                     "type": "string",
@@ -14146,6 +14383,7 @@
                   "type": "object",
                   "required": [
                     "story",
+                    "engine",
                     "model",
                     "hoursPerDay",
                     "items"
@@ -14172,8 +14410,17 @@
                         }
                       }
                     },
+                    "engine": {
+                      "enum": [
+                        "ollama",
+                        "claude"
+                      ],
+                      "type": "string",
+                      "description": "Moteur qui a effectivement répondu"
+                    },
                     "model": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Modèle Ollama, ou alias du modèle Claude"
                     },
                     "hoursPerDay": {
                       "type": "number"
@@ -14259,6 +14506,37 @@
               }
             }
           },
+          "403": {
+            "description": "Claude demandé en mode hors ligne (CLAUDE_OFFLINE)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Claude demandé en mode hors ligne (CLAUDE_OFFLINE)"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Erreur",
             "content": {
@@ -14291,7 +14569,7 @@
             }
           },
           "502": {
-            "description": "Ollama injoignable, modèle absent ou réponse inexploitable",
+            "description": "Ollama injoignable, Claude indisponible, modèle absent ou réponse inexploitable",
             "content": {
               "application/json": {
                 "schema": {
@@ -14316,7 +14594,38 @@
                       "type": "string"
                     }
                   },
-                  "description": "Ollama injoignable, modèle absent ou réponse inexploitable"
+                  "description": "Ollama injoignable, Claude indisponible, modèle absent ou réponse inexploitable"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Claude n’a pas répondu dans le délai (CLAUDE_TIMEOUT_MS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Claude n’a pas répondu dans le délai (CLAUDE_TIMEOUT_MS)"
                 }
               }
             }
@@ -14345,12 +14654,30 @@
                     "minimum": 1,
                     "maximum": 2147483647
                   },
+                  "engine": {
+                    "enum": [
+                      "auto",
+                      "ollama",
+                      "claude"
+                    ],
+                    "type": "string",
+                    "description": "Moteur : auto (Claude si en ligne et disponible, sinon Ollama), ollama, claude (refusé hors ligne : 403). Défaut : auto"
+                  },
                   "model": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200,
                     "pattern": "\\S",
                     "description": "Modèle Ollama (défaut : OLLAMA_MODEL)"
+                  },
+                  "claudeModel": {
+                    "enum": [
+                      "sonnet",
+                      "opus",
+                      "haiku"
+                    ],
+                    "type": "string",
+                    "description": "Modèle Claude (alias de la CLI). Défaut : sonnet"
                   }
                 },
                 "additionalProperties": false
@@ -14360,13 +14687,14 @@
         },
         "responses": {
           "200": {
-            "description": "Résumé des commits liés à un élément, rédigé par l’IA locale",
+            "description": "Résumé des commits liés à un élément, rédigé par Ollama ou Claude",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
                     "workItemId",
+                    "engine",
                     "model",
                     "text",
                     "commits",
@@ -14376,8 +14704,17 @@
                     "workItemId": {
                       "type": "integer"
                     },
+                    "engine": {
+                      "enum": [
+                        "ollama",
+                        "claude"
+                      ],
+                      "type": "string",
+                      "description": "Moteur qui a effectivement répondu"
+                    },
                     "model": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Modèle Ollama, ou alias du modèle Claude"
                     },
                     "text": {
                       "type": "string",
@@ -14418,7 +14755,7 @@
                       }
                     }
                   },
-                  "description": "Résumé des commits liés à un élément, rédigé par l’IA locale"
+                  "description": "Résumé des commits liés à un élément, rédigé par Ollama ou Claude"
                 }
               }
             }
@@ -14450,6 +14787,37 @@
                     }
                   },
                   "description": "Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Claude demandé en mode hors ligne (CLAUDE_OFFLINE)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Claude demandé en mode hors ligne (CLAUDE_OFFLINE)"
                 }
               }
             }
@@ -14486,7 +14854,7 @@
             }
           },
           "502": {
-            "description": "Ollama injoignable, modèle absent ou réponse inexploitable",
+            "description": "Ollama injoignable, Claude indisponible, modèle absent ou réponse inexploitable",
             "content": {
               "application/json": {
                 "schema": {
@@ -14511,7 +14879,38 @@
                       "type": "string"
                     }
                   },
-                  "description": "Ollama injoignable, modèle absent ou réponse inexploitable"
+                  "description": "Ollama injoignable, Claude indisponible, modèle absent ou réponse inexploitable"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Claude n’a pas répondu dans le délai (CLAUDE_TIMEOUT_MS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Claude n’a pas répondu dans le délai (CLAUDE_TIMEOUT_MS)"
                 }
               }
             }
@@ -18131,8 +18530,12 @@
       "description": "Analyse du dépôt local, hook post-commit, Pull Requests"
     },
     {
+      "name": "Réglages",
+      "description": "Mode hors ligne / en ligne (docs/SUITE.md §5.1)"
+    },
+    {
       "name": "IA locale & Claude CLI",
-      "description": "Ollama (Qwen, Gemma) : découpage de Story, résumé des commits ; sessions Claude CLI"
+      "description": "Découpage de Story et résumé des commits par Ollama (local) ou Claude (CLI isolée, en ligne seulement) ; sessions Claude CLI dans un terminal"
     },
     {
       "name": "Vues",

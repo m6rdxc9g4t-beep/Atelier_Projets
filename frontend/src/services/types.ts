@@ -62,10 +62,18 @@ export type Balance = NonNullable<WorkItemDetail['balance']>
 export type DateSpan = NonNullable<TreeWorkItem['span']>
 export type Trend = NonNullable<Dashboard['trend']>
 
+export type AppSettings = ResponseOf<'/api/settings', 'get'>
+export type AppSettingsUpdate = BodyOf<'/api/settings', 'patch'>
+
 export type AiStatus = ResponseOf<'/api/ai/status', 'get'>
 export type BreakdownInput = BodyOf<'/api/ai/breakdown-story', 'post'>
 export type BreakdownResult = ResponseOf<'/api/ai/breakdown-story', 'post'>
 export type ProposedItem = BreakdownResult['items'][number]
+/** Choix du moteur : auto (Claude si en ligne et disponible, sinon Ollama), ollama, claude. */
+export type EngineChoice = NonNullable<BreakdownInput['engine']>
+/** Moteur qui a effectivement répondu. */
+export type AiEngine = BreakdownResult['engine']
+export type ClaudeModel = NonNullable<BreakdownInput['claudeModel']>
 export type SummarizeInput = BodyOf<'/api/ai/summarize-commits', 'post'>
 export type SummarizeResult = ResponseOf<'/api/ai/summarize-commits', 'post'>
 export type ClaudePrompt = ResponseOf<'/api/ai/claude/prompt', 'get'>

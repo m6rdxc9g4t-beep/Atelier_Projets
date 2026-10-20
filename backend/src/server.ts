@@ -3,6 +3,7 @@ import { buildApp } from './app.ts'
 import { loadConfig, loadEnvFile } from './config.ts'
 import { createPrismaClient } from './db/client.ts'
 import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
+import { createClaudeEngine } from './ai-bridge/claude-print.ts'
 import { createOllamaClient } from './ai-bridge/ollama.ts'
 import { createOctokitClient } from './git-engine/github.ts'
 import { BackupManager } from './services/backups.ts'
@@ -30,6 +31,7 @@ const app = await buildApp({
     model: config.ollamaModel,
     maxDiffChars: config.aiMaxDiffChars,
     claude: createClaudeLauncher({ command: config.claudeCli, terminalApp: config.claudeTerminalApp }),
+    claudeEngine: createClaudeEngine({ command: config.claudeCli, timeoutMs: config.claudeTimeoutMs }),
   },
 })
 

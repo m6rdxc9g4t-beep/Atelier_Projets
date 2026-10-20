@@ -1,15 +1,23 @@
-// IA locale (Ollama) et Claude CLI : panneau d'état et choix du modèle, découpage d'une Story,
-// session Claude CLI pour un élément. Les propositions de l'IA ne sont enregistrées qu'après validation.
-import { Bot, Check, ClipboardCopy, Cpu, RefreshCw, Sparkles, SquareTerminal, TriangleAlert } from 'lucide-react'
+// IA : panneau des moteurs (mode en ligne, Ollama, Claude), découpage d'une Story, session Claude CLI pour un
+// élément. Les propositions de l'IA ne sont enregistrées qu'après validation.
+import { Bot, Check, ClipboardCopy, Cloud, Cpu, HardDrive, RefreshCw, Sparkles, SquareTerminal, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { CLAUDE_MODEL_LABEL, engineResultLabel, formatChars } from '../lib/engine.ts'
 import { TYPE_LABEL } from '../lib/labels.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
 import { aiService, projectService, workItemService } from '../services/api.ts'
 import { errorMessage, isAbort } from '../services/client.ts'
 import type { AiStatus, BreakdownResult, ClaudeLaunchResult, ClaudePermissionMode, Project, ProposedItem } from '../services/types.ts'
-import { useApp, useAppState, type DialogRequest } from '../store/app.ts'
+import { useAi } from '../store/ai.ts'
+import { useApp, type DialogRequest } from '../store/app.ts'
+import { useShallow } from 'zustand/react/shallow'
+import { EnginePicker, useEngine, type Engine } from './EnginePicker.tsx'
 import { Button, Field, MarkdownText, Modal, Spinner, TypeChip } from './ui.tsx'
+
+function useAiState<T>(selector: (state: ReturnType<typeof useAi.getState>) => T): T {
+  return useAi(useShallow(selector))
+}
 
 const close = () => useApp.getState().openDialog(null)
 
@@ -34,11 +42,6 @@ export function Generating({ label, active }: { label: string; active: boolean }
       <span className="ml-auto text-xs tabular-nums text-muted">{seconds} s</span>
     </div>
   )
-}
-
-/** Modèle à utiliser : choix du panneau IA, sinon celui du serveur. */
-export function useAiModel(): string | undefined {
-  return useApp((state) => state.aiModel) ?? undefined
 }
 
 function sizeLabel(bytes: number): string {
@@ -147,123 +150,252 @@ export function LinkRepoDialog({ project, request }: { project: Project; request
   )
 }
 
-// --- Panneau « IA Locale » -------------------------------------------------------------------------
+// --- Panneau « Intelligence artificielle » ------------------------------------------------------------
+
+/** Ce qui part vers Claude, par action (ligne bouclier, docs/SUITE.md §5.2). */
+export const SENDS = {
+  breakdown: 'Seuls le titre et la description de la story (avec ceux de son epic et de sa phase), les titres des éléments déjà présents et vos consignes sont envoyés.',
+  summary: (maxDiffChars: number) =>
+    `Seuls le texte de l’élément (titre, description, fin du journal), les messages et les diffs des commits liés (tronqués à ${formatChars(maxDiffChars)} caractères) sont envoyés.`,
+  any: (maxDiffChars: number) =>
+    `Seuls le texte de la story ou de l’élément et, pour le journal, les messages et diffs des commits liés (tronqués à ${formatChars(maxDiffChars)} caractères) sont envoyés.`,
+}
 
 export function AiPanel({ project }: { project: Project | undefined }) {
-  const status = useApi(() => aiService.status(), [])
-  const { aiModel, setAiModel } = useAppState((state) => ({ aiModel: state.aiModel, setAiModel: state.setAiModel }))
+  const { status, error, loading, load } = useAppAi()
+  const engine = useEngine()
+  // Ouverture du panneau : état relu, connexion de Claude revérifiée.
+  useEffect(() => {
+    void load(true)
+  }, [load])
 
   return (
     <Modal
       title={
         <span className="flex items-center gap-2">
-          <Bot className="size-5 text-accent-ink" aria-hidden /> IA locale &amp; Claude CLI
+          <Bot className="size-5 text-accent-ink" aria-hidden /> Intelligence artificielle
         </span>
       }
       onClose={close}
       width="max-w-2xl"
       footer={
-        <Button icon={<RefreshCw className="size-4" />} busy={status.loading} onClick={status.reload}>
+        <Button icon={<RefreshCw className="size-4" />} busy={loading} onClick={() => void load(true)}>
           Actualiser
         </Button>
       }
     >
-      {status.error && <p className="text-muted">{status.error.message}</p>}
-      {!status.data && !status.error && <Spinner />}
-      {status.data && <AiStatusContent status={status.data} aiModel={aiModel} setAiModel={setAiModel} project={project} />}
+      {error && !status && <p className="text-muted">{error}</p>}
+      {!status && !error && <Spinner />}
+      {status && (
+        <div className="space-y-6">
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-semibold">Moteur par défaut</h3>
+              <OnlineSwitch />
+            </div>
+            <p className="text-sm text-muted">
+              {status.onlineMode
+                ? 'En ligne : Claude peut répondre (Auto le choisit quand il est disponible). Seul le contenu indiqué ci-dessous lui est envoyé.'
+                : 'Hors ligne : tout reste sur cette machine, l’IA passe par Ollama. Passer « En ligne » pour autoriser Claude.'}
+            </p>
+            <EnginePicker engine={engine} sends={SENDS.any(status.maxDiffChars)} showModel={false} />
+          </section>
+          <OllamaSection status={status} engine={engine} />
+          <ClaudeSection status={status} engine={engine} project={project} />
+        </div>
+      )}
     </Modal>
   )
 }
 
-function AiStatusContent({
-  status,
-  aiModel,
-  setAiModel,
-  project,
-}: {
-  status: AiStatus
-  aiModel: string | null
-  setAiModel: (model: string | null) => void
-  project: Project | undefined
-}) {
-  const { ollama, claude } = status
+function useAppAi() {
+  return useAiState((state) => ({ status: state.status, error: state.error, loading: state.loading, load: state.load }))
+}
+
+function OllamaSection({ status, engine }: { status: AiStatus; engine: Engine }) {
+  const { ollama } = status
+  const aiModel = engine.ollamaModel
   const selected = aiModel ?? ollama.defaultModelName ?? ollama.defaultModel
   return (
-    <div className="space-y-6">
-      <section className="space-y-3">
-        <h3 className="flex flex-wrap items-center gap-2 font-semibold">
-          <Cpu className="size-4 text-muted" aria-hidden /> Ollama
-          <StatusLine ok={ollama.reachable}>{ollama.reachable ? 'Connecté' : 'Injoignable'}</StatusLine>
-          <span className="font-mono text-xs font-normal text-muted">{ollama.url}</span>
-        </h3>
-        {!ollama.reachable && (
-          <div className="rounded-lg bg-sunken p-3 text-sm">
-            <p className="mb-2 text-muted">{ollama.error}</p>
-            <p>
-              Installer Ollama (ollama.com), puis dans un terminal : <code className="font-mono">ollama pull qwen2.5-coder</code>
-            </p>
-          </div>
-        )}
-        {ollama.reachable && ollama.models.length === 0 && (
-          <p className="rounded-lg bg-sunken p-3 text-sm">
-            Aucun modèle installé : <code className="font-mono">ollama pull qwen2.5-coder</code> (ou <code className="font-mono">gemma3</code>).
+    <section className="space-y-3 border-t border-line pt-5">
+      <h3 className="flex flex-wrap items-center gap-2 font-semibold">
+        <Cpu className="size-4 text-muted" aria-hidden /> Ollama
+        <StatusLine ok={ollama.reachable}>{ollama.reachable ? 'Connecté' : 'Injoignable'}</StatusLine>
+        <span className="font-mono text-xs font-normal text-muted">{ollama.url}</span>
+      </h3>
+      {!ollama.reachable && (
+        <div className="rounded-lg bg-sunken p-3 text-sm">
+          <p className="mb-2 text-muted">{ollama.error}</p>
+          <p>
+            Installer Ollama (ollama.com), puis dans un terminal : <code className="font-mono">ollama pull qwen2.5-coder</code>
           </p>
-        )}
-        {ollama.models.length > 0 && (
-          <fieldset className="space-y-1">
-            <legend className="mb-2 text-sm text-muted">Modèle utilisé pour le découpage des stories et le résumé des commits</legend>
-            <ModelOption
-              checked={aiModel === null}
-              onSelect={() => setAiModel(null)}
-              title={`Par défaut du serveur : ${ollama.defaultModel}`}
-              detail={
-                ollama.defaultModelName
-                  ? `OLLAMA_MODEL${ollama.defaultModelName !== ollama.defaultModel ? ` → ${ollama.defaultModelName}` : ''}`
-                  : `non installé : ollama pull ${ollama.defaultModel}`
-              }
-              warn={!ollama.defaultModelInstalled}
-            />
-            {ollama.models.map((model) => (
-              <ModelOption
-                key={model.name}
-                checked={aiModel === model.name}
-                onSelect={() => setAiModel(model.name)}
-                title={model.name}
-                detail={[model.parameterSize, model.family, sizeLabel(model.size)].filter(Boolean).join(' · ')}
-              />
-            ))}
-          </fieldset>
-        )}
-        {aiModel !== null && !ollama.models.some((model) => model.name === aiModel) && (
-          <p className="flex items-center gap-2 text-sm" data-status="BLOCKED">
-            <TriangleAlert className="ds-ink size-4" aria-hidden /> Le modèle choisi « {aiModel} » n’est plus installé.
-          </p>
-        )}
-        <p className="text-xs text-muted">Modèle actif : {selected}. Les données ne quittent pas cette machine.</p>
-      </section>
-
-      <section className="space-y-3 border-t border-line pt-5">
-        <h3 className="flex flex-wrap items-center gap-2 font-semibold">
-          <SquareTerminal className="size-4 text-muted" aria-hidden /> Claude CLI
-          <StatusLine ok={claude.available}>{claude.available ? 'Disponible' : 'Introuvable'}</StatusLine>
-          {claude.version && <span className="text-xs font-normal text-muted">{claude.version}</span>}
-        </h3>
-        <p className="break-all font-mono text-xs text-muted">{claude.command}</p>
-        {claude.error && <p className="text-sm text-muted">{claude.error}</p>}
-        <p className="text-sm text-muted">
-          Un clic sur « Claude CLI » (ici, ou dans la fiche d’un élément pour lui donner la tâche en prompt) ouvre Claude dans le dépôt du
-          projet{claude.canOpenTerminal ? ` (application ${claude.terminalApp}).` : ' (commande copiée, à coller dans un terminal).'}
+        </div>
+      )}
+      {ollama.reachable && ollama.models.length === 0 && (
+        <p className="rounded-lg bg-sunken p-3 text-sm">
+          Aucun modèle installé : <code className="font-mono">ollama pull qwen2.5-coder</code> (ou <code className="font-mono">gemma3</code>).
         </p>
-        {project && claude.available && <ClaudeLaunchButton project={project} workItemId={null} label={`Claude CLI sur « ${project.name} »`} />}
-      </section>
-    </div>
+      )}
+      {ollama.models.length > 0 && (
+        <fieldset className="space-y-1">
+          <legend className="mb-2 text-sm text-muted">Modèle local pour le découpage des stories et le résumé des commits</legend>
+          <ModelOption
+            name="ai-model"
+            checked={aiModel === null}
+            onSelect={() => engine.setOllamaModel(null)}
+            title={`Par défaut du serveur : ${ollama.defaultModel}`}
+            detail={
+              ollama.defaultModelName
+                ? `OLLAMA_MODEL${ollama.defaultModelName !== ollama.defaultModel ? ` → ${ollama.defaultModelName}` : ''}`
+                : `non installé : ollama pull ${ollama.defaultModel}`
+            }
+            warn={!ollama.defaultModelInstalled}
+          />
+          {ollama.models.map((model) => (
+            <ModelOption
+              key={model.name}
+              name="ai-model"
+              checked={aiModel === model.name}
+              onSelect={() => engine.setOllamaModel(model.name)}
+              title={model.name}
+              detail={[model.parameterSize, model.family, sizeLabel(model.size)].filter(Boolean).join(' · ')}
+            />
+          ))}
+        </fieldset>
+      )}
+      {aiModel !== null && !ollama.models.some((model) => model.name === aiModel) && (
+        <p className="flex items-center gap-2 text-sm" data-status="BLOCKED">
+          <TriangleAlert className="ds-ink size-4" aria-hidden /> Le modèle choisi « {aiModel} » n’est plus installé.
+        </p>
+      )}
+      <p className="text-xs text-muted">Modèle actif : {selected}. Les données ne quittent pas cette machine.</p>
+    </section>
   )
 }
 
-function ModelOption({ checked, onSelect, title, detail, warn }: { checked: boolean; onSelect: () => void; title: string; detail: string; warn?: boolean }) {
+/** État du moteur Claude (badge, connexion, modèle) et session interactive dans le Terminal. */
+function claudeBadge(status: AiStatus): { ok: boolean; label: string } {
+  const { claude } = status
+  if (!claude.installed) return { ok: false, label: 'Introuvable' }
+  if (!status.onlineMode) return { ok: false, label: 'Hors ligne' }
+  if (claude.available) return { ok: true, label: 'Disponible' }
+  return { ok: false, label: claude.loggedIn === false ? 'Non connectée' : 'Indisponible' }
+}
+
+function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: Engine; project: Project | undefined }) {
+  const { claude } = status
+  const badge = claudeBadge(status)
+  return (
+    <section className="space-y-3 border-t border-line pt-5" aria-label="Claude">
+      <h3 className="flex flex-wrap items-center gap-2 font-semibold">
+        <Sparkles className="size-4 text-muted" aria-hidden /> Claude
+        <StatusLine ok={badge.ok}>{badge.label}</StatusLine>
+        {claude.version && <span className="text-xs font-normal text-muted">{claude.version}</span>}
+      </h3>
+      <p className="break-all font-mono text-xs text-muted">{claude.command}</p>
+      <p className="text-sm text-muted">
+        Claude répond par la CLI Claude Code de cette machine (votre abonnement), lancée isolée : sans outil, sans fichier, sans
+        historique, dans un dossier vide. Délai maximal : {Math.round(claude.timeoutMs / 1000)} s.
+      </p>
+      {claude.error && (
+        <p className="rounded-lg bg-sunken p-3 text-sm" data-status={status.onlineMode ? 'BLOCKED' : undefined}>
+          <span className={status.onlineMode ? 'ds-ink' : 'text-muted'}>{claude.error}</span>
+        </p>
+      )}
+      {claude.loggedIn && (
+        <p className="text-sm text-muted">
+          CLI connectée{claude.authMethod ? ` (${claude.authMethod})` : ''}
+          {claude.checkedAt ? ` · vérifié à ${new Date(claude.checkedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}.
+        </p>
+      )}
+      {claude.warning && (
+        <p className="flex items-center gap-2 text-sm" data-status="ON_HOLD">
+          <TriangleAlert className="ds-ink size-4" aria-hidden /> <span className="ds-ink">{claude.warning}</span>
+        </p>
+      )}
+      <fieldset className="space-y-1">
+        <legend className="mb-2 text-sm text-muted">Modèle Claude</legend>
+        <div className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-sunken p-0.5 text-sm" role="radiogroup" aria-label="Modèle Claude">
+          {claude.models.map((model) => (
+            <button
+              key={model}
+              type="button"
+              role="radio"
+              aria-checked={engine.claudeModel === model}
+              onClick={() => engine.setClaudeModel(model)}
+              className={`rounded-md py-1.5 transition-colors ${engine.claudeModel === model ? 'bg-elevated font-medium text-fg shadow-card' : 'text-muted hover:text-fg'}`}
+            >
+              {CLAUDE_MODEL_LABEL[model]}
+              {model === claude.defaultModel ? ' (défaut)' : ''}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="space-y-2 rounded-lg border border-line p-3">
+        <h4 className="flex items-center gap-2 text-sm font-semibold">
+          <SquareTerminal className="size-4 text-muted" aria-hidden /> Session interactive dans le Terminal
+        </h4>
+        <p className="text-sm text-muted">
+          Indépendante du moteur : un clic sur « Claude CLI » (ici, ou dans la fiche d’un élément pour lui donner la tâche en prompt) ouvre
+          Claude dans le dépôt du projet{claude.canOpenTerminal ? ` (application ${claude.terminalApp}).` : ' (commande copiée, à coller dans un terminal).'}
+        </p>
+        {project && claude.installed && <ClaudeLaunchButton project={project} workItemId={null} label={`Claude CLI sur « ${project.name} »`} />}
+      </div>
+    </section>
+  )
+}
+
+/** Interrupteur « Hors ligne / En ligne » (réglage du backend, docs/SUITE.md §5.1). */
+export function OnlineSwitch({ className }: { className?: string }) {
+  const { online, switching, setOnline } = useAiState((state) => ({
+    online: state.status?.onlineMode ?? false,
+    switching: state.switching,
+    setOnline: state.setOnline,
+  }))
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={online}
+      aria-busy={switching || undefined}
+      disabled={switching}
+      onClick={() => {
+        setOnline(!online).catch((error: unknown) => useApp.getState().notify('error', errorMessage(error)))
+      }}
+      title={
+        online
+          ? 'En ligne : Claude peut être utilisé. Cliquer pour repasser hors ligne.'
+          : 'Hors ligne : tout reste sur la machine. Cliquer pour autoriser Claude.'
+      }
+      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 ${
+        online ? 'border-accent bg-accent-soft text-accent-ink' : 'border-line text-muted hover:text-fg'
+      } ${className ?? ''}`}
+    >
+      {online ? <Cloud className="size-3.5" aria-hidden /> : <HardDrive className="size-3.5" aria-hidden />}
+      {online ? 'En ligne' : 'Hors ligne'}
+    </button>
+  )
+}
+
+function ModelOption({
+  name,
+  checked,
+  onSelect,
+  title,
+  detail,
+  warn,
+}: {
+  name: string
+  checked: boolean
+  onSelect: () => void
+  title: string
+  detail: string
+  warn?: boolean
+}) {
   return (
     <label className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 ${checked ? 'border-accent bg-accent-soft' : 'border-line hover:bg-hover'}`}>
-      <input type="radio" name="ai-model" checked={checked} onChange={onSelect} className="accent-[var(--accent)]" />
+      <input type="radio" name={name} checked={checked} onChange={onSelect} className="accent-[var(--accent)]" />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-mono text-sm">{title}</span>
         <span className={`block text-xs ${warn ? '' : 'text-muted'}`} data-status={warn ? 'BLOCKED' : undefined}>
@@ -287,7 +419,7 @@ function toDrafts(result: BreakdownResult): Draft[] {
 }
 
 export function BreakdownDialog({ request }: { request: Extract<DialogRequest, { kind: 'breakdown' }> }) {
-  const model = useAiModel()
+  const engine = useEngine()
   const [instructions, setInstructions] = useState('')
   const [result, setResult] = useState<BreakdownResult | null>(null)
   const [drafts, setDrafts] = useState<Draft[]>([])
@@ -308,7 +440,7 @@ export function BreakdownDialog({ request }: { request: Extract<DialogRequest, {
       const value = await aiService.breakdown(
         {
           storyId: request.storyId,
-          ...(model && { model }),
+          ...engine.request,
           ...(instructions.trim() && { instructions: instructions.trim() }),
         },
         controller.signal,
@@ -361,7 +493,7 @@ export function BreakdownDialog({ request }: { request: Extract<DialogRequest, {
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <span className="text-sm text-muted">
-            {result ? `${chosen.length} élément(s) retenu(s) · ${totalDays.toFixed(2)} j · modèle ${result.model}` : `Modèle : ${model ?? 'par défaut du serveur'}`}
+            {result ? `${chosen.length} élément(s) retenu(s) · ${totalDays.toFixed(2)} j · ${engineResultLabel(result.engine, result.model)}` : ''}
           </span>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={close}>
@@ -386,13 +518,24 @@ export function BreakdownDialog({ request }: { request: Extract<DialogRequest, {
       }
     >
       <div className="space-y-4">
+        <EnginePicker engine={engine} sends={SENDS.breakdown} />
         <Field label="Consignes pour l’IA (facultatif)" hint="Ex. : « pas de tâches de documentation », « prévoir les tests e2e »">
           <textarea className="ds-textarea min-h-16 font-sans text-sm" value={instructions} onChange={(event) => setInstructions(event.target.value)} maxLength={2000} />
         </Field>
-        {generating && <Generating label="L’IA locale découpe la story…" active={generating} />}
+        {generating && (
+          <Generating
+            label={engine.engine === 'claude' ? `Claude (${CLAUDE_MODEL_LABEL[engine.claudeModel]}) découpe la story…` : 'L’IA locale découpe la story…'}
+            active={generating}
+          />
+        )}
         {error && (
           <p className="rounded-lg bg-sunken p-3 text-sm" role="alert" data-status="REJECTED">
             <span className="ds-ink">{error}</span>
+          </p>
+        )}
+        {result && !generating && (
+          <p className="text-sm font-semibold" data-testid="breakdown-engine">
+            {result.items.length} proposition{result.items.length > 1 ? 's' : ''} · {engineResultLabel(result.engine, result.model)}
           </p>
         )}
         {result && !generating && (
@@ -463,7 +606,11 @@ const PERMISSION_LABEL: Record<ClaudePermissionMode, string> = {
 
 export function ClaudeDialog({ request }: { request: Extract<DialogRequest, { kind: 'claude' }> }) {
   const preview = useApi(() => aiService.claudePrompt(request.workItemId), [request.workItemId])
-  const status = useApi(() => aiService.status(), [])
+  const { status: aiStatus, load } = useAiState((state) => ({ status: state.status, load: state.load }))
+  useEffect(() => {
+    void load()
+  }, [load])
+  const status = { data: aiStatus ?? undefined }
   const [prompt, setPrompt] = useState<string | null>(null)
   const [mode, setMode] = useState<ClaudePermissionMode>('default')
   const [launched, setLaunched] = useState<ClaudeLaunchResult | null>(null)
@@ -522,9 +669,9 @@ export function ClaudeDialog({ request }: { request: Extract<DialogRequest, { ki
       {!preview.data && !preview.error && <Spinner />}
       {preview.data && (
         <div className="space-y-4">
-          {status.data && !status.data.claude.available && (
+          {status.data && !status.data.claude.installed && (
             <p className="rounded-lg bg-sunken p-3 text-sm" data-status="BLOCKED">
-              <span className="ds-ink">{status.data.claude.error}</span> — la commande reste utilisable une fois Claude CLI installé.
+              <span className="ds-ink">Claude CLI introuvable</span> — la commande reste utilisable une fois Claude Code installé.
             </p>
           )}
           {preview.data.cwd ? (

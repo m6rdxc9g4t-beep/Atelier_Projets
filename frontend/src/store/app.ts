@@ -4,8 +4,9 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
+import { restoreAiPreferences } from '../lib/engine.ts'
 import type { ThemePreference } from '../lib/theme.ts'
-import type { WorkItemType } from '../services/types.ts'
+import type { ClaudeModel, EngineChoice, WorkItemType } from '../services/types.ts'
 
 /** Préférence de thème : Clair, Sombre ou Système (voir lib/theme.ts). */
 export type Theme = ThemePreference
@@ -44,6 +45,10 @@ interface AppState {
   selectedWorkItemId: number | null
   /** Modèle Ollama choisi dans le panneau IA (null = modèle par défaut du serveur, OLLAMA_MODEL). */
   aiModel: string | null
+  /** Moteur choisi : Auto, Ollama ou Claude (docs/SUITE.md §5.2), mémorisé. */
+  aiEngine: EngineChoice
+  /** Modèle Claude choisi (Sonnet par défaut), mémorisé. */
+  claudeModel: ClaudeModel
   dialog: DialogRequest | null
   revision: number
   toasts: Toast[]
@@ -56,6 +61,8 @@ interface AppState {
   openWorkItem: (workItemId: number | null) => void
   openDialog: (dialog: DialogRequest | null) => void
   setAiModel: (model: string | null) => void
+  setAiEngine: (engine: EngineChoice) => void
+  setClaudeModel: (model: ClaudeModel) => void
   /** À appeler après toute écriture : les vues relisent l'API. */
   refresh: () => void
   notify: (tone: Toast['tone'], message: string) => void
@@ -105,6 +112,8 @@ export const useApp = create<AppState>()(
       hoursPerDay: null,
       selectedWorkItemId: null,
       aiModel: null,
+      aiEngine: 'auto',
+      claudeModel: 'sonnet',
       dialog: null,
       revision: 0,
       toasts: [],
@@ -117,6 +126,8 @@ export const useApp = create<AppState>()(
       openWorkItem: (selectedWorkItemId) => set({ selectedWorkItemId }),
       openDialog: (dialog) => set({ dialog }),
       setAiModel: (aiModel) => set({ aiModel }),
+      setAiEngine: (aiEngine) => set({ aiEngine }),
+      setClaudeModel: (claudeModel) => set({ claudeModel }),
       refresh: () => set((state) => ({ revision: state.revision + 1 })),
       notify: (tone, message) => {
         const id = ++toastSequence
@@ -128,12 +139,19 @@ export const useApp = create<AppState>()(
     {
       name: 'atelier-projets:ui',
       storage: createJSONStorage(() => safeStorage),
+      // Le stockage local peut contenir n'importe quoi (modifié à la main, ancienne version) : préférences IA validées.
+      merge: (persisted, current) => {
+        const saved = typeof persisted === 'object' && persisted !== null ? (persisted as Partial<AppState>) : {}
+        return { ...current, ...saved, ...restoreAiPreferences(saved) }
+      },
       partialize: (state) => ({
         theme: state.theme,
         projectId: state.projectId,
         view: state.view,
         railExpanded: state.railExpanded,
         aiModel: state.aiModel,
+        aiEngine: state.aiEngine,
+        claudeModel: state.claudeModel,
       }),
     },
   ),

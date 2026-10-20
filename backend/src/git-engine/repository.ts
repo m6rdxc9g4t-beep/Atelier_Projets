@@ -155,14 +155,25 @@ const PATCH_EXCLUDES = [
 const MIN_FILE_CHARS = 600
 
 export interface CommitPatch {
-  /** Statistiques (fichiers modifiés) puis diff de chaque fichier, tronqués pour tenir dans maxChars. */
+  /** Statistiques (fichiers modifiés) puis diff de chaque fichier, tronqués : jamais plus de maxChars caractères. */
   patch: string
   truncated: boolean
+}
+
+const FILE_CUT = '\n… (diff du fichier tronqué)'
+const FILE_OMITTED = '\n… (diff omis : budget atteint)'
+const PART_SEPARATOR = '\n\n'
+
+/** Texte coupé pour tenir dans room caractères, marque comprise ('' si même la marque ne tient pas). */
+function clip(text: string, room: number, marker: string): string {
+  if (text.length <= room) return text
+  return room > marker.length ? `${text.slice(0, room - marker.length)}${marker}` : ''
 }
 
 /**
  * Diff d'un commit pour l'IA : `git show --stat` puis le diff de chaque fichier (hors fichiers générés),
  * chaque fichier recevant une part équitable du budget pour qu'un gros fichier n'efface pas les autres.
+ * Le texte renvoyé (marques de troncature et séparateurs compris) ne dépasse jamais maxChars.
  * null si le commit n'existe plus dans le dépôt (amend, rebase).
  */
 export async function readCommitPatch(git: SimpleGit, hash: string, maxChars: number): Promise<CommitPatch | null> {
@@ -172,26 +183,34 @@ export async function readCommitPatch(git: SimpleGit, hash: string, maxChars: nu
     () => false,
   )
   if (!exists) return null
+  const budget = Math.max(0, Math.floor(maxChars))
   const show = (...args: string[]) => git.raw(['show', '--no-color', '--no-ext-diff', '--no-textconv', '--format=', ...args, hash, '--', '.', ...PATCH_EXCLUDES])
-  const stat = (await show('--stat=120')).trim()
+  const fullStat = (await show('--stat=120')).trim()
   const files = (await show('--patch'))
     .split(/^(?=diff --git )/m)
     .map((section) => section.trim())
     .filter(Boolean)
-  const available = Math.max(0, maxChars - stat.length)
-  const share = Math.max(MIN_FILE_CHARS, Math.floor(available / Math.max(files.length, 1)))
-  let truncated = false
-  const parts = [stat]
+  const stat = clip(fullStat, budget, '\n…')
+  let truncated = stat !== fullStat
+  const parts = stat === '' ? [] : [stat]
   let used = stat.length
+  const available = Math.max(0, budget - used)
+  const share = Math.max(MIN_FILE_CHARS, Math.floor(available / Math.max(files.length, 1)))
   for (const file of files) {
-    let text = file.length > share ? `${file.slice(0, share)}\n… (diff du fichier tronqué)` : file
-    if (file.length > share) truncated = true
-    if (used + text.length > maxChars) {
-      text = `${file.split('\n')[0]}\n… (diff omis : budget atteint)`
-      truncated = true
+    const room = budget - used - (parts.length > 0 ? PART_SEPARATOR.length : 0)
+    let text = clip(file, Math.min(room, share + FILE_CUT.length), FILE_CUT)
+    if (text !== file) truncated = true
+    if (text === '' || (text !== file && text.length < Math.min(share, MIN_FILE_CHARS))) {
+      // Plus de place pour un extrait utile : seulement l'en-tête du fichier, s'il tient.
+      const header = `${file.split('\n')[0] ?? ''}${FILE_OMITTED}`
+      text = header.length <= room ? header : ''
     }
+    if (text === '') {
+      truncated = true
+      break
+    }
+    used += text.length + (parts.length > 0 ? PART_SEPARATOR.length : 0)
     parts.push(text)
-    used += text.length
   }
-  return { patch: parts.join('\n\n'), truncated }
+  return { patch: parts.join(PART_SEPARATOR), truncated }
 }

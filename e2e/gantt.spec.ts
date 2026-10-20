@@ -49,7 +49,11 @@ test('créer une dépendance en tirant le rond d’une barre, puis replanifier l
 
   // Tirer le rond au bout de B jusqu'à la barre de C : C attendra la fin de B.
   const handle = page.locator(`[data-item-id="${s.b}"] .gantt-link-handle`)
-  await page.locator(`[data-item-id="${s.b}"]`).hover()
+  // Survol par l'extrémité droite de B : selon la date du jour, la flèche A → B peut passer sur le centre de la ligne.
+  const barB = bar(page, s.b)
+  const boxB = await barB.boundingBox()
+  if (!boxB) throw new Error('barre B invisible')
+  await barB.hover({ position: { x: boxB.width - 3, y: boxB.height / 2 } })
   const from = await handle.boundingBox()
   const to = await bar(page, s.c).boundingBox()
   if (!from || !to) throw new Error('barres invisibles')

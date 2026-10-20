@@ -3,8 +3,8 @@
 // sur chaque action). Ailleurs : la commande est renvoyée pour être collée dans un terminal.
 import { execFile } from 'node:child_process'
 import { constants } from 'node:fs'
-import { access, chmod, lstat, mkdir, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { access, chmod, lstat, mkdir, stat, writeFile } from 'node:fs/promises'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
@@ -54,27 +54,50 @@ export function shellQuote(value: string): string {
 }
 
 /**
- * PATH transmis à la session : celui du backend sans les dossiers ajoutés par npm (node_modules/.bin,
- * node-gyp-bin), qui imposeraient les outils d'Atelier_Projets dans un autre dépôt ; le dossier de Claude CLI
- * est placé en tête.
+ * Dossier du PATH digne de confiance pour chercher ou lancer Claude CLI (docs/SUITE.md §5.3) : absolu, et hors
+ * des dossiers ajoutés par npm (node_modules/.bin, node-gyp-bin), qui imposeraient les outils d'Atelier_Projets
+ * — ou d'un dépôt quelconque — à la place de la vraie CLI. Une entrée relative (« . », « bin ») dépend du dossier
+ * courant : ignorée.
  */
-export function sessionPath(searchPath: string | undefined, executable: string): string {
-  const entries = (searchPath ?? '/usr/bin:/bin')
-    .split(path.delimiter)
-    .filter((entry) => entry !== '' && !/[\\/]node_modules[\\/]\.bin$/.test(entry) && !/node-gyp-bin/.test(entry))
-  const own = path.isAbsolute(executable) ? [path.dirname(executable)] : []
-  return [...new Set([...own, ...entries])].join(path.delimiter)
+export function trustedPathEntry(entry: string): boolean {
+  return entry !== '' && path.isAbsolute(entry) && !/[\\/]node_modules[\\/]\.bin[\\/]?$/.test(entry) && !/node-gyp-bin/.test(entry)
 }
 
-/** Exécutable trouvé dans le PATH (ou chemin donné tel quel), sinon null. */
+/** Dossiers retenus d'un PATH (ordre gardé, doublons retirés), voir trustedPathEntry(). */
+export function searchDirs(searchPath: string | undefined): string[] {
+  return [...new Set((searchPath ?? '').split(path.delimiter).filter(trustedPathEntry))]
+}
+
+/**
+ * PATH transmis à Claude CLI (session dans un terminal ou appel isolé) : les dossiers retenus du PATH du backend
+ * (searchDirs), précédés du dossier de l'exécutable (une CLI installée par npm doit trouver `node` depuis le Finder).
+ */
+export function sessionPath(searchPath: string | undefined, executable: string): string {
+  const own = path.isAbsolute(executable) ? [path.dirname(executable)] : []
+  return [...new Set([...own, ...searchDirs(searchPath ?? '/usr/bin:/bin')])].join(path.delimiter)
+}
+
+/** Commande donnée comme chemin relatif (« ./claude », « bin/claude ») : refusée, elle dépendrait du dossier courant. */
+export function isRelativeCommand(command: string): boolean {
+  return /[\\/]/.test(command) && !path.isAbsolute(command)
+}
+
+/** Message d'un CLAUDE_CLI relatif. */
+export function relativeCommandMessage(command: string): string {
+  return `CLAUDE_CLI doit être un chemin absolu (« ${command} » refusé)`
+}
+
+/**
+ * Exécutable trouvé : chemin absolu donné tel quel, sinon nom cherché dans les dossiers retenus du PATH
+ * (searchDirs). Un chemin relatif n'est jamais accepté. Renvoie toujours un chemin absolu, ou null.
+ */
 export async function findExecutable(command: string, searchPath: string | undefined): Promise<string | null> {
-  const candidates = command.includes('/')
-    ? [command]
-    : (searchPath ?? '').split(path.delimiter).filter(Boolean).map((dir) => path.join(dir, command))
+  if (isRelativeCommand(command)) return null
+  const candidates = path.isAbsolute(command) ? [command] : searchDirs(searchPath).map((dir) => path.join(dir, command))
   for (const candidate of candidates) {
     try {
       await access(candidate, constants.X_OK)
-      return candidate
+      if ((await stat(candidate)).isFile()) return candidate
     } catch {
       /* suivant */
     }
@@ -82,9 +105,34 @@ export async function findExecutable(command: string, searchPath: string | undef
   return null
 }
 
+/**
+ * Dossiers où chercher Claude CLI après le PATH (docs/SUITE.md §5.3) : une application lancée depuis le Finder
+ * n'hérite pas du PATH du terminal, et l'installeur de Claude Code place la CLI dans ~/.local/bin.
+ */
+export function claudeFallbackDirs(home: string = homedir()): string[] {
+  return [path.join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin']
+}
+
+/**
+ * Exécutable de Claude CLI : chemin absolu donné (CLAUDE_CLI), sinon PATH — sans entrée relative ni
+ * node_modules/.bin —, puis les dossiers habituels (~/.local/bin, /opt/homebrew/bin, /usr/local/bin).
+ * null s'il est introuvable ou si CLAUDE_CLI est un chemin relatif.
+ */
+export async function findClaudeExecutable(
+  command: string,
+  searchPath: string | undefined,
+  fallbackDirs: readonly string[] = claudeFallbackDirs(),
+): Promise<string | null> {
+  const found = await findExecutable(command, searchPath)
+  if (found !== null || path.isAbsolute(command) || isRelativeCommand(command)) return found
+  return findExecutable(command, fallbackDirs.join(path.delimiter))
+}
+
 export interface ClaudeLauncherOptions {
   /** Commande ou chemin de Claude CLI (CLAUDE_CLI, défaut « claude »). */
   command?: string
+  /** Dossiers essayés après le PATH (défaut : claudeFallbackDirs()). */
+  fallbackDirs?: readonly string[]
   /** Application de terminal macOS (CLAUDE_TERMINAL_APP, défaut « Terminal », ex. « iTerm »). */
   terminalApp?: string
   platform?: NodeJS.Platform
@@ -103,6 +151,8 @@ export function createClaudeLauncher(options: ClaudeLauncherOptions = {}): Claud
   const platform = options.platform ?? process.platform
   const terminalApp = platform === 'darwin' ? options.terminalApp?.trim() || 'Terminal' : null
   const searchPath = options.searchPath ?? process.env.PATH
+  const fallbackDirs = options.fallbackDirs ?? claudeFallbackDirs()
+  const locate = () => findClaudeExecutable(command, searchPath, fallbackDirs)
   // Dossier propre à l'utilisateur (sur Linux, /tmp est partagé) ; vérifié avant chaque écriture.
   const workDir = options.workDir ?? path.join(tmpdir(), `atelier-projets-claude-${process.getuid?.() ?? 'user'}`)
   const openWith =
@@ -136,7 +186,10 @@ export function createClaudeLauncher(options: ClaudeLauncherOptions = {}): Claud
   async function prepare(request: ClaudeSessionRequest): Promise<PreparedSession & { executable: string }> {
     const prompt = request.prompt === null ? null : request.prompt.trim()
     if (prompt === '') throw new Error('prompt vide')
-    const executable = (await findExecutable(command, searchPath)) ?? command
+    // Introuvable : la commande est renvoyée telle quelle (à coller dans un terminal), jamais un chemin relatif
+    // qui serait résolu dans le dépôt du projet.
+    if (isRelativeCommand(command)) throw new Error(relativeCommandMessage(command))
+    const executable = (await locate()) ?? command
     await ensureWorkDir()
     let promptFile: string | null = null
     if (prompt !== null) {
@@ -185,10 +238,11 @@ export function createClaudeLauncher(options: ClaudeLauncherOptions = {}): Claud
   }
 
   async function readStatus(): Promise<ClaudeCliStatus> {
-    const executable = await findExecutable(command, searchPath)
+    const executable = await locate()
     const base = { command: executable ?? command, canOpenTerminal: terminalApp !== null, terminalApp }
+    if (isRelativeCommand(command)) return { ...base, available: false, version: null, error: relativeCommandMessage(command) }
     if (!executable) {
-      return { ...base, available: false, version: null, error: `Claude CLI introuvable (« ${command} » absent du PATH ; voir CLAUDE_CLI)` }
+      return { ...base, available: false, version: null, error: `Claude CLI introuvable (« ${command} » absent du PATH, de ~/.local/bin, /opt/homebrew/bin et /usr/local/bin ; voir CLAUDE_CLI)` }
     }
     try {
       return { ...base, available: true, version: (await readVersion(executable)) || null, error: null }
