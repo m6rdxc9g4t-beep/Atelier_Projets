@@ -6,7 +6,10 @@ export type SuiteAppId = 'viz' | 'tab' | 'projets'
 
 export interface SuiteApp {
   id: SuiteAppId
+  /** Nom accessible (« Atelier Viz »…). */
   name: string
+  /** Nom court affiché dans la marque : « atelier_ » + short (docs/SUITE.md §1.6). */
+  short: string
   description: string
   /** Adresse ouverte par le sélecteur. */
   url: string
@@ -35,6 +38,7 @@ export const SUITE_APPS: readonly SuiteApp[] = [
   {
     id: 'viz',
     name: 'Atelier Viz',
+    short: 'Viz',
     description: 'BI locale : rapports, visuels, IA',
     url: VIZ_URL,
     // L'API de Viz est servie par la même adresse que son interface (FastAPI) : /api/health.
@@ -43,6 +47,7 @@ export const SUITE_APPS: readonly SuiteApp[] = [
   {
     id: 'tab',
     name: 'Atelier Tab',
+    short: 'Tab',
     description: 'Tableur et base de données typée',
     url: TAB_URL,
     healthUrl: null,
@@ -50,6 +55,7 @@ export const SUITE_APPS: readonly SuiteApp[] = [
   {
     id: 'projets',
     name: 'Atelier Projets',
+    short: 'Projets',
     description: 'Projets agiles, Git, temps passé',
     url: PROJETS_URL,
     // Application courante : son API est jointe par l'interface elle-même (même origine, proxy /api).
