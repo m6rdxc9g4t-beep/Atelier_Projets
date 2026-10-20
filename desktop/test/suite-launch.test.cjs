@@ -30,6 +30,20 @@ describe('suiteBundleFor', () => {
     assert.equal(suiteBundleFor('http://127.0.0.1:4174/#/gantt'), 'local.atelier-projets.desktop')
   })
 
+  it('reconnaît Atelier Cuisine par son adresse en ligne (https, hôte exact)', () => {
+    assert.equal(suiteBundleFor('https://atelier-cuisine-iota.vercel.app'), 'fr.ateliercuisine.app')
+    assert.equal(suiteBundleFor('https://atelier-cuisine-iota.vercel.app/stock?x=1'), 'fr.ateliercuisine.app')
+    // Ni http, ni autre port, ni identifiants, ni hôte voisin.
+    assert.equal(suiteBundleFor('http://atelier-cuisine-iota.vercel.app'), null)
+    assert.equal(suiteBundleFor('https://atelier-cuisine-iota.vercel.app:8443'), null)
+    assert.equal(suiteBundleFor('https://u:p@atelier-cuisine-iota.vercel.app'), null)
+    assert.equal(suiteBundleFor('https://evil.atelier-cuisine-iota.vercel.app'), null)
+    assert.equal(suiteBundleFor('https://atelier-cuisine-iota.vercel.app.evil.com'), null)
+    assert.equal(suiteBundleFor('https://vercel.app'), null)
+    assert.equal(suiteBundleFor('https://constructor'), null)
+    assert.equal(suiteBundleFor('http://u:p@127.0.0.1:4175'), null)
+  })
+
   it('ignore les autres adresses', () => {
     assert.equal(suiteBundleFor('https://github.com/x/y'), null)
     assert.equal(suiteBundleFor('http://127.0.0.1:3000/api/docs'), null)
@@ -51,6 +65,17 @@ describe('openSuiteOrExternal', () => {
     const { calls, deps } = fakeDeps({ fail: true })
     assert.equal(await openSuiteOrExternal('http://127.0.0.1:8000', deps), 'browser')
     assert.deepEqual(calls.external, ['http://127.0.0.1:8000'])
+  })
+
+  it("ouvre l'app Mac d'Atelier Cuisine, sinon sa PWA dans le navigateur", async () => {
+    const url = 'https://atelier-cuisine-iota.vercel.app'
+    const installed = fakeDeps()
+    assert.equal(await openSuiteOrExternal(url, installed.deps), 'app')
+    assert.deepEqual(installed.calls.exec, [['/usr/bin/open', '-b', 'fr.ateliercuisine.app']])
+    assert.deepEqual(installed.calls.external, [])
+    const missing = fakeDeps({ fail: true })
+    assert.equal(await openSuiteOrExternal(url, missing.deps), 'browser')
+    assert.deepEqual(missing.calls.external, [url])
   })
 
   it('navigateur pour une adresse hors suite ou hors macOS', async () => {

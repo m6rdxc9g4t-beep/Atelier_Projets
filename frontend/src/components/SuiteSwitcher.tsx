@@ -1,9 +1,10 @@
 // Sélecteur « Suite Atelier » (docs/SUITE.md §3) : icône grille à gauche du nom de l'application, menu des
-// trois applications (courante cochée), indicateur « en marche / arrêtée » pour les trois (Tab : route de santé seule ;
-// l'application courante est toujours « en marche », sans être sondée).
+// applications de la suite (courante cochée), indicateur « en marche / arrêtée » pour les trois apps locales (Tab :
+// route de santé seule ; l'application courante est toujours « en marche », sans être sondée). Atelier Cuisine,
+// app en ligne sans API locale, n'est jamais sondée : mention « En ligne ».
 // Clavier : Entrée / Espace / ↓ ouvrent le menu, ↑ ↓ Début Fin naviguent, Échap ferme et rend le focus,
 // Tab ou un clic à l'extérieur ferment. Les vérifications de santé ne bloquent jamais le menu.
-import { BarChart3, CalendarCheck, Check, LayoutGrid, Table2 } from 'lucide-react'
+import { BarChart3, CalendarCheck, Check, CookingPot, LayoutGrid, Table2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { checkAnyHealth, CURRENT_APP, SUITE_APPS, type SuiteAppId, type SuiteStatus } from '../lib/suite.ts'
 
@@ -13,11 +14,14 @@ const ICONS: Record<SuiteAppId, ReactNode> = {
   viz: <BarChart3 />,
   tab: <Table2 />,
   projets: <CalendarCheck />,
+  cuisine: <CookingPot />,
 }
 
 type Health = SuiteStatus | 'checking'
 
 const HEALTH_TEXT: Record<Health, string> = { up: 'En marche', down: 'Arrêtée', checking: 'Vérification…' }
+/** Mention des apps en ligne, jamais sondées (docs/SUITE.md §3). */
+const ONLINE_TEXT = 'En ligne'
 /** Teinte de la pastille : statuts officiels (succès / danger), neutre pendant la vérification. */
 const HEALTH_STATUS: Record<Health, string> = { up: 'CLOSED', down: 'REJECTED', checking: 'OPEN' }
 
@@ -123,7 +127,7 @@ export function SuiteSwitcher() {
           id={menuId}
           role="menu"
           aria-label="Suite Atelier"
-          className="ds-card absolute left-0 top-full z-40 mt-2 w-80 p-1.5 shadow-overlay"
+          className="ds-card absolute left-0 top-full z-40 mt-2 w-86 p-1.5 shadow-overlay"
           onKeyDown={onMenuKey}
         >
           <p className="ds-eyebrow px-2.5 pb-1.5 pt-1" aria-hidden>
@@ -132,6 +136,7 @@ export function SuiteSwitcher() {
           {SUITE_APPS.map((app, index) => {
             const current = app.id === CURRENT_APP
             const state: Health | null = current ? 'up' : app.healthUrls.length > 0 ? (health[app.id] ?? 'checking') : null
+            const online = !current && state === null && app.online === true
             const content = (
               <>
                 <span className="atelier-brand__tile atelier-brand__tile--sm" data-atelier-app={app.id} aria-hidden="true">
@@ -149,6 +154,7 @@ export function SuiteSwitcher() {
                         {HEALTH_TEXT[state]}
                       </span>
                     )}
+                    {online && <span className="text-xs font-normal text-muted">{ONLINE_TEXT}</span>}
                   </span>
                   <span className="block truncate text-xs text-muted">{app.description}</span>
                 </span>
@@ -158,7 +164,7 @@ export function SuiteSwitcher() {
               </>
             )
             const className = 'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left hover:bg-hover focus-visible:bg-hover'
-            const label = `${app.name}${current ? ' (application courante)' : ''}${state ? ` — ${HEALTH_TEXT[state]}` : ''}`
+            const label = `${app.name}${current ? ' (application courante)' : ''}${state ? ` — ${HEALTH_TEXT[state]}` : online ? ` — ${ONLINE_TEXT}` : ''}`
             return current ? (
               <button
                 key={app.id}

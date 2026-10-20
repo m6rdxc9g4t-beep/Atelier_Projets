@@ -11,8 +11,8 @@
 //    littérale (#hex, rgb(), hsl()…) et ne redéfinissent ni les tokens officiels ni les variables de thème ;
 //  - ils n'emploient plus les jetons de marque supprimés par la charte « néon monochrome » (cyan, bleu nuit, verre).
 //
-// Les valeurs --atelier-* elles-mêmes viennent de brand/atelier-brand.css, copie exacte du fichier de marque
-// commun (docs/SUITE.md §1.7) : il n'est pas contrôlé ici.
+// Les valeurs --atelier-* elles-mêmes viennent de brand/atelier-brand.css, source du fichier de marque commun
+// (docs/SUITE.md §1.7) : seule la présence des signatures des apps du sélecteur « Suite Atelier » (§3) est contrôlée.
 
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -67,6 +67,18 @@ const errors = []
 const BRAND_TOKENS = new Set(
   [...stripComments(await readFile(path.join(ROOT, 'brand/atelier-brand.css'), 'utf8')).matchAll(/(--atelier-[\w-]+)\s*:/g)].map(([, name]) => name),
 )
+
+// Chaque tuile du sélecteur « Suite Atelier » porte le data-atelier-app de son application (docs/SUITE.md §1.7, §3).
+const SUITE_SIGNATURES = { viz: '#f2c811', tab: '#21a366', projets: '#94d82d', cuisine: '#e056e2' }
+const brandCss = await readFile(path.join(ROOT, 'brand/atelier-brand.css'), 'utf8')
+for (const [app, hex] of Object.entries(SUITE_SIGNATURES)) {
+  if (!brandCss.toLowerCase().includes(`--atelier-sig-${app}: ${hex};`)) {
+    errors.push(`brand/atelier-brand.css : signature --atelier-sig-${app} (${hex}) absente`)
+  }
+  if (!brandCss.includes(`[data-atelier-app="${app}"] { --atelier-signature: var(--atelier-sig-${app});`)) {
+    errors.push(`brand/atelier-brand.css : [data-atelier-app="${app}"] ne pose pas sa signature`)
+  }
+}
 
 function stripComments(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, '')
