@@ -63,7 +63,7 @@ export const AiStatusSchema = Type.Object(
 export type AiStatusDto = Static<typeof AiStatusSchema>
 
 export const AiStatusQuery = Type.Object({
-  refresh: Type.Optional(Type.Boolean({ description: 'Revérifier tout de suite la connexion de Claude (sinon cache de 60 s)' })),
+  refresh: Type.Optional(Type.Boolean({ description: 'Revérifier la connexion de Claude (sinon cache de 60 s) ; au plus une revérification forcée toutes les 10 s' })),
 })
 
 export const BreakdownRequestSchema = StrictObject({

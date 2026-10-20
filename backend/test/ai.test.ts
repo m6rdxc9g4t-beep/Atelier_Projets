@@ -288,6 +288,16 @@ describe('lanceur de Claude CLI', () => {
     const search = ['/repo/backend/node_modules/.bin', '/repo/node_modules/.bin', '/usr/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin', '/opt/homebrew/bin', '/usr/bin'].join(':')
     assert.equal(sessionPath(search, '/Users/moi/.local/bin/claude'), '/Users/moi/.local/bin:/opt/homebrew/bin:/usr/bin')
     assert.equal(sessionPath(search, 'claude'), '/opt/homebrew/bin:/usr/bin')
+    assert.equal(sessionPath(`.:bin::/usr/bin:/repo/node_modules/.bin/`, '/opt/claude/claude'), '/opt/claude:/usr/bin', 'entrées relatives ignorées')
+  })
+
+  it('CLAUDE_CLI relatif refusé : jamais résolu dans le dépôt du projet', async () => {
+    const launcher = createClaudeLauncher({ command: 'bin/claude', searchPath: '/usr/bin', fallbackDirs: [], platform: 'linux', workDir: path.join(dir, 'relative') })
+    const status = await launcher.status()
+    assert.equal(status.available, false)
+    assert.match(status.error ?? '', /CLAUDE_CLI doit être un chemin absolu/)
+    await assert.rejects(launcher.launch(request), /chemin absolu/)
+    await assert.rejects(launcher.prepare(request), /chemin absolu/)
   })
 
   it('sur macOS : ouvre un script .command dans le terminal choisi', async () => {

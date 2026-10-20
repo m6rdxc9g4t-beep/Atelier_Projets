@@ -43,4 +43,24 @@ describe('API réservée aux requêtes locales', () => {
     assert.equal((await request('PATCH', { host: '127.0.0.1:5174', origin: 'http://127.0.0.1:5174' })).statusCode, 200)
     assert.equal((await request('PATCH', { host: '127.0.0.1:3000' })).statusCode, 200, 'curl du hook post-commit')
   })
+
+  it('PATCH /api/settings (mode en ligne, docs/SUITE.md §5.1) : Host et Origin étrangers refusés, réglage inchangé', async () => {
+    const settings = (headers: Record<string, string>) =>
+      ctx.app.inject({ method: 'PATCH', url: '/api/settings', headers, payload: { onlineMode: true } })
+    const onlineMode = async () => (await ctx.prisma.appSetting.findUnique({ where: { key: 'onlineMode' } }))?.value ?? null
+
+    const rebinding = await settings({ host: 'evil.example' })
+    assert.equal(rebinding.statusCode, 403)
+    assert.equal(rebinding.json().code, 'FORBIDDEN_HOST')
+    const crossSite = await settings({ host: '127.0.0.1:3000', origin: 'https://evil.example' })
+    assert.equal(crossSite.statusCode, 403)
+    assert.equal(crossSite.json().code, 'FORBIDDEN_ORIGIN')
+    assert.equal((await settings({ host: '127.0.0.1:3000', origin: 'null' })).statusCode, 403)
+    assert.equal(await onlineMode(), null, 'aucune requête refusée n’a passé l’application en ligne')
+
+    const local = await settings({ host: '127.0.0.1:5174', origin: 'http://127.0.0.1:5174' })
+    assert.equal(local.statusCode, 200)
+    assert.deepEqual(local.json(), { onlineMode: true })
+    await ctx.app.inject({ method: 'PATCH', url: '/api/settings', headers: { host: '127.0.0.1:3000' }, payload: { onlineMode: false } })
+  })
 })

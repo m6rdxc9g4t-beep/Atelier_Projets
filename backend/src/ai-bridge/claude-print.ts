@@ -4,16 +4,17 @@
 // - --tools "" + --strict-mcp-config + --disable-slash-commands : aucun outil (ni shell, ni fichiers, ni MCP) ;
 // - --system-prompt : remplace entièrement le prompt système de Claude Code ;
 // - --no-session-persistence : rien n'est écrit dans l'historique des sessions ;
-// - dossier de travail temporaire vide, ANTHROPIC_API_KEY retirée (facturation par l'abonnement),
-//   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 (ni télémétrie, ni rapport d'erreur, ni mise à jour automatique).
-// La conversation passe par l'entrée standard (jamais dans les arguments). Sortie JSON (`--output-format json`),
+// - dossier de travail temporaire vide, environnement en liste blanche (HOME, USER, PATH… ; ni ANTHROPIC_*, ni
+//   secret de l'application), CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 (ni télémétrie, ni mise à jour automatique).
+// Le prompt système ne contient que des consignes ; les données (story, commits, diffs) passent par l'entrée
+// standard, jamais dans les arguments (visibles par `ps`). Sortie JSON (`--output-format json`),
 // structurée par `--json-schema` quand une forme est imposée. L'exécutant est injectable (tests).
 // Distinct de claude-cli.ts, qui ouvre une session interactive dans un terminal.
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { claudeFallbackDirs, findClaudeExecutable } from './claude-cli.ts'
+import { claudeFallbackDirs, findClaudeExecutable, isRelativeCommand, relativeCommandMessage, sessionPath } from './claude-cli.ts'
 import type { ChatMessage } from './ollama.ts'
 
 /** Modèles proposés (alias de la CLI). Sonnet par défaut. */
@@ -25,6 +26,11 @@ export const DEFAULT_CLAUDE_MODEL: ClaudeModel = 'sonnet'
 export const DEFAULT_CLAUDE_TIMEOUT_MS = 180_000
 /** Durée de validité de `claude auth status` (contrat : 60 s). */
 export const CLAUDE_STATUS_TTL_MS = 60_000
+/**
+ * Intervalle minimal entre deux revérifications forcées (`refresh`, contrat : 10 s) : `GET /api/ai/status?refresh=true`
+ * se déclenche aussi depuis une page étrangère (balise <img>), qui ne doit pas pouvoir lancer la CLI en boucle.
+ */
+export const CLAUDE_STATUS_REFRESH_MIN_MS = 10_000
 /** Méthodes d'authentification facturées à l'API (et non à l'abonnement). */
 const API_KEY_AUTH_METHODS = new Set(['api_key', 'api_key_helper', 'apiKey', 'apiKeyHelper'])
 /** Sortie lue au plus (protection mémoire). */
@@ -93,7 +99,7 @@ export interface ClaudeRequest {
 
 export interface ClaudeEngine {
   readonly timeoutMs: number
-  /** Exécutable + `claude auth status`, en cache 60 s (refresh : relecture immédiate). */
+  /** Exécutable + `claude auth status`, en cache 60 s (refresh : relecture, au plus toutes les 10 s). */
   status(options?: { refresh?: boolean }): Promise<ClaudeEngineStatus>
   /** Réponse texte (champ `result`). */
   chat(request: ClaudeRequest): Promise<string>
@@ -138,10 +144,22 @@ export function claudeArguments(options: { model: ClaudeModel; system: string; m
   ]
 }
 
-/** Environnement de la CLI : sans clé API (abonnement), sans trafic non essentiel. */
-export function claudeEnvironment(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+/** Variables transmises à la CLI (docs/SUITE.md §5.3), plus les LC_* ; rien d'autre. */
+export const CLAUDE_ENV_ALLOWLIST = ['HOME', 'USER', 'LOGNAME', 'PATH', 'SHELL', 'LANG', 'TMPDIR', 'TZ', 'CLAUDE_CONFIG_DIR'] as const
+
+/**
+ * Environnement de la CLI, en liste blanche (docs/SUITE.md §5.3) : ni ANTHROPIC_* (clé, jeton, adresse : facturation
+ * par l'abonnement), ni CLAUDE_CODE_USE_BEDROCK / VERTEX, ni secret de l'application (ATELIER_IMPORT_TOKEN,
+ * GITHUB_TOKEN…). PATH : dossier de l'exécutable en tête, sans entrée relative ni node_modules/.bin (sessionPath).
+ * CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 : ni télémétrie, ni rapport d'erreur, ni mise à jour automatique.
+ */
+export function claudeEnvironment(base: NodeJS.ProcessEnv, executable: string): NodeJS.ProcessEnv {
+  const allowed = new Set<string>(CLAUDE_ENV_ALLOWLIST)
   const env: NodeJS.ProcessEnv = {}
-  for (const [key, value] of Object.entries(base)) if (key !== 'ANTHROPIC_API_KEY' && value !== undefined) env[key] = value
+  for (const [key, value] of Object.entries(base)) {
+    if (value !== undefined && (allowed.has(key) || key.startsWith('LC_'))) env[key] = value
+  }
+  env.PATH = sessionPath(base.PATH, executable)
   env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
   return env
 }
@@ -223,6 +241,10 @@ export const spawnRunner: ClaudeRunner = (executable, args, { input, cwd, env, t
   })
 
 const NOT_FOUND_MESSAGE = 'Claude CLI introuvable : installer Claude Code puis lancer « claude auth login » (ou renseigner CLAUDE_CLI)'
+/** CLI introuvable, ou CLAUDE_CLI relatif (refusé). */
+function notFoundMessage(command: string): string {
+  return isRelativeCommand(command) ? relativeCommandMessage(command) : NOT_FOUND_MESSAGE
+}
 const LOGIN_MESSAGE = 'Claude CLI non connectée : lancer « claude auth login » dans un terminal'
 
 export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEngine {
@@ -238,7 +260,7 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
   async function run(executable: string, args: readonly string[], input: string | null, limitMs: number, signal?: AbortSignal): Promise<RunResult> {
     const cwd = await mkdtemp(path.join(tmpdir(), 'atelier-projets-claude-'))
     try {
-      return await runner(executable, args, { input, cwd, env: claudeEnvironment(options.env ?? process.env), timeoutMs: limitMs, signal })
+      return await runner(executable, args, { input, cwd, env: claudeEnvironment(options.env ?? process.env, executable), timeoutMs: limitMs, signal })
     } finally {
       await rm(cwd, { recursive: true, force: true }).catch(() => undefined)
     }
@@ -248,7 +270,7 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
     const checkedAt = new Date(now()).toISOString()
     const executable = await findClaudeExecutable(command, searchPath, fallbackDirs)
     const base = { executable, checkedAt, warning: null }
-    if (executable === null) return { ...base, installed: false, loggedIn: null, authMethod: null, available: false, error: NOT_FOUND_MESSAGE }
+    if (executable === null) return { ...base, installed: false, loggedIn: null, authMethod: null, available: false, error: notFoundMessage(command) }
     let info: { loggedIn?: unknown; authMethod?: unknown }
     try {
       const result = await run(executable, ['auth', 'status'], null, 15_000)
@@ -279,7 +301,7 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
 
   async function ask(request: ClaudeRequest, schema?: Record<string, unknown>): Promise<Record<string, unknown>> {
     const executable = await findClaudeExecutable(command, searchPath, fallbackDirs)
-    if (executable === null) throw new ClaudeError('missing', NOT_FOUND_MESSAGE)
+    if (executable === null) throw new ClaudeError('missing', notFoundMessage(command))
     const { system, prompt } = formatConversation(request.messages)
     // Sortie structurée : un tour de plus, pour la réponse contrainte par le schéma (comme Viz).
     const args = claudeArguments({ model: request.model, system, maxTurns: schema ? 2 : 1, ...(schema && { schema }) })
@@ -302,7 +324,8 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
   return {
     timeoutMs,
     status({ refresh = false } = {}) {
-      if (refresh || cached === null || now() - cached.at >= CLAUDE_STATUS_TTL_MS) {
+      const age = cached === null ? Infinity : now() - cached.at
+      if (cached === null || age >= CLAUDE_STATUS_TTL_MS || (refresh && age >= CLAUDE_STATUS_REFRESH_MIN_MS)) {
         cached = { at: now(), value: readStatus() }
       }
       return cached.value

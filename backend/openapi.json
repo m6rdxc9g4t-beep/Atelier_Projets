@@ -14050,7 +14050,7 @@
             "in": "query",
             "name": "refresh",
             "required": false,
-            "description": "Revérifier tout de suite la connexion de Claude (sinon cache de 60 s)"
+            "description": "Revérifier la connexion de Claude (sinon cache de 60 s) ; au plus une revérification forcée toutes les 10 s"
           }
         ],
         "responses": {

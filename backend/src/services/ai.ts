@@ -47,6 +47,8 @@ export interface AiSettings {
 
 /** Commits lus au plus pour un résumé (les plus récents). */
 const MAX_SUMMARY_COMMITS = 20
+/** Part du budget en dessous de laquelle le diff d'un commit n'est pas lu (message seul). */
+const MIN_PATCH_CHARS = 200
 
 /**
  * Nom exact à envoyer à Ollama : « qwen2.5-coder » devient l'étiquette installée (« qwen2.5-coder:7b ») quand il
@@ -276,22 +278,27 @@ export async function summarizeCommits(
     }
   }
 
-  const perCommit = Math.max(1500, Math.floor(settings.maxDiffChars / commits.length))
+  // Budget AI_MAX_DIFF_CHARS partagé entre les commits : chacun reçoit une part égale de ce qui reste, et ce
+  // qu'un petit diff n'utilise pas profite aux suivants. Le total envoyé ne dépasse jamais maxDiffChars.
+  let remaining = settings.maxDiffChars
   const summaryCommits: SummaryCommit[] = []
   const report: SummarizeResultDto['commits'] = []
-  for (const commit of commits) {
-    const patch = repository ? await readCommitPatch(repository, commit.hash, perCommit).catch(() => null) : null
+  for (const [index, commit] of commits.entries()) {
+    const share = Math.floor(remaining / (commits.length - index))
+    const omitted = repository !== null && share < MIN_PATCH_CHARS
+    const patch = repository && !omitted ? await readCommitPatch(repository, commit.hash, share).catch(() => null) : null
+    remaining -= patch?.patch.length ?? 0
     summaryCommits.push({
       shortHash: commit.hash.slice(0, 7),
       committedAt: commit.committedAt.toISOString().slice(0, 16).replace('T', ' '),
       authorName: commit.authorName,
       message: commit.message,
-      patch: patch?.patch ?? null,
+      patch: omitted ? '' : (patch?.patch ?? null),
     })
     report.push({
       shortHash: commit.hash.slice(0, 7),
       subject: commit.message.split('\n')[0] ?? '',
-      diff: patch === null ? 'missing' : patch.truncated ? 'truncated' : 'full',
+      diff: omitted || patch?.truncated ? 'truncated' : patch === null ? 'missing' : 'full',
     })
   }
   if (repository && report.some((commit) => commit.diff === 'missing')) {
