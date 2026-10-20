@@ -1,6 +1,8 @@
 /* Atelier_Projets · Frontend — styles globaux.
    Tailwind CSS v4 est relié aux variables du design system : la palette par défaut de Tailwind est
-   retirée (--color-*: initial), seules les couleurs du design system existent comme utilitaires. */
+   retirée (--color-*: initial), seules les couleurs du design system existent comme utilitaires.
+   Charte « néon monochrome » (docs/SUITE.md §1.7) : les fondations passent par les variables --app-*
+   du design system, teintées de la couleur signature (vert citron) en clair comme en sombre. */
 
 @import "tailwindcss";
 @import "@atelier/design-system";
@@ -13,19 +15,24 @@
   --color-transparent: transparent;
   --color-current: currentColor;
 
-  /* Fondations du thème actif */
-  --color-main: var(--bg-main);
-  --color-surface: var(--bg-surface);
-  --color-elevated: var(--bg-elevated);
+  /* Fondations du thème actif, dans la couleur signature de l'app */
+  --color-main: var(--app-bg);
+  --color-sidebar: var(--app-sidebar);
+  --color-surface: var(--app-surface);
+  --color-elevated: var(--app-surface-2);
   --color-hover: var(--surface-hover);
+  --color-selected: var(--surface-selected);
   --color-sunken: var(--surface-sunken);
-  --color-fg: var(--text-primary);
-  --color-muted: var(--text-muted);
-  --color-line: var(--border-color);
+  --color-field: var(--app-field);
+  --color-fg: var(--app-text);
+  --color-muted: var(--app-muted);
+  --color-line: var(--app-line);
+  --color-line-soft: var(--app-border-soft);
   --color-line-strong: var(--border-strong);
   --color-grid: var(--grid-line);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-faint: var(--accent-faint);
   --color-accent-ink: var(--accent-ink);
   --color-backdrop: var(--backdrop);
 
@@ -68,8 +75,10 @@
   }
   body {
     margin: 0;
-    background: var(--bg-main);
-    color: var(--text-primary);
+    /* Fond de page teinté + fine grille et lueur de la couleur signature (charte néon monochrome). */
+    background: var(--atelier-backdrop), var(--atelier-bg);
+    background-attachment: fixed;
+    color: var(--app-text);
     font-family: var(--ds-font-sans);
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
@@ -119,7 +128,7 @@
   inline-size: 0.5rem;
   cursor: ew-resize;
   opacity: 0;
-  background: color-mix(in oklab, var(--text-primary) 35%, transparent);
+  background: color-mix(in oklab, var(--app-text) 35%, transparent);
 }
 .group:hover .gantt-handle,
 .gantt-handle:active {
@@ -133,7 +142,7 @@
   block-size: 0.75rem;
   border-radius: 999px;
   translate: 0 -50%;
-  background: var(--bg-surface);
+  background: var(--app-surface);
   box-shadow: inset 0 0 0 2px var(--accent);
   cursor: crosshair;
   touch-action: none;
@@ -148,7 +157,7 @@
 .gantt-link-line,
 .gantt-link-draft {
   fill: none;
-  stroke: var(--text-muted);
+  stroke: var(--app-muted);
   stroke-width: 1.5;
 }
 .gantt-link-hit {
@@ -162,7 +171,7 @@
   stroke-width: 2.5;
 }
 .gantt-link-head {
-  fill: var(--text-muted);
+  fill: var(--app-muted);
 }
 .gantt-link[data-tone="critical"] .gantt-link-line {
   stroke: var(--status-blocked);
@@ -194,7 +203,7 @@
   html[data-printing="gantt"] #root {
     height: auto;
     overflow: visible;
-    background: var(--bg-surface);
+    background: var(--app-surface);
   }
   html[data-printing="gantt"] body * {
     visibility: hidden;

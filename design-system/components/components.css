@@ -4,16 +4,35 @@
    champs, tableaux, losange de jalon et texte Markdown.
    Sans framework : utilisables depuis React, du HTML statique ou une autre
    application. Couleurs exclusivement via les variables du design system.
+
+   Charte « néon monochrome » (docs/SUITE.md §1.7) : toute l'interface est dans la
+   couleur signature de l'app (variables --app-* et --accent* de tokens/ui.css,
+   branchées sur les jetons --atelier-* de la marque), en clair comme en sombre :
+   cartes cerclées d'un trait de la couleur avec halo, bouton principal plein en
+   clair et en contour néon en sombre, onglet actif lumineux.
    ========================================================================== */
 
 /* Couche « components » : les utilitaires d'un framework (Tailwind…) peuvent surcharger ces styles. */
 @layer components {
   /* --- Carte ------------------------------------------------------------------ */
   .ds-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
+    background-color: var(--app-surface);
+    border: 1px solid var(--app-border);
     border-radius: var(--ds-radius-lg);
     box-shadow: var(--ds-shadow-card);
+  }
+
+  /* --- Bandeaux de l'application (en-tête, barre latérale, fiche élément) ---------- */
+  .ds-chrome { background-color: var(--app-sidebar); }
+
+  /* --- Titre de page : halo néon de la couleur ------------------------------------- */
+  .ds-title-glow { text-shadow: var(--text-glow); }
+
+  /* --- Entrée de navigation active : barre de couleur à gauche, fond en transparence, halo -- */
+  .ds-nav-active {
+    color: var(--app-text);
+    background: var(--accent-soft);
+    box-shadow: inset 3px 0 0 var(--accent), 0 0 14px -4px var(--accent);
   }
 
   .ds-eyebrow {
@@ -21,7 +40,7 @@
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--app-muted);
   }
 
   /* --- Boutons ---------------------------------------------------------------- */
@@ -32,10 +51,10 @@
     gap: 0.4rem;
     min-block-size: 2.25rem;
     padding: 0 0.85rem;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--app-border-soft);
     border-radius: var(--ds-radius-md);
-    background: var(--bg-surface);
-    color: var(--text-primary);
+    background: var(--app-surface);
+    color: var(--app-text);
     font: inherit;
     font-size: 0.875rem;
     font-weight: 500;
@@ -45,24 +64,28 @@
     transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
   }
   .ds-btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
-  .ds-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .ds-btn:focus-visible { outline: none; border-color: var(--focus-color); box-shadow: var(--focus-ring); }
   .ds-btn:disabled { cursor: not-allowed; opacity: 0.55; }
 
+  /* Bouton principal (couleur signature, halo) : plein en clair, contour néon en sombre (--btn-primary-*). */
   .ds-btn[data-variant="primary"] {
-    background: var(--accent-soft);
-    border-color: color-mix(in oklab, var(--accent) 45%, transparent);
-    color: var(--accent-ink);
+    background: var(--btn-primary-bg);
+    border-color: var(--accent);
+    color: var(--btn-primary-fg);
+    font-weight: 600;
+    box-shadow: var(--accent-glow);
   }
   .ds-btn[data-variant="primary"]:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--accent) 26%, transparent);
+    background: var(--btn-primary-bg-hover);
     border-color: var(--accent);
   }
-  .ds-btn[data-variant="ghost"] { background: transparent; border-color: transparent; color: var(--text-muted); }
-  .ds-btn[data-variant="ghost"]:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
+  .ds-btn[data-variant="primary"]:focus-visible { box-shadow: var(--focus-ring), var(--accent-glow); }
+  .ds-btn[data-variant="ghost"] { background: transparent; border-color: transparent; color: var(--app-muted); }
+  .ds-btn[data-variant="ghost"]:hover:not(:disabled) { background: var(--accent-faint); color: var(--app-text); }
   .ds-btn[data-variant="danger"] {
     background: transparent;
     border-color: color-mix(in oklab, var(--status-rejected) 45%, transparent);
-    color: color-mix(in oklab, var(--status-rejected) 72%, var(--text-primary));
+    color: color-mix(in oklab, var(--status-rejected) 72%, var(--app-text));
   }
   .ds-btn[data-variant="danger"]:hover:not(:disabled) { background: color-mix(in oklab, var(--status-rejected) 14%, transparent); }
   .ds-btn[data-size="sm"] { min-block-size: 1.875rem; padding: 0 0.6rem; font-size: 0.8125rem; border-radius: var(--ds-radius-sm); }
@@ -76,9 +99,9 @@
     gap: 0.4rem;
     padding: 0.2rem 0.6rem;
     border-radius: var(--ds-radius-pill);
-    background: var(--kind-soft, var(--bg-elevated));
-    border: 1px solid color-mix(in oklab, var(--kind-color, var(--border-color)) 35%, transparent);
-    color: var(--kind-ink, var(--text-primary));
+    background: var(--kind-soft, var(--accent-soft));
+    border: 1px solid var(--kind-border, var(--app-border-soft));
+    color: var(--kind-ink, var(--accent-ink));
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1.25;
@@ -89,7 +112,7 @@
     inline-size: 0.45rem;
     block-size: 0.45rem;
     border-radius: var(--ds-radius-pill);
-    background: var(--kind-color, var(--text-muted));
+    background: var(--kind-color, var(--accent));
   }
   .ds-badge[data-plain]::before { content: none; }
 
@@ -101,7 +124,7 @@
     block-size: 0.875rem;
     border-radius: 4px;
     background: var(--kind-color);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--text-primary) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--app-text) 12%, transparent);
   }
   .ds-type-chip[data-size="lg"] { inline-size: 1.125rem; block-size: 1.125rem; border-radius: 5px; }
 
@@ -114,22 +137,23 @@
     transform: rotate(45deg);
     border-radius: 2px;
     background: var(--type-milestone);
-    box-shadow: 0 0 0 2px var(--bg-surface);
+    box-shadow: 0 0 0 2px var(--app-surface);
   }
-  .ds-diamond[data-reached="false"] { background: var(--bg-surface); box-shadow: inset 0 0 0 2px var(--type-milestone), 0 0 0 2px var(--bg-surface); }
+  .ds-diamond[data-reached="false"] { background: var(--app-surface); box-shadow: inset 0 0 0 2px var(--type-milestone), 0 0 0 2px var(--app-surface); }
 
   /* --- Barre de progression ------------------------------------------------------ */
   .ds-progress {
     position: relative;
     block-size: 0.625rem;
     border-radius: var(--ds-radius-pill);
-    background: var(--bg-elevated);
+    background: var(--accent-soft);
     overflow: hidden;
   }
   .ds-progress__bar {
     block-size: 100%;
     border-radius: inherit;
     background: var(--progress-fill, var(--accent));
+    box-shadow: var(--accent-halo);
     transition: inline-size 300ms ease;
   }
   .ds-progress[data-tone="budget"] { --progress-fill: var(--gradient-budget); }
@@ -140,7 +164,7 @@
   .ds-tabs {
     display: flex;
     gap: 0.25rem;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--app-line);
   }
   .ds-tab {
     position: relative;
@@ -150,16 +174,20 @@
     padding: 0.75rem 0.9rem;
     border: 0;
     background: transparent;
-    color: var(--text-muted);
+    color: var(--app-muted);
     font: inherit;
     font-size: 0.9375rem;
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
   }
-  .ds-tab:hover { color: var(--text-primary); }
+  .ds-tab:hover { color: var(--app-text); background: var(--accent-faint); border-radius: var(--ds-radius-sm) var(--ds-radius-sm) 0 0; }
   .ds-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--ds-radius-sm); }
-  .ds-tab[aria-selected="true"] { color: var(--accent-ink); }
+  .ds-tab[aria-selected="true"] {
+    color: var(--app-text);
+    background: var(--accent-soft);
+    border-radius: var(--ds-radius-sm) var(--ds-radius-sm) 0 0;
+  }
   .ds-tab[aria-selected="true"]::after {
     content: "";
     position: absolute;
@@ -168,6 +196,7 @@
     block-size: 2px;
     border-radius: 2px;
     background: var(--accent);
+    box-shadow: var(--accent-halo);
   }
 
   /* --- Champs ---------------------------------------------------------------------- */
@@ -176,7 +205,7 @@
     gap: 0.35rem;
     font-size: 0.8125rem;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--app-muted);
   }
   .ds-input,
   .ds-select,
@@ -184,19 +213,19 @@
     inline-size: 100%;
     min-block-size: 2.25rem;
     padding: 0.45rem 0.7rem;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--app-border-soft);
     border-radius: var(--ds-radius-md);
-    background: var(--surface-sunken);
-    color: var(--text-primary);
+    background: var(--app-field);
+    color: var(--app-text);
     font: inherit;
     font-size: 0.875rem;
   }
   .ds-textarea { min-block-size: 7rem; line-height: 1.5; resize: vertical; font-family: var(--ds-font-mono); font-size: 0.8125rem; }
   .ds-input:focus,
   .ds-select:focus,
-  .ds-textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+  .ds-textarea:focus { outline: none; border-color: var(--focus-color); box-shadow: var(--focus-ring); }
   .ds-input::placeholder,
-  .ds-textarea::placeholder { color: var(--text-muted); opacity: 0.8; }
+  .ds-textarea::placeholder { color: var(--app-muted); opacity: 0.8; }
   .ds-select { appearance: auto; cursor: pointer; }
 
   /* --- Tableau --------------------------------------------------------------------- */
@@ -208,18 +237,18 @@
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border-color);
+    color: var(--app-muted);
+    border-bottom: 1px solid var(--app-line);
     white-space: nowrap;
   }
-  .ds-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+  .ds-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--app-line); vertical-align: middle; }
   .ds-table tbody tr { transition: background-color 120ms ease; }
-  .ds-table tbody tr:hover { background: var(--surface-hover); }
+  .ds-table tbody tr:hover { background: var(--accent-faint); }
   .ds-table tfoot td { font-weight: 600; background: var(--surface-sunken); border-bottom: 0; }
   .ds-table .ds-num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   /* --- Texte Markdown (description, journal d'avancement) --------------------------- */
-  .ds-markdown { color: var(--text-primary); font-size: 0.9rem; line-height: 1.6; overflow-wrap: anywhere; }
+  .ds-markdown { color: var(--app-text); font-size: 0.9rem; line-height: 1.6; overflow-wrap: anywhere; }
   .ds-markdown > :first-child { margin-top: 0; }
   .ds-markdown > :last-child { margin-bottom: 0; }
   .ds-markdown h1,
@@ -240,7 +269,7 @@
   .ds-markdown code {
     padding: 0.1em 0.35em;
     border-radius: 4px;
-    background: var(--bg-elevated);
+    background: var(--app-surface-2);
     font-family: var(--ds-font-mono);
     font-size: 0.85em;
   }
@@ -254,24 +283,24 @@
     background: var(--accent-soft);
   }
   .ds-markdown blockquote p { margin: 0.25em 0; }
-  .ds-markdown hr { border: 0; border-top: 1px solid var(--border-color); margin: 1em 0; }
+  .ds-markdown hr { border: 0; border-top: 1px solid var(--app-line); margin: 1em 0; }
   .ds-markdown table { border-collapse: collapse; font-size: 0.85rem; }
   .ds-markdown th,
-  .ds-markdown td { border: 1px solid var(--border-color); padding: 0.3rem 0.55rem; }
+  .ds-markdown td { border: 1px solid var(--app-line); padding: 0.3rem 0.55rem; }
 
   /* --- Barre de planning (Gantt) : piste teintée + remplissage = avancement ------------ */
   .ds-bar {
     position: relative;
     block-size: var(--bar-size, 0.875rem);
     border-radius: var(--ds-radius-pill);
-    background: color-mix(in oklab, var(--kind-color) 22%, var(--bg-surface));
+    background: color-mix(in oklab, var(--kind-color) 22%, var(--app-surface));
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--kind-color) 50%, transparent);
     overflow: hidden;
   }
   .ds-bar__fill {
     block-size: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, var(--kind-color), color-mix(in oklab, var(--kind-color) 72%, var(--text-primary)));
+    background: linear-gradient(90deg, var(--kind-color), color-mix(in oklab, var(--kind-color) 72%, var(--app-text)));
   }
   .ds-bar[data-size="lg"] { --bar-size: 1.125rem; }
   .ds-bar[data-size="sm"] { --bar-size: 0.625rem; }

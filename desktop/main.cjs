@@ -73,7 +73,8 @@ function createWindow() {
     minHeight: 620,
     title: PRODUCT,
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0B0F19' : '#F8FAFC',
+    // Proche de --atelier-bg (charte néon monochrome, vert citron) : sombre ≈ signature 6 % dans #07070A, clair ≈ 5 % dans #FBFBFD.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0D100E' : '#F6FAF4',
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true },
   })
   if (bounds.maximized) mainWindow.maximize()

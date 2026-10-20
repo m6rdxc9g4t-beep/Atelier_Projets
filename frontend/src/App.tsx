@@ -116,7 +116,7 @@ function BackendDown({ onRetry }: { onRetry: () => void }) {
     <div className="grid h-full place-items-center p-6">
       <div className="ds-card max-w-lg p-8 text-center">
         <PlugZap className="mx-auto mb-4 size-10 text-muted" aria-hidden />
-        <h1 className="mb-2 text-lg font-semibold">Le backend ne répond pas</h1>
+        <h1 className="ds-title-glow mb-2 text-lg font-semibold">Le backend ne répond pas</h1>
         <p className="mb-4 text-muted">L’interface a besoin de l’API locale. À la racine du projet, lancer :</p>
         <pre className="mb-5 rounded-md bg-sunken px-4 py-3 text-left font-mono text-sm">npm run dev</pre>
         <Button variant="primary" onClick={onRetry}>

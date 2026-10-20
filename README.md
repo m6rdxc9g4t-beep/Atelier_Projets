@@ -115,12 +115,19 @@ Le système de design repose sur des variables CSS strictes réutilisables dans 
 
 | Variable CSS | ☀️ Mode Clair | 🌙 Mode Sombre | Usage |
 | :--- | :--- | :--- | :--- |
-| `--bg-main` | `#F8FAFC` | `#0B0F19` | Fond principal de l'application |
-| `--bg-surface` | `#FFFFFF` | `#111827` | Cartes, Tableaux, Panneaux latéraux |
-| `--bg-elevated` | `#F1F5F9` | `#1E293B` | Modales, Menus déroulants, Survols |
-| `--text-primary` | `#0F172A` | `#F8FAFC` | Texte principal |
-| `--text-muted` | `#64748B` | `#94A3B8` | Texte secondaire, métadonnées |
-| `--border-color` | `#E2E8F0` | `#1E293B` | Bordures fines et séparateurs |
+| `--bg-main` | `#F8FAFC` | `#0A0A0D` | Fond principal de l'application |
+| `--bg-surface` | `#FFFFFF` | `#111116` | Cartes, Tableaux, Panneaux latéraux |
+| `--bg-elevated` | `#F1F5F9` | `#191A21` | Modales, Menus déroulants, Survols |
+| `--text-primary` | `#0F172A` | `#F4F5F7` | Texte principal |
+| `--text-muted` | `#64748B` | `#A1A6B2` | Texte secondaire, métadonnées |
+| `--border-color` | `#E2E8F0` | `#262833` | Bordures fines et séparateurs |
+
+Ces deux thèmes sont des bases **neutres**, en CSS pur et copiables. Dans l'application, la charte **« néon monochrome »**
+([`docs/SUITE.md`](./docs/SUITE.md) §1.7) teinte toute l'interface de la couleur signature d'Atelier Projets, **vert citron `#94D82D`**
+(`data-atelier-app="projets"` sur `<html>`), en clair comme en sombre : fond teinté avec fine grille et lueur, barre latérale,
+cartes cerclées d'un trait vert citron avec halo, textes, bouton principal (plein en clair, contour néon en sombre), navigation active.
+Les jetons `--atelier-*` de `design-system/brand/atelier-brand.css` sont branchés sur les variables `--app-*` de `tokens/ui.css`.
+La couleur signature ne remplace aucune couleur de type ou de statut (Gantt, badges, histogramme inchangés).
 
 ### B. Couleurs Officielles des Types d'Éléments (Work Items & Gantt)
 

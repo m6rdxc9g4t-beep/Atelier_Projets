@@ -7,7 +7,8 @@ import { BarChart3, CalendarCheck, Check, LayoutGrid, Table2 } from 'lucide-reac
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { checkAnyHealth, CURRENT_APP, SUITE_APPS, type SuiteAppId, type SuiteStatus } from '../lib/suite.ts'
 
-/** Icônes de la marque commune (docs/SUITE.md §1.6 et §3), dans la tuile au dégradé cyan. */
+/** Icônes de la marque commune (docs/SUITE.md §1.6 et §3), dans la tuile néon ; chaque tuile porte le
+ * data-atelier-app de son application, donc sa couleur signature (§1.7). */
 const ICONS: Record<SuiteAppId, ReactNode> = {
   viz: <BarChart3 />,
   tab: <Table2 />,
@@ -133,7 +134,7 @@ export function SuiteSwitcher() {
             const state: Health | null = current ? 'up' : app.healthUrls.length > 0 ? (health[app.id] ?? 'checking') : null
             const content = (
               <>
-                <span className="atelier-brand__tile atelier-brand__tile--sm" aria-hidden="true">
+                <span className="atelier-brand__tile atelier-brand__tile--sm" data-atelier-app={app.id} aria-hidden="true">
                   {ICONS[app.id]}
                 </span>
                 <span className="min-w-0 flex-1">
