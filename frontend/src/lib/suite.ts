@@ -13,8 +13,8 @@ export interface SuiteApp {
   description: string
   /** Adresse ouverte par le sélecteur. */
   url: string
-  /** Route de santé de l'API (null : application sans API, pas d'indicateur). */
-  healthUrl: string | null
+  /** Routes de santé essayées : l'application est « en marche » si l'une répond (vide : pas d'indicateur). */
+  healthUrls: readonly string[]
 }
 
 /** Application courante. */
@@ -33,6 +33,8 @@ function urlFrom(variable: string, fallback: string): string {
 const VIZ_URL = urlFrom('VITE_ATELIER_VIZ_URL', 'http://127.0.0.1:8000')
 const TAB_URL = urlFrom('VITE_ATELIER_TAB_URL', 'http://127.0.0.1:4175')
 const PROJETS_URL = urlFrom('VITE_ATELIER_PROJETS_URL', 'http://127.0.0.1:4174')
+/** Santé d'Atelier Tab lancé par « npm run dev » (docs/SUITE.md §3). */
+const TAB_DEV_HEALTH_URL = 'http://127.0.0.1:5175/api/health'
 
 export const SUITE_APPS: readonly SuiteApp[] = [
   {
@@ -42,7 +44,7 @@ export const SUITE_APPS: readonly SuiteApp[] = [
     description: 'BI locale : rapports, visuels, IA',
     url: VIZ_URL,
     // L'API de Viz est servie par la même adresse que son interface (FastAPI) : /api/health.
-    healthUrl: `${VIZ_URL}/api/health`,
+    healthUrls: [`${VIZ_URL}/api/health`],
   },
   {
     id: 'tab',
@@ -50,7 +52,8 @@ export const SUITE_APPS: readonly SuiteApp[] = [
     short: 'Tab',
     description: 'Tableur et base de données typée',
     url: TAB_URL,
-    healthUrl: null,
+    // Tab n'a pas d'API de données, seulement une route de santé : app de bureau ou aperçu (4175), puis dev (5175).
+    healthUrls: [...new Set([`${TAB_URL}/api/health`, TAB_DEV_HEALTH_URL])],
   },
   {
     id: 'projets',
@@ -59,7 +62,7 @@ export const SUITE_APPS: readonly SuiteApp[] = [
     description: 'Projets agiles, Git, temps passé',
     url: PROJETS_URL,
     // Application courante : son API est jointe par l'interface elle-même (même origine, proxy /api).
-    healthUrl: '/api/health',
+    healthUrls: ['/api/health'],
   },
 ]
 
@@ -91,4 +94,14 @@ export async function checkHealth(healthUrl: string, timeoutMs = HEALTH_TIMEOUT_
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * Application « en marche » si l'une de ses routes de santé répond (sondées en parallèle, 1,5 s chacune) :
+ * Atelier Tab répond sur 4175 (app de bureau, aperçu) ou sur 5175 (dev).
+ */
+export async function checkAnyHealth(healthUrls: readonly string[], timeoutMs = HEALTH_TIMEOUT_MS): Promise<SuiteStatus> {
+  if (healthUrls.length === 0) return 'down'
+  const checks = healthUrls.map((url) => checkHealth(url, timeoutMs).then((status) => (status === 'up' ? Promise.resolve('up' as const) : Promise.reject(new Error('down')))))
+  return Promise.any(checks).catch(() => 'down' as const)
 }
