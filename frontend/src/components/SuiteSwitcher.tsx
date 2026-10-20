@@ -2,14 +2,15 @@
 // trois applications (courante cochée), indicateur « en marche / arrêtée » pour celles qui ont une API.
 // Clavier : Entrée / Espace / ↓ ouvrent le menu, ↑ ↓ Début Fin naviguent, Échap ferme et rend le focus,
 // Tab ou un clic à l'extérieur ferment. Les vérifications de santé ne bloquent jamais le menu.
-import { BarChart3, Check, KanbanSquare, LayoutGrid, Table2 } from 'lucide-react'
+import { BarChart3, CalendarCheck, Check, LayoutGrid, Table2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { checkHealth, CURRENT_APP, SUITE_APPS, type SuiteAppId, type SuiteStatus } from '../lib/suite.ts'
 
+/** Icônes de la marque commune (docs/SUITE.md §1.6 et §3), dans la tuile au dégradé cyan. */
 const ICONS: Record<SuiteAppId, ReactNode> = {
-  viz: <BarChart3 className="size-5" aria-hidden />,
-  tab: <Table2 className="size-5" aria-hidden />,
-  projets: <KanbanSquare className="size-5" aria-hidden />,
+  viz: <BarChart3 />,
+  tab: <Table2 />,
+  projets: <CalendarCheck />,
 }
 
 type Health = SuiteStatus | 'checking'
@@ -130,10 +131,15 @@ export function SuiteSwitcher() {
             const state = app.healthUrl ? (health[app.id] ?? 'checking') : null
             const content = (
               <>
-                <span className="grid size-9 shrink-0 place-items-center rounded-md bg-sunken text-accent-ink">{ICONS[app.id]}</span>
+                <span className="atelier-brand__tile atelier-brand__tile--sm" aria-hidden="true">
+                  {ICONS[app.id]}
+                </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 font-semibold">
-                    {app.name}
+                  <span className="flex items-center gap-2">
+                    <span className="atelier-brand__name atelier-brand__name--sm">
+                      <span className="atelier-brand__prefix">atelier_</span>
+                      {app.short}
+                    </span>
                     {state && (
                       <span className="flex items-center gap-1 text-xs font-normal text-muted" data-status={HEALTH_STATUS[state]}>
                         <span className="ds-dot" aria-hidden />

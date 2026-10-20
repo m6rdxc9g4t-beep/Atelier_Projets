@@ -9,11 +9,13 @@
 'use strict'
 
 const { app, BrowserWindow, Menu, dialog, nativeTheme, screen, shell } = require('electron')
+const { execFile } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { apiStatus, isUp, readApiAddress, startBackend } = require('./lib/backend.cjs')
 const { prepare } = require('./lib/prepare.cjs')
+const { openSuiteOrExternal } = require('./lib/suite-launch.cjs')
 const { startUiServer } = require('./lib/ui-server.cjs')
 
 const REPO = path.resolve(process.env.ATELIER_REPO || path.join(__dirname, '..'))
@@ -81,16 +83,23 @@ function createWindow() {
   mainWindow.on('closed', () => (mainWindow = null))
 
   const contents = mainWindow.webContents
-  // Liens externes (GitHub, documentation, autres apps de la Suite Atelier) : navigateur par défaut.
+  // Liens externes : autres apps de la Suite Atelier → l'application installée (docs/SUITE.md §3) ;
+  // le reste (GitHub, documentation) → navigateur par défaut.
+  const openOutside = (url) => {
+    if (!/^https?:\/\//.test(url)) return
+    void openSuiteOrExternal(url, { execFile, openExternal: (target) => shell.openExternal(target) }).catch((error) =>
+      log(`Ouverture impossible (${url}) : ${error.message}`),
+    )
+  }
   contents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith(`${UI_URL}/`) && !url.startsWith(`${UI_URL}/api/`)) return { action: 'allow' }
-    if (/^https?:\/\//.test(url)) void shell.openExternal(url)
+    openOutside(url)
     return { action: 'deny' }
   })
   contents.on('will-navigate', (event, url) => {
     if (url.startsWith(`${UI_URL}/`) || url === UI_URL || url.startsWith('file://')) return
     event.preventDefault()
-    if (/^https?:\/\//.test(url)) void shell.openExternal(url)
+    openOutside(url)
   })
   // Interface rechargée par erreur pendant que l'API redémarre : simple rechargement.
   contents.on('did-fail-load', (_event, code, description, url) => {
