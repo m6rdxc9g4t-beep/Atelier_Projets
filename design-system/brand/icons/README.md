@@ -1,7 +1,7 @@
 # Icônes simplifiées des apps atelier_
 
 Version « favicon » des logos, demandée par la charte néon holographique 3D (point « lisibilité en petit ») :
-carré arrondi en verre bleu nuit, bord chromé cyan `#3FD8FF`, pictogramme néon dans la **couleur signature** de l'app.
+carré arrondi en verre bleu nuit ; bord chromé, halo et pictogramme néon dans la **couleur signature** de l'app.
 
 | App | Fichier | Signature | Pictogramme |
 |---|---|---|---|
