@@ -46,13 +46,14 @@ const THEMES = {
     '--text-muted': '#64748B',
     '--border-color': '#E2E8F0',
   },
+  // Thème sombre « néon holographique » (docs/SUITE.md §1.7) : bleu nuit des logos, bordures teintées de cyan.
   'themes/dark.css': {
-    '--bg-main': '#0B0F19',
-    '--bg-surface': '#111827',
-    '--bg-elevated': '#1E293B',
-    '--text-primary': '#F8FAFC',
-    '--text-muted': '#94A3B8',
-    '--border-color': '#1E293B',
+    '--bg-main': '#06111F',
+    '--bg-surface': '#0A1B2E',
+    '--bg-elevated': '#10283F',
+    '--text-primary': '#E6F7FF',
+    '--text-muted': '#8DB4CC',
+    '--border-color': '#17405C',
   },
 }
 

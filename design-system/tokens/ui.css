@@ -1,27 +1,44 @@
 /* ==========================================================================
    Atelier_Projets · Design System — Jetons d'interface dérivés
-   Aucun nouveau code hex : tout dérive des tokens officiels (colors.css) et
-   des 6 variables de fondation du thème actif (light.css / dark.css).
+   Aucun nouveau code hex : tout dérive des tokens officiels (colors.css), des
+   6 variables de fondation du thème actif (light.css / dark.css) et de la
+   marque commune (brand/atelier-brand.css : --atelier-signature, --atelier-neon,
+   --atelier-glow…). Les replis var(…, …) gardent ces jetons valides si la
+   marque n'est pas chargée (accent violet --type-epic, sans halo).
    color-mix() est évalué à l'usage : les dérivés suivent le thème clair/sombre.
    Contrôle automatique : npm run check (aucun #hex autorisé dans ce fichier).
    ========================================================================== */
 
 :root {
-  /* --- Accent de l'application (onglet actif, focus, ligne « aujourd'hui ») - */
-  --accent: var(--type-epic);
-  --accent-soft: color-mix(in oklab, var(--type-epic) 16%, transparent);
-  --accent-ink: color-mix(in oklab, var(--type-epic) 62%, var(--text-primary));
+  /* --- Accent = couleur signature de l'app (charte néon, docs/SUITE.md §1.7) ----
+     Bouton principal, onglet / navigation actifs, liens, ligne « aujourd'hui ».
+     data-atelier-app="projets" sur <html> → vert citron. */
+  --accent: var(--atelier-signature, var(--type-epic));
+  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  /* Texte / icône fine en signature. En clair, le vert citron pur est illisible sur blanc :
+     mélange à 50 % avec le texte (contraste ≥ 4,5:1 sur --bg-surface, --bg-main et --bg-elevated). */
+  --accent-ink: color-mix(in oklab, var(--accent) 50%, var(--text-primary));
+  /* Texte posé SUR l'accent (bouton principal plein). */
+  --accent-contrast: var(--atelier-signature-contrast, var(--bg-surface));
+  /* Halo de l'accent (survol / focus du bouton principal). */
+  --accent-glow: var(--atelier-signature-glow, 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent));
+  /* Halo des données clés (soulignement d'onglet actif, barre de progression) : sombre uniquement. */
+  --accent-halo: 0 0 0 0 transparent;
+
+  /* --- Focus : cyan commun de la suite, rapproché du texte pour rester visible en clair (≥ 3:1). */
+  --focus-color: color-mix(in oklab, var(--atelier-neon, var(--accent)) 70%, var(--text-primary));
 
   /* --- Surfaces et traits ---------------------------------------------------- */
   --surface-hover: color-mix(in oklab, var(--bg-elevated) 70%, var(--bg-surface));
   --surface-sunken: color-mix(in oklab, var(--bg-main) 60%, var(--bg-surface));
   --border-strong: color-mix(in oklab, var(--border-color) 60%, var(--text-muted));
   --grid-line: color-mix(in oklab, var(--border-color) 70%, transparent);
-  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px color-mix(in oklab, var(--accent) 70%, transparent);
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--focus-color);
   --ds-shadow-card: 0 1px 2px color-mix(in oklab, var(--text-primary) 6%, transparent),
     0 8px 24px -12px color-mix(in oklab, var(--text-primary) 18%, transparent);
   --ds-shadow-overlay: 0 24px 48px -12px color-mix(in oklab, var(--text-primary) 35%, transparent);
   --backdrop: color-mix(in oklab, var(--bg-main) 55%, transparent);
+  --page-glow: none;
 
   /* --- Dégradés des barres d'indicateurs (maquette A) ------------------------ */
   --gradient-budget: linear-gradient(90deg, var(--type-epic), var(--status-review));
@@ -34,4 +51,18 @@
   --ds-radius-pill: 999px;
   --ds-font-sans: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --ds-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* --- Thème sombre : expression « néon holographique » ----------------------------
+   Cartes et panneaux : bord chromé + halo cyan (--atelier-glow) ; modales, menus,
+   popovers : halo renforcé (--atelier-glow-strong). Replis : ombres simples si la
+   marque n'est pas chargée. */
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  --accent-ink: var(--atelier-signature-light, color-mix(in oklab, var(--accent) 62%, var(--text-primary)));
+  --accent-halo: 0 0 10px -1px color-mix(in oklab, var(--accent) 70%, transparent);
+  --ds-shadow-card: var(--atelier-glow, 0 8px 24px -12px color-mix(in oklab, var(--bg-main) 80%, transparent));
+  --ds-shadow-overlay: var(--atelier-glow-strong, 0 24px 48px -12px color-mix(in oklab, var(--bg-main) 90%, transparent));
+  /* Fond de page : léger voile cyan en haut, sans nuire à la lisibilité. */
+  --page-glow: radial-gradient(120% 60% at 50% -10%, color-mix(in oklab, var(--atelier-neon, var(--accent)) 10%, transparent), transparent 60%);
 }

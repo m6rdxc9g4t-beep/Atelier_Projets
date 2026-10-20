@@ -115,7 +115,7 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
   const github = githubLabel(project?.github)
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line bg-surface px-3 sm:px-4">
+    <header className="ds-chrome flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line bg-surface px-3 sm:px-4">
       <Button variant="ghost" icon={<Menu className="size-5" />} aria-label="Afficher ou masquer les libellés du menu" onClick={toggleRail} />
       <SuiteSwitcher />
       <div className="pr-1">
@@ -277,7 +277,7 @@ export function Rail() {
   return (
     <nav
       aria-label="Navigation principale"
-      className={`hidden shrink-0 flex-col gap-1 border-r border-line bg-surface p-2 md:flex ${railExpanded ? 'w-56' : 'w-[60px]'}`}
+      className={`ds-chrome hidden shrink-0 flex-col gap-1 border-r border-line bg-surface p-2 md:flex ${railExpanded ? 'w-56' : 'w-[60px]'}`}
     >
       {VIEWS.map((entry) => (
         <button

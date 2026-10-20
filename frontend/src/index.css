@@ -68,7 +68,10 @@
   }
   body {
     margin: 0;
-    background: var(--bg-main);
+    background-color: var(--bg-main);
+    /* Thème sombre : léger voile cyan en haut de page (charte néon, --page-glow vaut none en clair). */
+    background-image: var(--page-glow);
+    background-repeat: no-repeat;
     color: var(--text-primary);
     font-family: var(--ds-font-sans);
     font-size: 14px;

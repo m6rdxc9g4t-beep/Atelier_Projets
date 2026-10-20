@@ -4,17 +4,31 @@
    champs, tableaux, losange de jalon et texte Markdown.
    Sans framework : utilisables depuis React, du HTML statique ou une autre
    application. Couleurs exclusivement via les variables du design system.
+
+   Charte « néon holographique » (docs/SUITE.md §1.7) : les jetons --atelier-*
+   de brand/atelier-brand.css (verre, halo) valent « none » en thème clair, donc
+   les effets néon ne s'allument qu'en sombre ; l'accent est la couleur signature.
    ========================================================================== */
 
 /* Couche « components » : les utilitaires d'un framework (Tailwind…) peuvent surcharger ces styles. */
 @layer components {
   /* --- Carte ------------------------------------------------------------------ */
   .ds-card {
-    background: var(--bg-surface);
+    background-color: var(--bg-surface);
+    background-image: var(--atelier-glass, none);
     border: 1px solid var(--border-color);
     border-radius: var(--ds-radius-lg);
     box-shadow: var(--ds-shadow-card);
   }
+
+  /* --- Bandeaux de l'application (en-tête, barre latérale, fiches) : reflet de verre en sombre -- */
+  .ds-chrome {
+    background-color: var(--bg-surface);
+    background-image: var(--atelier-glass, none);
+  }
+
+  /* --- Titre principal : halo néon discret en sombre ------------------------------- */
+  .ds-title-glow { text-shadow: var(--atelier-text-glow, none); }
 
   .ds-eyebrow {
     font-size: 0.75rem;
@@ -48,15 +62,19 @@
   .ds-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
   .ds-btn:disabled { cursor: not-allowed; opacity: 0.55; }
 
+  /* Bouton principal : plein, dans la couleur signature ; halo signature au survol / focus. */
   .ds-btn[data-variant="primary"] {
-    background: var(--accent-soft);
-    border-color: color-mix(in oklab, var(--accent) 45%, transparent);
-    color: var(--accent-ink);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-contrast);
+    font-weight: 600;
   }
   .ds-btn[data-variant="primary"]:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--accent) 26%, transparent);
-    border-color: var(--accent);
+    background: color-mix(in oklab, var(--accent) 88%, var(--text-primary));
+    border-color: color-mix(in oklab, var(--accent) 88%, var(--text-primary));
+    box-shadow: var(--accent-glow);
   }
+  .ds-btn[data-variant="primary"]:focus-visible { box-shadow: var(--focus-ring), var(--accent-glow); }
   .ds-btn[data-variant="ghost"] { background: transparent; border-color: transparent; color: var(--text-muted); }
   .ds-btn[data-variant="ghost"]:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
   .ds-btn[data-variant="danger"] {
@@ -130,6 +148,7 @@
     block-size: 100%;
     border-radius: inherit;
     background: var(--progress-fill, var(--accent));
+    box-shadow: var(--accent-halo);
     transition: inline-size 300ms ease;
   }
   .ds-progress[data-tone="budget"] { --progress-fill: var(--gradient-budget); }
@@ -159,7 +178,11 @@
   }
   .ds-tab:hover { color: var(--text-primary); }
   .ds-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--ds-radius-sm); }
-  .ds-tab[aria-selected="true"] { color: var(--accent-ink); }
+  .ds-tab[aria-selected="true"] {
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border-radius: var(--ds-radius-sm) var(--ds-radius-sm) 0 0;
+  }
   .ds-tab[aria-selected="true"]::after {
     content: "";
     position: absolute;
@@ -168,6 +191,7 @@
     block-size: 2px;
     border-radius: 2px;
     background: var(--accent);
+    box-shadow: var(--accent-halo);
   }
 
   /* --- Champs ---------------------------------------------------------------------- */
@@ -194,7 +218,7 @@
   .ds-textarea { min-block-size: 7rem; line-height: 1.5; resize: vertical; font-family: var(--ds-font-mono); font-size: 0.8125rem; }
   .ds-input:focus,
   .ds-select:focus,
-  .ds-textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+  .ds-textarea:focus { outline: none; border-color: var(--focus-color); box-shadow: var(--focus-ring); }
   .ds-input::placeholder,
   .ds-textarea::placeholder { color: var(--text-muted); opacity: 0.8; }
   .ds-select { appearance: auto; cursor: pointer; }

@@ -6,9 +6,10 @@ Variables CSS officielles et composants UI purs d'Atelier_Projets. CSS natif, au
 design-system/
 ├── index.css                 # Point d'entrée : tokens + jetons dérivés + thèmes
 ├── tokens/colors.css         # 7 types (--type-*) + 8 statuts (--status-*) — codes hex officiels
-├── tokens/ui.css             # Jetons dérivés (accent, surfaces, dégradés, rayons, polices) — sans nouveau code hex
+├── tokens/ui.css             # Jetons dérivés (accent = signature, surfaces, halos, dégradés, rayons, polices) — sans code hex
 ├── themes/light.css          # Thème clair : 6 variables de fondation
-├── themes/dark.css           # Thème sombre : 6 variables de fondation
+├── themes/dark.css           # Thème sombre « néon holographique » (bleu nuit) : 6 variables de fondation
+├── brand/atelier-brand.css   # Marque commune de la suite : signature par app, effets néon (--atelier-*), tuile, « À propos »
 ├── components/index.css      # Point d'entrée des composants
 ├── components/semantic.css   # data-type / data-status / data-priority / data-balance → --kind-color, --kind-ink, --kind-soft
 ├── components/components.css # .ds-card, .ds-btn, .ds-badge, .ds-type-chip, .ds-diamond, .ds-progress, .ds-bar,
@@ -23,8 +24,12 @@ design-system/
 @import "@atelier/design-system/components";  /* composants (facultatif) */
 ```
 
+```js
+import '@atelier/design-system/brand/atelier-brand.css' // marque, couleur signature et effets néon
+```
+
 ```html
-<html data-theme="dark">   <!-- sans attribut : thème clair -->
+<html data-theme="dark" data-atelier-app="projets">   <!-- sans data-theme : thème clair -->
 
 <span class="ds-badge" data-status="IN_PROGRESS">En cours</span>
 <span class="ds-type-chip" data-type="BUG"></span>
@@ -40,6 +45,12 @@ Un élément qui porte `data-type`, `data-status`, `data-priority` ou `data-bala
 | `--kind-color` | Couleur officielle (type, statut…) |
 | `--kind-ink` | Même teinte rapprochée de la couleur du texte : lisible en clair comme en sombre (`.ds-ink`) |
 | `--kind-soft` | Fond teinté léger (badges) |
+
+Charte « néon holographique » (`docs/SUITE.md` §1.7) : `--accent` vaut `var(--atelier-signature)` (vert citron pour Projets,
+repli `--type-epic` si la marque n'est pas chargée) ; `--accent-ink` (texte en signature) est mélangé au texte en clair pour
+rester lisible et vaut `--atelier-signature-light` en sombre. En sombre, `--ds-shadow-card` / `--ds-shadow-overlay` deviennent
+les halos `--atelier-glow` / `--atelier-glow-strong`, `.ds-card` et `.ds-chrome` (en-tête, barre latérale) prennent le reflet
+`--atelier-glass` ; l'anneau de focus est cyan (`--atelier-neon`). En clair, ces effets valent `none` : thème sobre.
 
 Les composants sont déclarés dans la couche `@layer components` : les utilitaires d'un framework (Tailwind…) ou les styles de la page peuvent les surcharger.
 
