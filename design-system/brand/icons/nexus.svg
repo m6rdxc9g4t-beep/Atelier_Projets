@@ -7,15 +7,15 @@
   <defs>
     <linearGradient id="bodynexus" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14405e"/><stop offset=".55" stop-color="#0a1f33"/><stop offset="1" stop-color="#050e19"/></linearGradient>
     <radialGradient id="hazenexus" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#E8590C" stop-opacity=".28"/><stop offset="1" stop-color="#E8590C" stop-opacity="0"/></radialGradient>
-    <linearGradient id="rimnexus" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2fdff"/><stop offset=".22" stop-color="#5fe1ff"/><stop offset=".5" stop-color="#0d6f93"/><stop offset=".72" stop-color="#7fe9ff"/><stop offset="1" stop-color="#e9fbff"/></linearGradient>
+    <linearGradient id="rimnexus" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fdeee7"/><stop offset="0.22" stop-color="#ef8b55"/><stop offset="0.5" stop-color="#803107"/><stop offset="0.72" stop-color="#f2a479"/><stop offset="1" stop-color="#fdeee7"/></linearGradient>
     <linearGradient id="glossnexus" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
   </defs>
-  <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="#3FD8FF" stroke-width="22" opacity=".55" filter="url(#halo)"/>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="#E8590C" stroke-width="22" opacity=".6" filter="url(#halo)"/>
   <rect x="44" y="44" width="424" height="424" rx="104" fill="url(#bodynexus)"/>
   <rect x="44" y="44" width="424" height="424" rx="104" fill="url(#hazenexus)"/>
   <path d="M148 58 H364 a90 90 0 0 1 90 90 V200 Q256 236 58 196 V148 a90 90 0 0 1 90-90Z" fill="url(#glossnexus)"/>
   <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="url(#rimnexus)" stroke-width="15"/>
-  <rect x="62" y="62" width="388" height="388" rx="88" fill="none" stroke="#3FD8FF" stroke-opacity=".35" stroke-width="2.5"/>
+  <rect x="62" y="62" width="388" height="388" rx="88" fill="none" stroke="#E8590C" stroke-opacity=".45" stroke-width="2.5"/>
   <g transform="translate(256 262) scale(11.2) translate(-12 -12)" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <g stroke="#E8590C" stroke-width="2.6" filter="url(#glyphglow)" opacity=".95"><path d="M7 17.5V6.5l10 11V6.5"/><circle cx="7" cy="6.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="6.5" r="1.6"/></g>
     <g stroke="#E8590C" stroke-width="2.3"><path d="M7 17.5V6.5l10 11V6.5"/><circle cx="7" cy="6.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="6.5" r="1.6"/></g>

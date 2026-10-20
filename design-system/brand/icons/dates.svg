@@ -7,15 +7,15 @@
   <defs>
     <linearGradient id="bodydates" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14405e"/><stop offset=".55" stop-color="#0a1f33"/><stop offset="1" stop-color="#050e19"/></linearGradient>
     <radialGradient id="hazedates" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#E03131" stop-opacity=".28"/><stop offset="1" stop-color="#E03131" stop-opacity="0"/></radialGradient>
-    <linearGradient id="rimdates" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2fdff"/><stop offset=".22" stop-color="#5fe1ff"/><stop offset=".5" stop-color="#0d6f93"/><stop offset=".72" stop-color="#7fe9ff"/><stop offset="1" stop-color="#e9fbff"/></linearGradient>
+    <linearGradient id="rimdates" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fceaea"/><stop offset="0.22" stop-color="#e96f6f"/><stop offset="0.5" stop-color="#7b1b1b"/><stop offset="0.72" stop-color="#ee8e8e"/><stop offset="1" stop-color="#fceaea"/></linearGradient>
     <linearGradient id="glossdates" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
   </defs>
-  <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="#3FD8FF" stroke-width="22" opacity=".55" filter="url(#halo)"/>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="#E03131" stroke-width="22" opacity=".6" filter="url(#halo)"/>
   <rect x="44" y="44" width="424" height="424" rx="104" fill="url(#bodydates)"/>
   <rect x="44" y="44" width="424" height="424" rx="104" fill="url(#hazedates)"/>
   <path d="M148 58 H364 a90 90 0 0 1 90 90 V200 Q256 236 58 196 V148 a90 90 0 0 1 90-90Z" fill="url(#glossdates)"/>
   <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="url(#rimdates)" stroke-width="15"/>
-  <rect x="62" y="62" width="388" height="388" rx="88" fill="none" stroke="#3FD8FF" stroke-opacity=".35" stroke-width="2.5"/>
+  <rect x="62" y="62" width="388" height="388" rx="88" fill="none" stroke="#E03131" stroke-opacity=".45" stroke-width="2.5"/>
   <g transform="translate(256 262) scale(11.2) translate(-12 -12)" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <g stroke="#E03131" stroke-width="2.6" filter="url(#glyphglow)" opacity=".95"><circle cx="8.3" cy="12" r="6.7"/><circle cx="15.7" cy="12" r="6.7"/></g>
     <g stroke="#E03131" stroke-width="2.3"><circle cx="8.3" cy="12" r="6.7"/><circle cx="15.7" cy="12" r="6.7"/></g>
