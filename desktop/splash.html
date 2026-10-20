@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr" data-theme="dark">
+<html lang="fr" data-theme="dark" class="dark" data-atelier-app="projets">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'" />
@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="../design-system/tokens/colors.css" />
     <link rel="stylesheet" href="../design-system/themes/light.css" />
     <link rel="stylesheet" href="../design-system/themes/dark.css" />
+    <link rel="stylesheet" href="../design-system/brand/atelier-brand.css" />
     <style>
       html,
       body {
@@ -16,8 +17,9 @@
       body {
         display: grid;
         place-items: center;
-        background: var(--bg-main);
-        color: var(--text-primary);
+        background: var(--atelier-backdrop), var(--atelier-bg);
+        background-attachment: fixed;
+        color: var(--atelier-text, var(--text-primary));
         font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
         -webkit-user-select: none;
         user-select: none;
@@ -33,7 +35,7 @@
       }
       p {
         margin: 0;
-        color: var(--text-muted);
+        color: var(--atelier-muted, var(--text-muted));
         min-height: 1.5em;
       }
       .ring {
@@ -41,14 +43,15 @@
         height: 34px;
         margin: 0 auto;
         border-radius: 50%;
-        border: 3px solid var(--border-color);
-        border-top-color: var(--type-epic);
+        border: 3px solid var(--atelier-line, var(--border-color));
+        border-top-color: var(--atelier-signature, var(--type-epic));
+        box-shadow: var(--atelier-signature-glow, none);
         animation: spin 0.9s linear infinite;
       }
       small {
         display: block;
         margin-top: 14px;
-        color: var(--text-muted);
+        color: var(--atelier-muted, var(--text-muted));
         opacity: 0.8;
       }
       @keyframes spin {

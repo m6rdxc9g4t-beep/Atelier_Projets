@@ -115,7 +115,7 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
   const github = githubLabel(project?.github)
 
   return (
-    <header className="ds-chrome flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line bg-surface px-3 sm:px-4">
+    <header className="ds-chrome flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line-soft px-3 sm:px-4">
       <Button variant="ghost" icon={<Menu className="size-5" />} aria-label="Afficher ou masquer les libellés du menu" onClick={toggleRail} />
       <SuiteSwitcher />
       <div className="pr-1">
@@ -166,7 +166,7 @@ function ThemeButton({ active, onClick, label, icon }: { active: boolean; onClic
       aria-label={label}
       title={label}
       aria-pressed={active}
-      className={`grid size-7 place-items-center rounded-md transition-colors ${active ? 'bg-elevated text-accent-ink' : 'text-muted hover:text-fg'}`}
+      className={`grid size-7 place-items-center rounded-md transition-colors ${active ? 'bg-accent-soft text-accent-ink' : 'text-muted hover:text-fg'}`}
     >
       {icon}
     </button>
@@ -271,13 +271,13 @@ export function Rail() {
   }))
   const item = (active: boolean) =>
     `flex h-10 items-center gap-3 rounded-lg px-2.5 transition-colors ${
-      active ? 'bg-accent-soft text-accent-ink' : 'text-muted hover:bg-hover hover:text-fg'
+      active ? 'ds-nav-active' : 'text-muted hover:bg-accent-faint hover:text-fg'
     }`
 
   return (
     <nav
       aria-label="Navigation principale"
-      className={`ds-chrome hidden shrink-0 flex-col gap-1 border-r border-line bg-surface p-2 md:flex ${railExpanded ? 'w-56' : 'w-[60px]'}`}
+      className={`ds-chrome hidden shrink-0 flex-col gap-1 border-r border-line-soft p-2 md:flex ${railExpanded ? 'w-56' : 'w-[60px]'}`}
     >
       {VIEWS.map((entry) => (
         <button

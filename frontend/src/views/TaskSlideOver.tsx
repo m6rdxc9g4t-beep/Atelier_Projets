@@ -65,7 +65,7 @@ export function TaskSlideOver({ workItemId, project }: { workItemId: number; pro
       <div className="fixed inset-0 z-30 bg-backdrop xl:hidden" onClick={close} aria-hidden />
       <aside
         aria-label={`Fiche de l’élément #${workItemId}`}
-        className="ds-chrome fixed inset-y-0 right-0 z-40 flex w-[min(30rem,100vw)] flex-col border-l border-line bg-surface shadow-overlay xl:static xl:z-auto xl:w-[28rem] xl:shadow-none 2xl:w-[32rem]"
+        className="ds-card fixed inset-y-0 right-0 z-40 flex w-[min(30rem,100vw)] flex-col rounded-none border-y-0 border-r-0 shadow-overlay xl:static xl:z-auto xl:w-[28rem] xl:shadow-card 2xl:w-[32rem]"
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
           <span className="text-sm text-muted">Fiche élément</span>

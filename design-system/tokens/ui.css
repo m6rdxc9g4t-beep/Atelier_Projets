@@ -1,47 +1,69 @@
 /* ==========================================================================
    Atelier_Projets · Design System — Jetons d'interface dérivés
-   Aucun nouveau code hex : tout dérive des tokens officiels (colors.css), des
-   6 variables de fondation du thème actif (light.css / dark.css) et de la
-   marque commune (brand/atelier-brand.css : --atelier-signature, --atelier-neon,
-   --atelier-glow…). Les replis var(…, …) gardent ces jetons valides si la
-   marque n'est pas chargée (accent violet --type-epic, sans halo).
-   color-mix() est évalué à l'usage : les dérivés suivent le thème clair/sombre.
-   Contrôle automatique : npm run check (aucun #hex autorisé dans ce fichier).
+   Aucun code hex : tout dérive des tokens officiels (colors.css), des 6
+   variables de fondation du thème actif (light.css / dark.css) et de la marque
+   commune (brand/atelier-brand.css, charte « néon monochrome », docs/SUITE.md §1.7).
+
+   Couche de correspondance : les variables --app-* (fond, surfaces, texte,
+   traits) et l'accent sont branchés sur les jetons --atelier-* de la marque, qui
+   teintent TOUTE l'application de sa couleur signature (vert citron pour
+   data-atelier-app="projets"), en clair comme en sombre. Les replis var(…, …)
+   retombent sur les thèmes neutres (light.css / dark.css) et sur l'ancien accent
+   violet si la marque n'est pas chargée. Les thèmes restent du CSS pur, copiable.
+
+   Contrôle automatique : npm run check (aucune couleur littérale dans ce fichier).
    ========================================================================== */
 
 :root {
-  /* --- Accent = couleur signature de l'app (charte néon, docs/SUITE.md §1.7) ----
-     Bouton principal, onglet / navigation actifs, liens, ligne « aujourd'hui ».
-     data-atelier-app="projets" sur <html> → vert citron. */
+  /* --- Fondations de l'application (à utiliser à la place de --bg-* / --text-*) --- */
+  --app-bg: var(--atelier-bg, var(--bg-main));                  /* fond de page              */
+  --app-sidebar: var(--atelier-sidebar, var(--bg-surface));     /* en-tête, barre latérale   */
+  --app-surface: var(--atelier-surface, var(--bg-surface));     /* cartes, panneaux          */
+  --app-surface-2: var(--atelier-surface-2, var(--bg-elevated)); /* survol, menus            */
+  --app-surface-3: var(--atelier-surface-3, var(--bg-elevated)); /* élément sélectionné      */
+  --app-field: var(--atelier-field, var(--bg-surface));         /* champs de saisie          */
+  --app-text: var(--atelier-text, var(--text-primary));         /* texte principal           */
+  --app-muted: var(--atelier-muted, var(--text-muted));         /* texte secondaire          */
+  --app-border: var(--atelier-border, var(--border-color));     /* contour des cartes        */
+  --app-border-soft: var(--atelier-border-soft, var(--border-color)); /* champs, boutons secondaires */
+  --app-line: var(--atelier-line, var(--border-color));         /* séparateurs, lignes de tableau */
+
+  /* --- Accent = couleur signature de l'app ------------------------------------
+     Bouton principal, onglet / navigation actifs, liens, ligne « aujourd'hui ». */
   --accent: var(--atelier-signature, var(--type-epic));
-  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
-  /* Texte / icône fine en signature. En clair, le vert citron pur est illisible sur blanc :
-     mélange à 50 % avec le texte (contraste ≥ 4,5:1 sur --bg-surface, --bg-main et --bg-elevated). */
-  --accent-ink: color-mix(in oklab, var(--accent) 50%, var(--text-primary));
+  --accent-soft: var(--atelier-signature-soft, color-mix(in oklab, var(--accent) 16%, transparent));   /* actif, tag */
+  --accent-faint: var(--atelier-signature-faint, color-mix(in oklab, var(--accent) 8%, transparent));  /* survol */
+  /* Signature en texte ou icône fine : assombrie en clair (≥ 4,5:1 sur blanc), éclaircie en sombre. */
+  --accent-ink: var(--atelier-ink, color-mix(in oklab, var(--accent) 50%, var(--app-text)));
   /* Texte posé SUR l'accent (bouton principal plein). */
-  --accent-contrast: var(--atelier-signature-contrast, var(--bg-surface));
-  /* Halo de l'accent (survol / focus du bouton principal). */
+  --accent-contrast: var(--atelier-signature-contrast, var(--app-surface));
+  /* Halo de l'accent (bouton principal), de l'onglet actif et des données clés. */
   --accent-glow: var(--atelier-signature-glow, 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent));
-  /* Halo des données clés (soulignement d'onglet actif, barre de progression) : sombre uniquement. */
-  --accent-halo: 0 0 0 0 transparent;
+  --accent-halo: 0 0 10px -1px color-mix(in oklab, var(--accent) 70%, transparent);
 
-  /* --- Focus : cyan commun de la suite, rapproché du texte pour rester visible en clair (≥ 3:1). */
-  --focus-color: color-mix(in oklab, var(--atelier-neon, var(--accent)) 70%, var(--text-primary));
+  /* --- Bouton principal : plein en clair (contour néon en sombre, plus bas) ----- */
+  --btn-primary-bg: var(--accent);
+  --btn-primary-bg-hover: color-mix(in oklab, var(--accent) 86%, var(--app-text));
+  --btn-primary-fg: var(--accent-contrast);
 
-  /* --- Surfaces et traits ---------------------------------------------------- */
-  --surface-hover: color-mix(in oklab, var(--bg-elevated) 70%, var(--bg-surface));
-  --surface-sunken: color-mix(in oklab, var(--bg-main) 60%, var(--bg-surface));
-  --border-strong: color-mix(in oklab, var(--border-color) 60%, var(--text-muted));
-  --grid-line: color-mix(in oklab, var(--border-color) 70%, transparent);
-  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--focus-color);
-  --ds-shadow-card: 0 1px 2px color-mix(in oklab, var(--text-primary) 6%, transparent),
-    0 8px 24px -12px color-mix(in oklab, var(--text-primary) 18%, transparent);
-  --ds-shadow-overlay: 0 24px 48px -12px color-mix(in oklab, var(--text-primary) 35%, transparent);
-  --backdrop: color-mix(in oklab, var(--bg-main) 55%, transparent);
-  --page-glow: none;
+  /* --- Surfaces et traits dérivés -------------------------------------------- */
+  --surface-hover: var(--app-surface-2);
+  --surface-selected: var(--app-surface-3);
+  --surface-sunken: color-mix(in oklab, var(--app-bg) 65%, var(--app-surface));
+  --border-strong: var(--app-border);
+  --grid-line: var(--app-line);
+  --focus-color: var(--accent);
+  --focus-ring: var(--atelier-focus, 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent));
+  --ds-shadow-card: var(--atelier-glow, 0 1px 2px color-mix(in oklab, var(--app-text) 6%, transparent),
+    0 8px 24px -12px color-mix(in oklab, var(--app-text) 18%, transparent));
+  --ds-shadow-overlay: var(--atelier-glow-strong, 0 24px 48px -12px color-mix(in oklab, var(--app-text) 35%, transparent));
+  --text-glow: var(--atelier-text-glow, none);
+  --backdrop: color-mix(in oklab, var(--app-bg) 60%, transparent);
 
-  /* --- Dégradés des barres d'indicateurs (maquette A) ------------------------ */
-  --gradient-budget: linear-gradient(90deg, var(--type-epic), var(--status-review));
+  /* --- Barres d'indicateurs ----------------------------------------------------
+     Budget (une seule mesure, sans sens par couleur) : la signature en paliers de transparence.
+     Avancement : gamme des statuts « Résolue » → « Terminée » (porte un sens, inchangée). */
+  --gradient-budget: linear-gradient(90deg, var(--atelier-chart-2, color-mix(in oklab, var(--accent) 60%, transparent)), var(--accent));
   --gradient-progress: linear-gradient(90deg, var(--status-resolved), var(--status-closed));
 
   /* --- Forme et typographie --------------------------------------------------- */
@@ -53,16 +75,10 @@
   --ds-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-/* --- Thème sombre : expression « néon holographique » ----------------------------
-   Cartes et panneaux : bord chromé + halo cyan (--atelier-glow) ; modales, menus,
-   popovers : halo renforcé (--atelier-glow-strong). Replis : ombres simples si la
-   marque n'est pas chargée. */
+/* --- Thème sombre : bouton principal en contour néon (fond en transparence, texte lumineux). */
 :root[data-theme="dark"],
 [data-theme="dark"] {
-  --accent-ink: var(--atelier-signature-light, color-mix(in oklab, var(--accent) 62%, var(--text-primary)));
-  --accent-halo: 0 0 10px -1px color-mix(in oklab, var(--accent) 70%, transparent);
-  --ds-shadow-card: var(--atelier-glow, 0 8px 24px -12px color-mix(in oklab, var(--bg-main) 80%, transparent));
-  --ds-shadow-overlay: var(--atelier-glow-strong, 0 24px 48px -12px color-mix(in oklab, var(--bg-main) 90%, transparent));
-  /* Fond de page : léger voile cyan en haut, sans nuire à la lisibilité. */
-  --page-glow: radial-gradient(120% 60% at 50% -10%, color-mix(in oklab, var(--atelier-neon, var(--accent)) 10%, transparent), transparent 60%);
+  --btn-primary-bg: var(--accent-soft);
+  --btn-primary-bg-hover: color-mix(in oklab, var(--accent) 28%, transparent);
+  --btn-primary-fg: var(--accent-ink);
 }

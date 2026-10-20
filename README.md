@@ -113,18 +113,21 @@ Le système de design repose sur des variables CSS strictes réutilisables dans 
 
 ### A. Fondations des Thèmes (Clair & Sombre)
 
-| Variable CSS | ☀️ Mode Clair | 🌙 Mode Sombre (néon) | Usage |
+| Variable CSS | ☀️ Mode Clair | 🌙 Mode Sombre | Usage |
 | :--- | :--- | :--- | :--- |
-| `--bg-main` | `#F8FAFC` | `#06111F` | Fond principal de l'application |
-| `--bg-surface` | `#FFFFFF` | `#0A1B2E` | Cartes, Tableaux, Panneaux latéraux |
-| `--bg-elevated` | `#F1F5F9` | `#10283F` | Modales, Menus déroulants, Survols |
-| `--text-primary` | `#0F172A` | `#E6F7FF` | Texte principal |
-| `--text-muted` | `#64748B` | `#8DB4CC` | Texte secondaire, métadonnées |
-| `--border-color` | `#E2E8F0` | `#17405C` | Bordures fines et séparateurs |
+| `--bg-main` | `#F8FAFC` | `#0A0A0D` | Fond principal de l'application |
+| `--bg-surface` | `#FFFFFF` | `#111116` | Cartes, Tableaux, Panneaux latéraux |
+| `--bg-elevated` | `#F1F5F9` | `#191A21` | Modales, Menus déroulants, Survols |
+| `--text-primary` | `#0F172A` | `#F4F5F7` | Texte principal |
+| `--text-muted` | `#64748B` | `#A1A6B2` | Texte secondaire, métadonnées |
+| `--border-color` | `#E2E8F0` | `#262833` | Bordures fines et séparateurs |
 
-Thème sombre = charte « néon holographique 3D » (bleu nuit, bords chromés et halos cyan, voir [`docs/SUITE.md`](./docs/SUITE.md) §1.7).
-Couleur signature d'Atelier Projets : **vert citron `#94D82D`** (`data-atelier-app="projets"` sur `<html>`) — bouton principal,
-onglet et navigation actifs, liens ; elle ne remplace aucune couleur de type ou de statut.
+Ces deux thèmes sont des bases **neutres**, en CSS pur et copiables. Dans l'application, la charte **« néon monochrome »**
+([`docs/SUITE.md`](./docs/SUITE.md) §1.7) teinte toute l'interface de la couleur signature d'Atelier Projets, **vert citron `#94D82D`**
+(`data-atelier-app="projets"` sur `<html>`), en clair comme en sombre : fond teinté avec fine grille et lueur, barre latérale,
+cartes cerclées d'un trait vert citron avec halo, textes, bouton principal (plein en clair, contour néon en sombre), navigation active.
+Les jetons `--atelier-*` de `design-system/brand/atelier-brand.css` sont branchés sur les variables `--app-*` de `tokens/ui.css`.
+La couleur signature ne remplace aucune couleur de type ou de statut (Gantt, badges, histogramme inchangés).
 
 ### B. Couleurs Officielles des Types d'Éléments (Work Items & Gantt)
 

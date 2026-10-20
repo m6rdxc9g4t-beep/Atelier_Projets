@@ -6,10 +6,11 @@ Variables CSS officielles et composants UI purs d'Atelier_Projets. CSS natif, au
 design-system/
 ├── index.css                 # Point d'entrée : tokens + jetons dérivés + thèmes
 ├── tokens/colors.css         # 7 types (--type-*) + 8 statuts (--status-*) — codes hex officiels
-├── tokens/ui.css             # Jetons dérivés (accent = signature, surfaces, halos, dégradés, rayons, polices) — sans code hex
-├── themes/light.css          # Thème clair : 6 variables de fondation
-├── themes/dark.css           # Thème sombre « néon holographique » (bleu nuit) : 6 variables de fondation
-├── brand/atelier-brand.css   # Marque commune de la suite : signature par app, effets néon (--atelier-*), tuile, « À propos »
+├── tokens/ui.css             # Correspondance --app-* / --accent* ← jetons de marque, halos, dégradés, rayons, polices — sans code hex
+├── themes/light.css          # Thème clair neutre : 6 variables de fondation
+├── themes/dark.css           # Thème sombre neutre quasi noir : 6 variables de fondation
+├── brand/atelier-brand.css   # Marque commune de la suite (copie exacte) : palette « néon monochrome » --atelier-* dans la
+│                             # couleur signature de l'app, clair et sombre ; tuile, « À propos »
 ├── components/index.css      # Point d'entrée des composants
 ├── components/semantic.css   # data-type / data-status / data-priority / data-balance → --kind-color, --kind-ink, --kind-soft
 ├── components/components.css # .ds-card, .ds-btn, .ds-badge, .ds-type-chip, .ds-diamond, .ds-progress, .ds-bar,
@@ -46,11 +47,26 @@ Un élément qui porte `data-type`, `data-status`, `data-priority` ou `data-bala
 | `--kind-ink` | Même teinte rapprochée de la couleur du texte : lisible en clair comme en sombre (`.ds-ink`) |
 | `--kind-soft` | Fond teinté léger (badges) |
 
-Charte « néon holographique » (`docs/SUITE.md` §1.7) : `--accent` vaut `var(--atelier-signature)` (vert citron pour Projets,
-repli `--type-epic` si la marque n'est pas chargée) ; `--accent-ink` (texte en signature) est mélangé au texte en clair pour
-rester lisible et vaut `--atelier-signature-light` en sombre. En sombre, `--ds-shadow-card` / `--ds-shadow-overlay` deviennent
-les halos `--atelier-glow` / `--atelier-glow-strong`, `.ds-card` et `.ds-chrome` (en-tête, barre latérale) prennent le reflet
-`--atelier-glass` ; l'anneau de focus est cyan (`--atelier-neon`). En clair, ces effets valent `none` : thème sobre.
+### Charte « néon monochrome » (`docs/SUITE.md` §1.7)
+
+Toute l'interface est dans la couleur signature de l'app (vert citron pour Projets), en clair comme en sombre.
+`tokens/ui.css` branche les jetons de `brand/atelier-brand.css` sur des variables d'application, avec repli sur les thèmes
+neutres si la marque n'est pas chargée. Les composants et le frontend utilisent ces variables, **pas** `--bg-*` / `--text-*` directement :
+
+| Variable | Jeton de marque | Rôle |
+| :--- | :--- | :--- |
+| `--app-bg` | `--atelier-bg` | Fond de page ; avec la grille et la lueur : `background: var(--atelier-backdrop), var(--atelier-bg); background-attachment: fixed` (jamais `background-image: var(--atelier-backdrop)`) |
+| `--app-sidebar` | `--atelier-sidebar` | En-tête, barre latérale (`.ds-chrome`) |
+| `--app-surface` / `-2` / `-3` | `--atelier-surface` / `-2` / `-3` | Cartes ; survol, menus ; sélection |
+| `--app-field` | `--atelier-field` | Champs de saisie |
+| `--app-text` / `--app-muted` | `--atelier-text` / `--atelier-muted` | Texte, texte secondaire |
+| `--app-border` / `-soft` / `--app-line` | `--atelier-border` / `-soft` / `--atelier-line` | Contour des cartes ; champs et boutons ; séparateurs |
+| `--accent` / `-soft` / `-faint` / `-ink` | `--atelier-signature` / `-soft` / `-faint` / `--atelier-ink` | Accent, actif, survol, texte en couleur |
+| `--ds-shadow-card` / `-overlay` | `--atelier-glow` / `-strong` | Halo des cartes ; modales, menus |
+| `--focus-ring`, `--text-glow` | `--atelier-focus`, `--atelier-text-glow` | Focus, titres |
+
+Bouton principal : plein en clair, contour néon en sombre (`--btn-primary-*`). Navigation active : `.ds-nav-active`.
+La barre de budget suit la signature en paliers ; les couleurs de types et de statuts ne changent pas.
 
 Les composants sont déclarés dans la couche `@layer components` : les utilitaires d'un framework (Tailwind…) ou les styles de la page peuvent les surcharger.
 

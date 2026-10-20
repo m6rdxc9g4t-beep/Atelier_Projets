@@ -33,7 +33,7 @@
 
   /* Bilans du tableau des temps (maquette D). */
   [data-balance="UNDER"] { --kind-color: var(--status-closed); }
-  [data-balance="ON_BUDGET"] { --kind-color: var(--text-muted); }
+  [data-balance="ON_BUDGET"] { --kind-color: var(--app-muted); }
   [data-balance="OVER"] { --kind-color: var(--status-rejected); }
   [data-balance="REMAINING"] { --kind-color: var(--status-progress); }
 
@@ -41,18 +41,19 @@
   [data-status],
   [data-priority],
   [data-balance] {
-    --kind-ink: color-mix(in oklab, var(--kind-color) 72%, var(--text-primary));
+    --kind-ink: color-mix(in oklab, var(--kind-color) 72%, var(--app-text));
     --kind-soft: color-mix(in oklab, var(--kind-color) 16%, transparent);
+    --kind-border: color-mix(in oklab, var(--kind-color) 35%, transparent);
   }
 
   /* Utilitaires : couleur de texte et pastille. */
-  .ds-ink { color: var(--kind-ink, var(--text-primary)); }
+  .ds-ink { color: var(--kind-ink, var(--app-text)); }
   .ds-dot {
     display: inline-block;
     inline-size: 0.5rem;
     block-size: 0.5rem;
     border-radius: var(--ds-radius-pill);
-    background: var(--kind-color, var(--text-muted));
+    background: var(--kind-color, var(--app-muted));
     flex: none;
   }
 }
