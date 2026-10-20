@@ -1,8 +1,9 @@
-// Suite Atelier (docs/SUITE.md §2 et §3) : adresses des trois applications et état « en marche / arrêtée ».
-// Adresses = colonne « Interface (aperçu / app) » du contrat, surchargeables par variables Vite :
-// VITE_ATELIER_VIZ_URL, VITE_ATELIER_TAB_URL, VITE_ATELIER_PROJETS_URL.
+// Suite Atelier (docs/SUITE.md §2 et §3) : adresses des applications du sélecteur et état « en marche / arrêtée »
+// des trois apps locales. Adresses = colonne « Interface (aperçu / app) » du contrat, surchargeables par variables
+// Vite : VITE_ATELIER_VIZ_URL, VITE_ATELIER_TAB_URL, VITE_ATELIER_PROJETS_URL, VITE_ATELIER_CUISINE_URL
+// (Atelier Cuisine : app en ligne, jamais sondée).
 
-export type SuiteAppId = 'viz' | 'tab' | 'projets'
+export type SuiteAppId = 'viz' | 'tab' | 'projets' | 'cuisine'
 
 export interface SuiteApp {
   id: SuiteAppId
@@ -15,6 +16,8 @@ export interface SuiteApp {
   url: string
   /** Routes de santé essayées : l'application est « en marche » si l'une répond (vide : pas d'indicateur). */
   healthUrls: readonly string[]
+  /** App en ligne, sans API locale (Atelier Cuisine) : mention « En ligne » à la place de l'indicateur. */
+  online?: boolean
 }
 
 /** Application courante. */
@@ -33,6 +36,7 @@ function urlFrom(variable: string, fallback: string): string {
 const VIZ_URL = urlFrom('VITE_ATELIER_VIZ_URL', 'http://127.0.0.1:8000')
 const TAB_URL = urlFrom('VITE_ATELIER_TAB_URL', 'http://127.0.0.1:4175')
 const PROJETS_URL = urlFrom('VITE_ATELIER_PROJETS_URL', 'http://127.0.0.1:4174')
+const CUISINE_URL = urlFrom('VITE_ATELIER_CUISINE_URL', 'https://atelier-cuisine-iota.vercel.app')
 /** Santé d'Atelier Tab lancé par « npm run dev » (docs/SUITE.md §3). */
 const TAB_DEV_HEALTH_URL = 'http://127.0.0.1:5175/api/health'
 
@@ -64,6 +68,16 @@ export const SUITE_APPS: readonly SuiteApp[] = [
     // Application courante : jamais sondée par le sélecteur, toujours « en marche » (docs/SUITE.md §3).
     // Adresse gardée pour une vérification sur sa propre origine (même origine, proxy /api).
     healthUrls: ['/api/health'],
+  },
+  {
+    id: 'cuisine',
+    name: 'Atelier Cuisine',
+    short: 'Cuisine',
+    description: 'Stock, repas, courses et budget du foyer',
+    url: CUISINE_URL,
+    // App en ligne (PWA + app Mac, données Supabase) : aucune API locale, jamais sondée (docs/SUITE.md §3).
+    healthUrls: [],
+    online: true,
   },
 ]
 

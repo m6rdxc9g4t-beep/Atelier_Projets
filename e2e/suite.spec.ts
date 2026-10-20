@@ -31,7 +31,13 @@ test('thème : data-theme et classe « dark » sur <html>, choix Clair / Sombre 
   await expect(html).not.toHaveClass(/(^|\s)dark(\s|$)/)
 })
 
-test('sélecteur « Suite Atelier » : trois applications, courante cochée, clavier et Échap', async ({ page, request }) => {
+test('sélecteur « Suite Atelier » : quatre applications, courante cochée, clavier et Échap', async ({ page, request }) => {
+  // Atelier Cuisine (app en ligne) n'est jamais sondée : toute requête vers elle est relevée.
+  const cuisine: string[] = []
+  await page.route(/atelier-cuisine/, (route) => {
+    cuisine.push(route.request().url())
+    return route.abort()
+  })
   // Atelier Tab arrêté : ni l'app de bureau / l'aperçu (4175), ni le serveur de dev (5175) ne répondent.
   await page.route(/^http:\/\/127\.0\.0\.1:(4175|5175)\/api\/health$/, (route) => route.abort())
   await openProject(page, await demoProjectId(request))
@@ -41,7 +47,7 @@ test('sélecteur « Suite Atelier » : trois applications, courante cochée, cla
   const menu = page.getByRole('menu', { name: 'Suite Atelier' })
   await expect(menu).toBeVisible()
   const items = menu.getByRole('menuitemradio')
-  await expect(items).toHaveCount(3)
+  await expect(items).toHaveCount(4)
   await expect(items.nth(0)).toBeFocused()
   await expect(items.nth(0)).toHaveAttribute('href', /^http:\/\/127\.0\.0\.1:8000/)
   await expect(items.nth(1)).toHaveAttribute('href', /^http:\/\/127\.0\.0\.1:4175/)
@@ -49,7 +55,15 @@ test('sélecteur « Suite Atelier » : trois applications, courante cochée, cla
   // Projets répond (même origine) ; Atelier Tab ne répond sur aucune de ses deux adresses de santé.
   await expect(items.nth(2)).toHaveAccessibleName(/En marche/)
   await expect(items.nth(1)).toHaveAccessibleName('Atelier Tab — Arrêtée')
+  // Atelier Cuisine : tuile orchidée, nouvel onglet vers son adresse en ligne, mention « En ligne ».
+  await expect(items.nth(3)).toHaveAccessibleName('Atelier Cuisine — En ligne')
+  await expect(items.nth(3)).toHaveAttribute('href', 'https://atelier-cuisine-iota.vercel.app')
+  await expect(items.nth(3)).toHaveAttribute('target', '_blank')
+  await expect(items.nth(3).locator('[data-atelier-app]')).toHaveAttribute('data-atelier-app', 'cuisine')
+  expect(cuisine, 'Atelier Cuisine jamais sondée').toEqual([])
 
+  await page.keyboard.press('ArrowUp')
+  await expect(items.nth(3)).toBeFocused()
   await page.keyboard.press('ArrowUp')
   await expect(items.nth(2)).toBeFocused()
   await page.keyboard.press('Escape')
