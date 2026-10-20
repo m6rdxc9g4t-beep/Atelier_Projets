@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs>
+  <filter id="halo" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="14"/></filter>
+  <filter id="glyphglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="0.9"/></filter>
+  <filter id="spark" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="0.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<g transform="translate(0 0) scale(1.0)">
+  <defs>
+    <linearGradient id="bodytresorerie" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14405e"/><stop offset=".55" stop-color="#0a1f33"/><stop offset="1" stop-color="#050e19"/></linearGradient>
+    <radialGradient id="hazetresorerie" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#3B5BDB" stop-opacity=".28"/><stop offset="1" stop-color="#3B5BDB" stop-opacity="0"/></radialGradient>
+    <linearGradient id="rimtresorerie" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2fdff"/><stop offset=".22" stop-color="#5fe1ff"/><stop offset=".5" stop-color="#0d6f93"/><stop offset=".72" stop-color="#7fe9ff"/><stop offset="1" stop-color="#e9fbff"/></linearGradient>
+    <linearGradient id="glosstresorerie" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="#3FD8FF" stroke-width="22" opacity=".55" filter="url(#halo)"/>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="url(#bodytresorerie)"/>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="url(#hazetresorerie)"/>
+  <path d="M148 58 H364 a90 90 0 0 1 90 90 V200 Q256 236 58 196 V148 a90 90 0 0 1 90-90Z" fill="url(#glosstresorerie)"/>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="url(#rimtresorerie)" stroke-width="15"/>
+  <rect x="62" y="62" width="388" height="388" rx="88" fill="none" stroke="#3FD8FF" stroke-opacity=".35" stroke-width="2.5"/>
+  <g transform="translate(256 262) scale(11.2) translate(-12 -12)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#3B5BDB" stroke-width="2.6" filter="url(#glyphglow)" opacity=".95"><path d="M10 18v-7"/><path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></g>
+    <g stroke="#3B5BDB" stroke-width="2.3"><path d="M10 18v-7"/><path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></g>
+    <g stroke="#a7b5ef" stroke-width="0.9"><path d="M10 18v-7"/><path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></g>
+    
+  </g>
+  <g transform="translate(118 54) scale(2.0)" opacity="1" filter="url(#spark)"><path d="M0-10 C1-2 2-1 10 0 C2 1 1 2 0 10 C-1 2 -2 1 -10 0 C-2 -1 -1 -2 0-10Z" fill="#fff"/></g><g transform="translate(456 392) scale(1.4)" opacity="0.85" filter="url(#spark)"><path d="M0-10 C1-2 2-1 10 0 C2 1 1 2 0 10 C-1 2 -2 1 -10 0 C-2 -1 -1 -2 0-10Z" fill="#fff"/></g>
+</g></svg>
