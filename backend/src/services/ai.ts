@@ -1,7 +1,8 @@
-// Cas d'usage de l'ai-bridge : état de l'IA locale, découpage d'une Story, résumé des commits d'un
-// élément pour son journal d'avancement, session Claude CLI dans le dépôt du projet.
+// Cas d'usage de l'ai-bridge : état des moteurs, découpage d'une Story, résumé des commits d'un élément pour
+// son journal d'avancement (par Ollama ou Claude, docs/SUITE.md §5), session Claude CLI dans le dépôt du projet.
 import { CLAUDE_PERMISSION_MODES, type ClaudeLauncher } from '../ai-bridge/claude-cli.ts'
-import { findInstalledModel, OllamaError, type OllamaClient } from '../ai-bridge/ollama.ts'
+import { CLAUDE_MODELS, ClaudeError, DEFAULT_CLAUDE_MODEL, type ClaudeEngine, type ClaudeModel } from '../ai-bridge/claude-print.ts'
+import { findInstalledModel, OllamaError, type ChatMessage, type OllamaClient } from '../ai-bridge/ollama.ts'
 import {
   BREAKDOWN_FORMAT,
   buildBreakdownMessages,
@@ -14,19 +15,22 @@ import {
 import { roundTo, toDuration } from '../domain/durations.ts'
 import type { PrismaClient } from '../db/client.ts'
 import { GitRepositoryError, openRepository, readCommitPatch } from '../git-engine/repository.ts'
-import { badGateway, badRequest, notFound } from '../http/errors.ts'
+import { badGateway, badRequest, forbidden, HttpError, notFound } from '../http/errors.ts'
 import type {
+  AiEngine,
   AiStatusDto,
   BreakdownRequest,
   BreakdownResultDto,
   ClaudeLaunchRequest,
   ClaudeLaunchResultDto,
   ClaudePromptDto,
+  EngineChoice,
   SummarizeRequest,
   SummarizeResultDto,
 } from '../schemas/ai.ts'
 import { requireStory } from './common.ts'
 import { toContainerRef } from './mappers.ts'
+import { isOnline, OFFLINE_MESSAGE } from './settings.ts'
 import { loadHierarchyCodes } from './work-items.ts'
 
 export interface AiSettings {
@@ -35,7 +39,10 @@ export interface AiSettings {
   model: string
   /** Taille maximale cumulée des diffs envoyés au modèle (AI_MAX_DIFF_CHARS). */
   maxDiffChars: number
+  /** Session interactive de Claude CLI dans un terminal. */
   claude: ClaudeLauncher
+  /** Moteur Claude (claude -p isolé). */
+  claudeEngine: ClaudeEngine
 }
 
 /** Commits lus au plus pour un résumé (les plus récents). */
@@ -67,15 +74,28 @@ function ollamaFailure(error: unknown): never {
   throw error
 }
 
-export async function getAiStatus(settings: AiSettings): Promise<AiStatusDto> {
-  const [models, claude] = await Promise.all([
+/** Moteur Claude utilisable : en ligne, CLI installée et connectée (la connexion n'est pas vérifiée hors ligne). */
+async function claudeEngineState(prisma: PrismaClient, settings: AiSettings, refresh = false) {
+  const online = await isOnline(prisma)
+  if (!online) return { online, engine: null }
+  return { online, engine: await settings.claudeEngine.status({ refresh }) }
+}
+
+export async function getAiStatus(prisma: PrismaClient, settings: AiSettings, options: { refresh?: boolean } = {}): Promise<AiStatusDto> {
+  const [models, launcher, { online, engine }] = await Promise.all([
     settings.ollama.listModels().then(
       (list) => ({ list, error: null }),
       (error: unknown) => ({ list: [], error: error instanceof Error ? error.message : String(error) }),
     ),
     settings.claude.status(),
+    claudeEngineState(prisma, settings, options.refresh),
   ])
+  const installed = engine ? engine.installed : launcher.available
+  const available = engine?.available === true
   return {
+    onlineMode: online,
+    auto: available ? 'claude' : 'ollama',
+    maxDiffChars: settings.maxDiffChars,
     ollama: {
       url: settings.ollama.baseUrl,
       reachable: models.error === null,
@@ -85,9 +105,83 @@ export async function getAiStatus(settings: AiSettings): Promise<AiStatusDto> {
       defaultModelName: findInstalledModel(models.list, settings.model)?.name ?? null,
       models: models.list,
     },
-    claude,
+    claude: {
+      available,
+      installed,
+      loggedIn: engine?.loggedIn ?? null,
+      authMethod: engine?.authMethod ?? null,
+      error: !online ? 'Désactivé : mode hors ligne' : (engine?.error ?? null),
+      warning: engine?.warning ?? null,
+      checkedAt: engine?.checkedAt ?? null,
+      models: [...CLAUDE_MODELS],
+      defaultModel: DEFAULT_CLAUDE_MODEL,
+      timeoutMs: settings.claudeEngine.timeoutMs,
+      version: launcher.version,
+      command: engine?.executable ?? launcher.command,
+      canOpenTerminal: launcher.canOpenTerminal,
+      terminalApp: launcher.terminalApp,
+    },
   }
 }
+
+// --- Choix du moteur -----------------------------------------------------------------------------------
+
+interface ResolvedEngine {
+  engine: AiEngine
+  /** Modèle Ollama (étiquette installée) ou alias Claude. */
+  model: string
+}
+
+/**
+ * Moteur d'une requête (docs/SUITE.md §5.2) : « ollama » tel quel ; « claude » refusé hors ligne (403) ou
+ * indisponible (502) ; « auto » = Claude si en ligne et disponible, sinon Ollama.
+ */
+async function resolveEngine(
+  prisma: PrismaClient,
+  settings: AiSettings,
+  input: { engine?: EngineChoice; model?: string; claudeModel?: ClaudeModel },
+): Promise<ResolvedEngine> {
+  const choice = input.engine ?? 'auto'
+  const claudeModel = input.claudeModel ?? DEFAULT_CLAUDE_MODEL
+  if (choice === 'claude') {
+    const { online, engine } = await claudeEngineState(prisma, settings)
+    if (!online) throw forbidden('CLAUDE_OFFLINE', OFFLINE_MESSAGE)
+    if (!engine?.available) throw badGateway('CLAUDE_UNAVAILABLE', engine?.error ?? 'Claude est indisponible')
+    return { engine: 'claude', model: claudeModel }
+  }
+  if (choice === 'auto') {
+    const { engine } = await claudeEngineState(prisma, settings)
+    if (engine?.available) return { engine: 'claude', model: claudeModel }
+  }
+  return { engine: 'ollama', model: await resolveModel(settings, input.model) }
+}
+
+/** Erreur de Claude → 502 explicite (504 pour un délai dépassé). */
+function claudeFailure(error: unknown): never {
+  if (error instanceof ClaudeError) {
+    if (error.kind === 'timeout') throw new HttpError(504, 'AI_TIMEOUT', error.message)
+    const code = error.kind === 'cancelled' ? 'AI_CANCELLED' : error.kind === 'failed' ? 'AI_ERROR' : 'CLAUDE_UNAVAILABLE'
+    throw badGateway(code, error.message)
+  }
+  throw error
+}
+
+/** Envoie la conversation au moteur retenu ; format : schéma JSON imposé (sortie structurée). */
+async function generate(
+  settings: AiSettings,
+  resolved: ResolvedEngine,
+  request: { messages: ChatMessage[]; format?: Record<string, unknown>; temperature: number; signal?: AbortSignal },
+): Promise<string> {
+  if (resolved.engine === 'claude') {
+    const ask = { model: resolved.model as ClaudeModel, messages: request.messages, signal: request.signal }
+    return (request.format ? settings.claudeEngine.chatJson({ ...ask, schema: request.format }) : settings.claudeEngine.chat(ask)).catch(claudeFailure)
+  }
+  return settings.ollama
+    .chat({ model: resolved.model, messages: request.messages, temperature: request.temperature, signal: request.signal, ...(request.format && { format: request.format }) })
+    .catch(ollamaFailure)
+}
+
+const ENGINE_LABEL: Record<AiEngine, string> = { ollama: 'Le modèle', claude: 'Claude, modèle' }
 
 // --- Découpage d'une Story ---------------------------------------------------------------------------
 
@@ -108,7 +202,7 @@ export async function breakdownStory(
       orderBy: [{ position: 'asc' }, { id: 'asc' }],
     }),
   ])
-  const model = await resolveModel(settings, input.model)
+  const resolved = await resolveEngine(prisma, settings, input)
   const messages = buildBreakdownMessages({
     projectName: project.name,
     hoursPerDay: project.hoursPerDay,
@@ -123,15 +217,21 @@ export async function breakdownStory(
     })),
     instructions: input.instructions,
   })
-  const answer = await settings.ollama.chat({ model, messages, format: BREAKDOWN_FORMAT, temperature: 0.3, signal }).catch(ollamaFailure)
+  const answer = await generate(settings, resolved, { messages, format: BREAKDOWN_FORMAT, temperature: 0.3, signal })
   const items = parseBreakdown(
     answer,
     existing.map((item) => item.title),
   )
-  if (!items) throw badGateway('AI_INVALID_RESPONSE', `Le modèle « ${model} » n’a pas renvoyé de découpage exploitable : réessayer ou changer de modèle`)
+  if (!items) {
+    throw badGateway(
+      'AI_INVALID_RESPONSE',
+      `${ENGINE_LABEL[resolved.engine]} « ${resolved.model} » n’a pas renvoyé de découpage exploitable : réessayer ou changer de modèle`,
+    )
+  }
   return {
     story: toContainerRef(story, codes.stories),
-    model,
+    engine: resolved.engine,
+    model: resolved.model,
     hoursPerDay: project.hoursPerDay,
     items: items.map((item) => ({
       type: item.type,
@@ -199,21 +299,20 @@ export async function summarizeCommits(
   }
   if (item.commitLinks.length === MAX_SUMMARY_COMMITS) warnings.push(`Seuls les ${MAX_SUMMARY_COMMITS} commits les plus récents ont été lus.`)
 
-  const model = await resolveModel(settings, input.model)
-  const answer = await settings.ollama
-    .chat({
-      signal,
-      model,
-      messages: buildSummaryMessages({
-        item: { id: item.id, type: item.type, title: item.title, description: item.description, implementationLog: item.implementationLog },
-        commits: summaryCommits,
-      }),
-      temperature: 0.2,
-    })
-    .catch(ollamaFailure)
+  const resolved = await resolveEngine(prisma, settings, input)
+  const answer = await generate(settings, resolved, {
+    signal,
+    messages: buildSummaryMessages({
+      item: { id: item.id, type: item.type, title: item.title, description: item.description, implementationLog: item.implementationLog },
+      commits: summaryCommits,
+    }),
+    temperature: 0.2,
+  })
   const text = cleanSummary(answer)
-  if (text === '') throw badGateway('AI_INVALID_RESPONSE', `Le modèle « ${model} » a renvoyé une réponse vide : réessayer ou changer de modèle`)
-  return { workItemId: item.id, model, text, commits: report, warnings }
+  if (text === '') {
+    throw badGateway('AI_INVALID_RESPONSE', `${ENGINE_LABEL[resolved.engine]} « ${resolved.model} » a renvoyé une réponse vide : réessayer ou changer de modèle`)
+  }
+  return { workItemId: item.id, engine: resolved.engine, model: resolved.model, text, commits: report, warnings }
 }
 
 // --- Claude CLI ------------------------------------------------------------------------------------

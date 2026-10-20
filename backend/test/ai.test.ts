@@ -15,6 +15,7 @@ import {
   type ClaudeLauncher,
   type ClaudeSessionRequest,
 } from '../src/ai-bridge/claude-cli.ts'
+import { createClaudeEngine } from '../src/ai-bridge/claude-print.ts'
 import { createOllamaClient, findInstalledModel, OllamaError, type ChatRequest, type OllamaClient, type OllamaModel } from '../src/ai-bridge/ollama.ts'
 import { buildBreakdownMessages, buildClaudePrompt, cleanSummary, parseBreakdown } from '../src/ai-bridge/prompts.ts'
 import { createTestRepo, type TestRepo } from './helpers/git-repo.ts'
@@ -248,14 +249,14 @@ describe('lanceur de Claude CLI', () => {
       terminalApp: 'Terminal',
       error: null,
     })
-    const missing = await createClaudeLauncher({ searchPath: '/nonexistent', platform: 'linux' }).status()
+    const missing = await createClaudeLauncher({ searchPath: '/nonexistent', fallbackDirs: [], platform: 'linux' }).status()
     assert.equal(missing.available, false)
     assert.equal(missing.canOpenTerminal, false)
     assert.match(missing.error ?? '', /introuvable/)
   })
 
   it('hors macOS : écrit le prompt et renvoie la commande à coller', async () => {
-    const launcher = createClaudeLauncher({ searchPath: '/nonexistent', platform: 'linux', workDir: path.join(dir, 'linux') })
+    const launcher = createClaudeLauncher({ searchPath: '/nonexistent', fallbackDirs: [], platform: 'linux', workDir: path.join(dir, 'linux') })
     const result = await launcher.launch(request)
     assert.equal(result.launched, false)
     assert.equal(await readFile(result.promptFile ?? '', 'utf8'), `${request.prompt}\n`)
@@ -356,7 +357,9 @@ describe('routes IA', () => {
   const api = <T = any>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: unknown) => call<T>(ctx.app, method, url, payload)
 
   before(async () => {
-    ctx = await createTestContext({ seed: true, ai: { ollama, claude, model: 'qwen2.5-coder', maxDiffChars: 4000 } })
+    // Moteur Claude introuvable : ces tests restent hors ligne (défaut), Auto passe donc par Ollama.
+    const claudeEngine = createClaudeEngine({ command: '/nonexistent/claude' })
+    ctx = await createTestContext({ seed: true, ai: { ollama, claude, claudeEngine, model: 'qwen2.5-coder', maxDiffChars: 4000 } })
     repo = await createTestRepo()
   })
   after(async () => {
@@ -411,6 +414,7 @@ describe('routes IA', () => {
     assert.equal(status, 200)
     assert.deepEqual(body.story, { id: story.id, code: '1.1', title: 'Auth' })
     assert.equal(body.model, 'gemma3')
+    assert.equal(body.engine, 'ollama', 'hors ligne : Auto passe par Ollama')
     assert.deepEqual(body.items, [
       { type: 'FEATURE', title: 'Déconnexion', description: '- [ ] Bouton', estimate: { hours: 12, days: 1.5 } },
       { type: 'TASK', title: 'Rotation des clés', description: '', estimate: { hours: 4, days: 0.5 } },

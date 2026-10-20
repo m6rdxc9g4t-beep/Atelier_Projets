@@ -1,9 +1,11 @@
-// IA locale (Ollama : Qwen, Gemma) et Claude CLI. Les propositions de l'IA ne sont jamais enregistrées
-// directement : le frontend les affiche, l'utilisateur les corrige puis les crée ou les ajoute au journal.
+// IA : Ollama (local) ou Claude (CLI isolée, en ligne seulement) au choix, et sessions Claude CLI dans un terminal.
+// Les propositions de l'IA ne sont jamais enregistrées directement : le frontend les affiche, l'utilisateur les
+// corrige puis les crée ou les ajoute au journal.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import type { FastifyReply } from 'fastify'
 import { Type } from 'typebox'
 import {
+  AiStatusQuery,
   AiStatusSchema,
   BreakdownRequestSchema,
   BreakdownResultSchema,
@@ -19,7 +21,9 @@ import { breakdownStory, getAiStatus, getClaudePrompt, launchClaude, summarizeCo
 
 const tags = ['IA locale & Claude CLI']
 const gatewayError = {
-  502: Type.Object(ErrorSchema.properties, { description: 'Ollama injoignable, modèle absent ou réponse inexploitable' }),
+  403: Type.Object(ErrorSchema.properties, { description: 'Claude demandé en mode hors ligne (CLAUDE_OFFLINE)' }),
+  502: Type.Object(ErrorSchema.properties, { description: 'Ollama injoignable, Claude indisponible, modèle absent ou réponse inexploitable' }),
+  504: Type.Object(ErrorSchema.properties, { description: 'Claude n’a pas répondu dans le délai (CLAUDE_TIMEOUT_MS)' }),
 }
 
 /**
@@ -37,8 +41,15 @@ function abandonSignal(reply: FastifyReply): AbortSignal {
 export const aiRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/ai/status',
-    { schema: { tags, summary: 'État d’Ollama (modèles installés) et de Claude CLI', response: { 200: AiStatusSchema } } },
-    async () => getAiStatus(app.settings.ai),
+    {
+      schema: {
+        tags,
+        summary: 'État des moteurs (Ollama : modèles installés ; Claude : CLI, connexion), mode en ligne et moteur retenu par Auto',
+        querystring: AiStatusQuery,
+        response: { 200: AiStatusSchema },
+      },
+    },
+    async (request) => getAiStatus(app.prisma, app.settings.ai, { refresh: request.query.refresh === true }),
   )
 
   app.post(
@@ -46,7 +57,7 @@ export const aiRoutes: FastifyPluginAsyncTypebox = async (app) => {
     {
       schema: {
         tags,
-        summary: 'Proposer le découpage d’une Story en Features et Tasks estimées en jours (rien n’est enregistré)',
+        summary: 'Proposer le découpage d’une Story en Features et Tasks estimées en jours, par Ollama ou Claude (rien n’est enregistré)',
         body: BreakdownRequestSchema,
         response: { 200: BreakdownResultSchema, ...errorResponses(400, 404), ...gatewayError },
       },

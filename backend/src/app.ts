@@ -20,6 +20,7 @@ import { allowedHosts, createLocalOnlyGuard } from './http/local-only.ts'
 import { suiteCorsHook } from './http/suite-cors.ts'
 import { createValidatorCompiler } from './http/validation.ts'
 import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
+import { createClaudeEngine } from './ai-bridge/claude-print.ts'
 import { createOllamaClient } from './ai-bridge/ollama.ts'
 import { createOctokitClient, type GitHubClient } from './git-engine/github.ts'
 import { aiRoutes } from './routes/ai.ts'
@@ -34,6 +35,7 @@ import { hierarchyRoutes } from './routes/hierarchy.ts'
 import { milestoneRoutes } from './routes/milestones.ts'
 import { projectRoutes } from './routes/projects.ts'
 import { reportRoutes } from './routes/reports.ts'
+import { settingsRoutes } from './routes/settings.ts'
 import { suiteRoutes } from './routes/suite.ts'
 import { workItemRoutes } from './routes/work-items.ts'
 
@@ -50,7 +52,7 @@ export interface AppSettings {
   githubMaxPullRequests: number
   /** Client GitHub (Octokit, ou simulé dans les tests). */
   github: GitHubClient
-  /** IA locale (Ollama) et Claude CLI (simulés dans les tests). */
+  /** IA locale (Ollama), moteur Claude et session Claude CLI (simulés dans les tests). */
   ai: AiSettings
   /** Sauvegardes de la base (null : base en mémoire ou désactivées). */
   backups: BackupManager | null
@@ -116,6 +118,7 @@ export async function buildApp({
     model: ai.model ?? 'qwen2.5-coder',
     maxDiffChars: ai.maxDiffChars ?? 24_000,
     claude: ai.claude ?? createClaudeLauncher(),
+    claudeEngine: ai.claudeEngine ?? createClaudeEngine(),
   }
   app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github, ai: aiSettings, backups, importToken })
   app.addHook('onClose', async () => {
@@ -155,7 +158,12 @@ export async function buildApp({
         { name: 'Sauvegardes', description: 'Copies de la base SQLite (automatiques et manuelles)' },
         { name: 'Planification', description: 'Dépendances, déplacements du Gantt, chemin critique' },
         { name: 'Git & GitHub', description: 'Analyse du dépôt local, hook post-commit, Pull Requests' },
-        { name: 'IA locale & Claude CLI', description: 'Ollama (Qwen, Gemma) : découpage de Story, résumé des commits ; sessions Claude CLI' },
+        { name: 'Réglages', description: 'Mode hors ligne / en ligne (docs/SUITE.md §5.1)' },
+        {
+          name: 'IA locale & Claude CLI',
+          description:
+            'Découpage de Story et résumé des commits par Ollama (local) ou Claude (CLI isolée, en ligne seulement) ; sessions Claude CLI dans un terminal',
+        },
         { name: 'Vues', description: 'Dashboard, arborescence (Gantt) et tableau des temps calculés' },
         {
           name: 'Suite Atelier',
@@ -169,6 +177,7 @@ export async function buildApp({
   await app.register(
     async (api) => {
       await api.register(healthRoutes)
+      await api.register(settingsRoutes)
       await api.register(projectRoutes)
       await api.register(hierarchyRoutes)
       await api.register(workItemRoutes)

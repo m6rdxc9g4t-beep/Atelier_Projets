@@ -361,3 +361,15 @@ model ImportIdempotency {
 
   @@index([createdAt])
 }
+
+// -----------------------------------------------------------------------------
+// Réglages de l'application
+// -----------------------------------------------------------------------------
+
+/// Réglage global de l'application (clé → valeur JSON), ex. « onlineMode » (docs/SUITE.md §5.1).
+model AppSetting {
+  key       String   @id
+  /// Valeur encodée en JSON.
+  value     String
+  updatedAt DateTime @updatedAt
+}

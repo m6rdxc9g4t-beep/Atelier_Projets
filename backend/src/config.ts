@@ -37,6 +37,8 @@ export interface AppConfig {
   /** Claude CLI : commande (ou chemin) et application de terminal macOS. */
   claudeCli: string
   claudeTerminalApp: string
+  /** Moteur Claude (claude -p) : délai maximal d'une réponse (CLAUDE_TIMEOUT_MS, 180 s par défaut). */
+  claudeTimeoutMs: number
   /** Hôtes acceptés en plus des hôtes locaux (ALLOWED_HOSTS, séparés par des virgules). */
   allowedHosts: string[]
   /** Sauvegardes de la base : dossier (BACKUP_DIR) et nombre conservé (BACKUP_KEEP, 0 = désactivées). */
@@ -157,6 +159,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     aiMaxDiffChars: parsePositiveInteger('AI_MAX_DIFF_CHARS', env.AI_MAX_DIFF_CHARS, 24_000),
     claudeCli: env.CLAUDE_CLI?.trim() || 'claude',
     claudeTerminalApp: env.CLAUDE_TERMINAL_APP?.trim() || 'Terminal',
+    claudeTimeoutMs: parsePositiveInteger('CLAUDE_TIMEOUT_MS', env.CLAUDE_TIMEOUT_MS, 180_000),
     backupDir: path.resolve(BACKEND_ROOT, env.BACKUP_DIR?.trim() || 'prisma/backups'),
     backupKeep: env.BACKUP_KEEP?.trim() === '0' ? 0 : parsePositiveInteger('BACKUP_KEEP', env.BACKUP_KEEP, 14),
     importToken: env.ATELIER_IMPORT_TOKEN?.trim() || undefined,

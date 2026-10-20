@@ -4,7 +4,7 @@
 import { execFile } from 'node:child_process'
 import { constants } from 'node:fs'
 import { access, chmod, lstat, mkdir, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
@@ -82,9 +82,33 @@ export async function findExecutable(command: string, searchPath: string | undef
   return null
 }
 
+/**
+ * Dossiers où chercher Claude CLI après le PATH (docs/SUITE.md §5.3) : une application lancée depuis le Finder
+ * n'hérite pas du PATH du terminal, et l'installeur de Claude Code place la CLI dans ~/.local/bin.
+ */
+export function claudeFallbackDirs(home: string = homedir()): string[] {
+  return [path.join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin']
+}
+
+/**
+ * Exécutable de Claude CLI : chemin donné (CLAUDE_CLI avec « / »), sinon PATH, puis les dossiers habituels
+ * (~/.local/bin, /opt/homebrew/bin, /usr/local/bin). null s'il est introuvable.
+ */
+export async function findClaudeExecutable(
+  command: string,
+  searchPath: string | undefined,
+  fallbackDirs: readonly string[] = claudeFallbackDirs(),
+): Promise<string | null> {
+  const found = await findExecutable(command, searchPath)
+  if (found !== null || command.includes('/')) return found
+  return findExecutable(command, fallbackDirs.join(path.delimiter))
+}
+
 export interface ClaudeLauncherOptions {
   /** Commande ou chemin de Claude CLI (CLAUDE_CLI, défaut « claude »). */
   command?: string
+  /** Dossiers essayés après le PATH (défaut : claudeFallbackDirs()). */
+  fallbackDirs?: readonly string[]
   /** Application de terminal macOS (CLAUDE_TERMINAL_APP, défaut « Terminal », ex. « iTerm »). */
   terminalApp?: string
   platform?: NodeJS.Platform
@@ -103,6 +127,8 @@ export function createClaudeLauncher(options: ClaudeLauncherOptions = {}): Claud
   const platform = options.platform ?? process.platform
   const terminalApp = platform === 'darwin' ? options.terminalApp?.trim() || 'Terminal' : null
   const searchPath = options.searchPath ?? process.env.PATH
+  const fallbackDirs = options.fallbackDirs ?? claudeFallbackDirs()
+  const locate = () => findClaudeExecutable(command, searchPath, fallbackDirs)
   // Dossier propre à l'utilisateur (sur Linux, /tmp est partagé) ; vérifié avant chaque écriture.
   const workDir = options.workDir ?? path.join(tmpdir(), `atelier-projets-claude-${process.getuid?.() ?? 'user'}`)
   const openWith =
@@ -136,7 +162,7 @@ export function createClaudeLauncher(options: ClaudeLauncherOptions = {}): Claud
   async function prepare(request: ClaudeSessionRequest): Promise<PreparedSession & { executable: string }> {
     const prompt = request.prompt === null ? null : request.prompt.trim()
     if (prompt === '') throw new Error('prompt vide')
-    const executable = (await findExecutable(command, searchPath)) ?? command
+    const executable = (await locate()) ?? command
     await ensureWorkDir()
     let promptFile: string | null = null
     if (prompt !== null) {
@@ -185,10 +211,10 @@ export function createClaudeLauncher(options: ClaudeLauncherOptions = {}): Claud
   }
 
   async function readStatus(): Promise<ClaudeCliStatus> {
-    const executable = await findExecutable(command, searchPath)
+    const executable = await locate()
     const base = { command: executable ?? command, canOpenTerminal: terminalApp !== null, terminalApp }
     if (!executable) {
-      return { ...base, available: false, version: null, error: `Claude CLI introuvable (« ${command} » absent du PATH ; voir CLAUDE_CLI)` }
+      return { ...base, available: false, version: null, error: `Claude CLI introuvable (« ${command} » absent du PATH, de ~/.local/bin, /opt/homebrew/bin et /usr/local/bin ; voir CLAUDE_CLI)` }
     }
     try {
       return { ...base, available: true, version: (await readVersion(executable)) || null, error: null }

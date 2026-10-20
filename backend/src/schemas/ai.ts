@@ -1,9 +1,24 @@
-// IA locale (Ollama) et Claude CLI : état, découpage d'une Story, résumé des commits, session Claude.
+// IA : état des moteurs (Ollama, Claude), découpage d'une Story, résumé des commits, session Claude CLI.
 import { Type, type Static } from 'typebox'
 import { CLAUDE_PERMISSION_MODES } from '../ai-bridge/claude-cli.ts'
+import { CLAUDE_MODELS } from '../ai-bridge/claude-print.ts'
 import { ContainerRefSchema, DurationSchema, Id, Nullable, StrictObject } from './common.ts'
 
 const ModelName = Type.String({ minLength: 1, maxLength: 200, pattern: '\\S', description: 'Modèle Ollama (défaut : OLLAMA_MODEL)' })
+
+/** Moteurs réellement utilisables. */
+export const AI_ENGINES = ['ollama', 'claude'] as const
+export type AiEngine = (typeof AI_ENGINES)[number]
+/** Choix de l'utilisateur : Auto = Claude si en ligne et disponible, sinon Ollama (docs/SUITE.md §5.2). */
+export const ENGINE_CHOICES = ['auto', 'ollama', 'claude'] as const
+export type EngineChoice = (typeof ENGINE_CHOICES)[number]
+
+const EngineChoiceSchema = Type.Enum(ENGINE_CHOICES, {
+  type: 'string',
+  description: 'Moteur : auto (Claude si en ligne et disponible, sinon Ollama), ollama, claude (refusé hors ligne : 403). Défaut : auto',
+})
+const EngineSchema = Type.Enum(AI_ENGINES, { type: 'string', description: 'Moteur qui a effectivement répondu' })
+const ClaudeModelSchema = Type.Enum(CLAUDE_MODELS, { type: 'string', description: 'Modèle Claude (alias de la CLI). Défaut : sonnet' })
 
 export const AiStatusSchema = Type.Object(
   {
@@ -24,21 +39,38 @@ export const AiStatusSchema = Type.Object(
       ),
     }),
     claude: Type.Object({
-      available: Type.Boolean(),
+      available: Type.Boolean({ description: 'Moteur Claude utilisable maintenant : en ligne, CLI installée et connectée' }),
+      installed: Type.Boolean({ description: 'CLI trouvée (CLAUDE_CLI, PATH, ~/.local/bin, /opt/homebrew/bin, /usr/local/bin)' }),
+      loggedIn: Nullable(Type.Boolean({ description: '« claude auth status » (null : non vérifié, hors ligne ou CLI absente)' })),
+      authMethod: Nullable(Type.String()),
+      error: Nullable(Type.String({ description: 'Raison de l’indisponibilité du moteur, en français' })),
+      warning: Nullable(Type.String({ description: 'Avertissement non bloquant (clé API au lieu de l’abonnement)' })),
+      checkedAt: Nullable(Type.String({ description: 'Date de la dernière vérification de la connexion (cache 60 s)' })),
+      models: Type.Array(ClaudeModelSchema),
+      defaultModel: ClaudeModelSchema,
+      timeoutMs: Type.Integer({ description: 'Délai maximal d’une réponse (CLAUDE_TIMEOUT_MS)' }),
       version: Nullable(Type.String()),
-      command: Type.String(),
-      canOpenTerminal: Type.Boolean({ description: 'Ouverture automatique d’un terminal (macOS)' }),
+      command: Type.String({ description: 'Exécutable trouvé, ou la commande configurée' }),
+      canOpenTerminal: Type.Boolean({ description: 'Ouverture automatique d’un terminal (macOS) pour une session interactive' }),
       terminalApp: Nullable(Type.String()),
-      error: Nullable(Type.String()),
     }),
+    onlineMode: Type.Boolean({ description: 'Mode en ligne (Claude permis) ; hors ligne par défaut' }),
+    auto: EngineSchema,
+    maxDiffChars: Type.Integer({ description: 'Taille maximale cumulée des diffs transmis (AI_MAX_DIFF_CHARS)' }),
   },
-  { description: 'État de l’IA locale (Ollama) et de Claude CLI' },
+  { description: 'État des moteurs d’IA (Ollama, Claude), du mode en ligne et du moteur retenu par « Auto »' },
 )
 export type AiStatusDto = Static<typeof AiStatusSchema>
 
+export const AiStatusQuery = Type.Object({
+  refresh: Type.Optional(Type.Boolean({ description: 'Revérifier tout de suite la connexion de Claude (sinon cache de 60 s)' })),
+})
+
 export const BreakdownRequestSchema = StrictObject({
   storyId: Id,
+  engine: Type.Optional(EngineChoiceSchema),
   model: Type.Optional(ModelName),
+  claudeModel: Type.Optional(ClaudeModelSchema),
   instructions: Type.Optional(Type.String({ maxLength: 2000, description: 'Consignes complémentaires pour le découpage' })),
 })
 export type BreakdownRequest = Static<typeof BreakdownRequestSchema>
@@ -46,7 +78,8 @@ export type BreakdownRequest = Static<typeof BreakdownRequestSchema>
 export const BreakdownResultSchema = Type.Object(
   {
     story: ContainerRefSchema,
-    model: Type.String(),
+    engine: EngineSchema,
+    model: Type.String({ description: 'Modèle Ollama, ou alias du modèle Claude' }),
     hoursPerDay: Type.Number(),
     items: Type.Array(
       Type.Object({
@@ -63,14 +96,17 @@ export type BreakdownResultDto = Static<typeof BreakdownResultSchema>
 
 export const SummarizeRequestSchema = StrictObject({
   workItemId: Type.Integer({ minimum: 1, maximum: 2_147_483_647 }),
+  engine: Type.Optional(EngineChoiceSchema),
   model: Type.Optional(ModelName),
+  claudeModel: Type.Optional(ClaudeModelSchema),
 })
 export type SummarizeRequest = Static<typeof SummarizeRequestSchema>
 
 export const SummarizeResultSchema = Type.Object(
   {
     workItemId: Type.Integer(),
-    model: Type.String(),
+    engine: EngineSchema,
+    model: Type.String({ description: 'Modèle Ollama, ou alias du modèle Claude' }),
     text: Type.String({ description: 'Entrée proposée pour le journal d’avancement (Markdown) — rien n’est enregistré' }),
     commits: Type.Array(
       Type.Object({
@@ -81,7 +117,7 @@ export const SummarizeResultSchema = Type.Object(
     ),
     warnings: Type.Array(Type.String()),
   },
-  { description: 'Résumé des commits liés à un élément, rédigé par l’IA locale' },
+  { description: 'Résumé des commits liés à un élément, rédigé par Ollama ou Claude' },
 )
 export type SummarizeResultDto = Static<typeof SummarizeResultSchema>
 
