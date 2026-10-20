@@ -20,10 +20,12 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { githubLabel } from '../lib/format.ts'
-import { useApi } from '../lib/use-api.ts'
-import { aiService } from '../services/api.ts'
+import { useShallow } from 'zustand/react/shallow'
+import { CLAUDE_MODEL_LABEL, ollamaReady, safeClaudeModel } from '../lib/engine.ts'
 import type { Project } from '../services/types.ts'
-import { useAppState, type Theme, type ViewId } from '../store/app.ts'
+import { useAi } from '../store/ai.ts'
+import { useApp, useAppState, type Theme, type ViewId } from '../store/app.ts'
+import { OnlineSwitch } from './AiDialogs.tsx'
 import { AtelierBrand } from './AtelierBrand.tsx'
 import { SuiteSwitcher } from './SuiteSwitcher.tsx'
 import { TimerPill } from './Timer.tsx'
@@ -36,25 +38,74 @@ export const VIEWS: { id: ViewId; label: string; short: string; icon: ReactNode 
   { id: 'settings', label: 'Paramètres du projet', short: 'Paramètres', icon: <Settings className="size-5" /> },
 ]
 
-/** Bouton « IA Locale » : pastille verte si Ollama répond avec le modèle choisi, orange sans modèle, rouge injoignable. */
-function AiButton() {
-  const { aiModel, openDialog, dialog } = useAppState((state) => ({ aiModel: state.aiModel, openDialog: state.openDialog, dialog: state.dialog }))
-  const status = useApi(() => aiService.status(), [dialog?.kind === 'ai'], { followRevision: false })
-  const ollama = status.data?.ollama
+/**
+ * IA dans l'en-tête (docs/SUITE.md §5) : interrupteur « Hors ligne / En ligne », pastilles « Ollama » et « Claude »
+ * (vert = disponible, gris = indisponible ou hors ligne, détail dans l'info-bulle) et bouton du panneau IA.
+ */
+function AiControls() {
+  const { aiModel, claudeModel, openDialog } = useAppState((state) => ({ aiModel: state.aiModel, claudeModel: state.claudeModel, openDialog: state.openDialog }))
+  const { status, error, load } = useAi(useShallow((state) => ({ status: state.status, error: state.error, load: state.load })))
+  // État relu au retour sur la fenêtre (Ollama lancé, CLI connectée entre-temps).
+  useEffect(() => {
+    void load()
+    const onFocus = () => void load()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [load])
+
+  const ollama = status?.ollama
   const model = aiModel ?? ollama?.defaultModelName ?? ollama?.defaultModel
-  const ready = ollama?.reachable === true && (aiModel === null ? ollama.defaultModelInstalled : ollama.models.some((candidate) => candidate.name === aiModel))
-  const tone = !ollama ? null : ready ? 'CLOSED' : ollama.reachable ? 'ON_HOLD' : 'REJECTED'
-  const title = !ollama
-    ? 'IA locale (Ollama) et Claude CLI'
-    : ready
+  const ollamaOk = ollamaReady(status, aiModel)
+  const ollamaTitle = !ollama
+    ? (error ?? 'Vérification…')
+    : ollamaOk
       ? `Ollama connecté · modèle ${model}`
       : ollama.reachable
-        ? `Ollama connecté, modèle « ${model} » absent`
-        : 'Ollama injoignable'
+        ? `Ollama connecté, modèle « ${model} » absent (ollama pull ${model})`
+        : `Ollama injoignable : ${ollama.error ?? ollama.url}`
+  const claude = status?.claude
+  const claudeOk = claude?.available === true
+  const claudeTitle = !status
+    ? (error ?? 'Vérification…')
+    : !status.onlineMode
+      ? 'Claude : désactivé (mode hors ligne)'
+      : claudeOk
+        ? `Claude disponible · ${CLAUDE_MODEL_LABEL[safeClaudeModel(claudeModel)]}${claude?.version ? ` · CLI ${claude.version}` : ''}`
+        : `Claude indisponible : ${claude?.error ?? 'voir le panneau IA'}`
+
   return (
-    <Button variant="primary" icon={<Bot className="size-4" />} title={title} className="hidden sm:inline-flex" onClick={() => openDialog({ kind: 'ai' })}>
-      IA Locale
-      {tone && <span className="ds-dot" data-status={tone} aria-label={title} />}
+    <>
+      <OnlineSwitch />
+      <div className="hidden items-center gap-1.5 lg:flex" role="group" aria-label="État des moteurs d’IA">
+        <EnginePill label="Ollama" ok={ollamaOk} title={ollamaTitle} onClick={() => openDialog({ kind: 'ai' })} />
+        <EnginePill label="Claude" ok={claudeOk} title={claudeTitle} onClick={() => openDialog({ kind: 'ai' })} />
+      </div>
+      <AiButton />
+    </>
+  )
+}
+
+function EnginePill({ label, ok, title, onClick }: { label: string; ok: boolean; title: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={`${label} : ${ok ? 'disponible' : 'indisponible'} — ${title}`}
+      onClick={onClick}
+      className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-xs text-fg hover:bg-hover"
+    >
+      <span className="ds-dot" data-status={ok ? 'CLOSED' : 'OPEN'} aria-hidden />
+      {label}
+    </button>
+  )
+}
+
+/** Bouton du panneau IA (moteurs, modèles, session Claude CLI). */
+function AiButton() {
+  const openDialog = useApp((state) => state.openDialog)
+  return (
+    <Button variant="primary" icon={<Bot className="size-4" />} title="Intelligence artificielle : moteurs, modèles, session Claude CLI" className="hidden sm:inline-flex" onClick={() => openDialog({ kind: 'ai' })}>
+      IA
     </Button>
   )
 }
@@ -95,7 +146,7 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
             />
           ))}
         </div>
-        <AiButton />
+        <AiControls />
       </div>
     </header>
   )

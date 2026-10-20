@@ -2,6 +2,7 @@
 // les agrégats (budget, avancement, bilans, histogramme) arrivent déjà calculés.
 import { http, unwrap } from './client.ts'
 import type {
+  AppSettingsUpdate,
   AtelierTabEnvelope,
   AtelierTabImportOptions,
   BreakdownInput,
@@ -102,8 +103,15 @@ export const workItemService = {
     unwrap(http.DELETE('/api/time-entries/{timeEntryId}', { params: { path: { timeEntryId } } })),
 }
 
+/** Réglages de l'application : mode hors ligne / en ligne (docs/SUITE.md §5.1). */
+export const settingsService = {
+  get: () => unwrap(http.GET('/api/settings')),
+  update: (body: AppSettingsUpdate) => unwrap(http.PATCH('/api/settings', { body })),
+}
+
 export const aiService = {
-  status: () => unwrap(http.GET('/api/ai/status')),
+  /** refresh : revérifie tout de suite la connexion de Claude (sinon cache de 60 s côté serveur). */
+  status: (refresh = false) => unwrap(http.GET('/api/ai/status', { params: { query: refresh ? { refresh } : {} } })),
   // signal : annule la génération (dialogue fermé, « Régénérer ») ; le backend interrompt alors Ollama.
   breakdown: (body: BreakdownInput, signal?: AbortSignal) => unwrap(http.POST('/api/ai/breakdown-story', { body, signal })),
   summarize: (body: SummarizeInput, signal?: AbortSignal) => unwrap(http.POST('/api/ai/summarize-commits', { body, signal })),
