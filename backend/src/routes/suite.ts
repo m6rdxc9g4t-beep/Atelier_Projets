@@ -15,10 +15,15 @@ import { DatasetInfoSchema, DatasetParams, DatasetQuery, DatasetSchema } from '.
 import { Type } from 'typebox'
 import {
   assertImportToken,
-  importFromAtelierTab,
+  assertSchemaVersion,
+  IMPORT_SCOPE,
+  IMPORT_TRANSACTION_TIMEOUT_MS,
+  importAtelierTabIn,
+  importHashSource,
   previewAtelierTabImport,
   type ImportRequest,
 } from '../services/atelier-tab-import.ts'
+import { sendIdempotent } from '../http/idempotency.ts'
 import { getDataset, listDatasets } from '../services/exports.ts'
 
 /** Taille maximale d'une enveloppe DataFlow (10 000 lignes de quelques colonnes). */
@@ -82,9 +87,17 @@ export const suiteRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
-      const { result, replayed } = await importFromAtelierTab(app.prisma, toRequest(request), app.settings.now())
-      if (replayed) reply.header('idempotency-replayed', 'true')
-      return result
+      const importRequest = toRequest(request)
+      // Version contrôlée avant tout rejeu (422 même pour une clé déjà connue), comme avant la généralisation.
+      assertSchemaVersion(importRequest.headers.schemaVersion, importRequest.envelope)
+      const now = app.settings.now()
+      return sendIdempotent(
+        app.prisma,
+        request,
+        reply,
+        { scope: IMPORT_SCOPE, statusCode: 200, hashSource: importHashSource(importRequest), now, timeoutMs: IMPORT_TRANSACTION_TIMEOUT_MS },
+        (tx) => importAtelierTabIn(tx, importRequest, now),
+      )
     },
   )
 

@@ -344,14 +344,17 @@ model RunningTimer {
 }
 
 // -----------------------------------------------------------------------------
-// Suite Atelier : import DataFlow depuis Atelier Tab
+// Suite Atelier : idempotence des écritures (import Atelier Tab, actions du nœud Atelier)
 // -----------------------------------------------------------------------------
 
-/// Réponse d'un import déjà traité, retrouvée par son en-tête Idempotency-Key : une même clé rejouée
-/// (nouvelle tentative du webhook, double clic) renvoie la même réponse sans réimporter.
-model ImportIdempotency {
+/// Réponse d'une écriture déjà traitée, retrouvée par sa portée et son en-tête Idempotency-Key : une même clé
+/// rejouée (nouvelle tentative d'un webhook ou d'un workflow, double clic) renvoie la même réponse sans refaire
+/// l'écriture (docs/SUITE.md §4.1 et §7.4). Conservée 30 jours.
+model IdempotencyRecord {
+  /// Action concernée (« imports.atelier_tab », « work_items.create »…) : une même clé est indépendante d'une action à l'autre.
+  scope       String
   /// Valeur de l'en-tête Idempotency-Key.
-  key         String   @id
+  key         String
   /// Empreinte SHA-256 de la requête (corps + paramètres) : une clé réutilisée pour un autre contenu est refusée.
   requestHash String
   statusCode  Int
@@ -359,7 +362,27 @@ model ImportIdempotency {
   response    String
   createdAt   DateTime @default(now())
 
+  @@id([scope, key])
   @@index([createdAt])
+}
+
+/// Journal des événements du nœud Atelier (docs/SUITE.md §7.3), lu par Atelier Nexus (GET /api/atelier/events).
+/// seq strictement croissant et jamais réutilisé (AUTOINCREMENT de SQLite : survit au redémarrage et à la purge).
+/// Rétention : au moins les 1 000 derniers événements ou 30 jours.
+model AtelierEvent {
+  seq          Int      @id @default(autoincrement())
+  /// Type du contrat (« projets.work_item.status_changed »…).
+  type         String
+  at           DateTime @default(now())
+  /// Sujet : work_item | milestone | project, son identifiant et un libellé lisible.
+  subjectKind  String
+  subjectId    String
+  subjectLabel String   @default("")
+  /// Données en JSON : identifiants, libellés, statuts et nombres agrégés seulement (jamais de ligne ni de secret).
+  data         String   @default("{}")
+
+  @@index([at])
+  @@index([type, seq])
 }
 
 // -----------------------------------------------------------------------------
