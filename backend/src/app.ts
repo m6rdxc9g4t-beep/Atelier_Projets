@@ -24,6 +24,7 @@ import { createClaudeEngine } from './ai-bridge/claude-print.ts'
 import { createOllamaClient } from './ai-bridge/ollama.ts'
 import { createOctokitClient, type GitHubClient } from './git-engine/github.ts'
 import { aiRoutes } from './routes/ai.ts'
+import { atelierRoutes } from './routes/atelier.ts'
 import { scheduleRoutes } from './routes/schedule.ts'
 import { timerRoutes } from './routes/timer.ts'
 import { backupRoutes } from './routes/backups.ts'
@@ -169,6 +170,11 @@ export async function buildApp({
           name: 'Suite Atelier',
           description: 'Import DataFlow depuis Atelier Tab, jeux de données pour Atelier Viz (docs/SUITE.md)',
         },
+        {
+          name: 'Nœud Atelier',
+          description:
+            'Manifeste, actions en snake_case, tables atelier-table/1 et événements pour Atelier Nexus (docs/SUITE.md §7, atelier-node/1) ; erreurs { detail, code }',
+        },
       ],
     },
   })
@@ -189,6 +195,7 @@ export async function buildApp({
       await api.register(timerRoutes)
       await api.register(backupRoutes)
       await api.register(suiteRoutes)
+      await api.register(atelierRoutes, { prefix: '/atelier' })
     },
     { prefix: '/api' },
   )
