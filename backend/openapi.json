@@ -18778,15 +18778,8 @@
                       "description": "Dernier seq rendu (ou since s’il n’y a rien)"
                     },
                     "oldest": {
-                      "anyOf": [
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ],
-                      "description": "Plus petit seq encore conservé"
+                      "type": "integer",
+                      "description": "Plus petit seq encore conservé (dernier seq + 1 si le journal est vide)"
                     },
                     "gap": {
                       "type": "boolean",

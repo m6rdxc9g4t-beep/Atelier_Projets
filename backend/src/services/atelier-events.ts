@@ -86,7 +86,7 @@ function toDto(row: { seq: number; type: string; at: Date; subjectKind: string; 
 
 /**
  * Page d'événements : après `since` (exclusif) dans l'ordre croissant, ou les plus récents sans `since`.
- * next = dernier seq rendu (ou since, ou le dernier seq connu s'il n'y a rien) ; oldest = plus petit seq conservé ;
+ * next = dernier seq rendu (ou since, ou le dernier seq connu s'il n'y a rien) ; oldest = plus petit seq conservé (dernier seq + 1 si le journal est vide) ;
  * gap = des événements postérieurs à since ont été purgés (since < oldest − 1), ou la base a été remplacée (since > dernier seq).
  */
 export async function listEvents(db: Db, query: EventQuery): Promise<AtelierEventPageDto> {
@@ -100,8 +100,9 @@ export async function listEvents(db: Db, query: EventQuery): Promise<AtelierEven
     db.atelierEvent.findFirst({ orderBy: { seq: 'asc' }, select: { seq: true } }),
     db.atelierEvent.findFirst({ orderBy: { seq: 'desc' }, select: { seq: true } }),
   ])
-  const oldest = first?.seq ?? null
   const latest = last?.seq ?? 0
+  // §7.7 : journal vide → oldest = dernier seq connu + 1.
+  const oldest = first?.seq ?? latest + 1
   const since = query.since
 
   const rows =
@@ -111,6 +112,6 @@ export async function listEvents(db: Db, query: EventQuery): Promise<AtelierEven
 
   const events = rows.map(toDto)
   const next = events.at(-1)?.seq ?? since ?? latest
-  const gap = since !== undefined && ((oldest !== null && since < oldest - 1) || since > latest)
+  const gap = since !== undefined && (since < oldest - 1 || since > latest)
   return { events, next, oldest, gap }
 }

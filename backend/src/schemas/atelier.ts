@@ -223,7 +223,7 @@ export const AtelierEventPageSchema = Type.Object(
   {
     events: Type.Array(AtelierEventSchema),
     next: Type.Integer({ minimum: 0, description: 'Dernier seq rendu (ou since s’il n’y a rien)' }),
-    oldest: Type.Union([Type.Integer(), Type.Null()], { description: 'Plus petit seq encore conservé' }),
+    oldest: Type.Integer({ description: 'Plus petit seq encore conservé (dernier seq + 1 si le journal est vide)' }),
     gap: Type.Boolean({ description: 'Des événements ont été perdus depuis since : relire l’état' }),
   },
   { description: 'Événements du nœud (docs/SUITE.md §7.3)' },

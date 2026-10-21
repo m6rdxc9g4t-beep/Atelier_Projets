@@ -537,9 +537,9 @@ describe('GET /api/atelier/events', () => {
       at,
     )
 
-  it('journal vide : next = since (ou 0), oldest null, pas de trou', async () => {
-    assert.deepEqual(await page(''), { events: [], next: 0, oldest: null, gap: false })
-    assert.deepEqual(await page('?since=0'), { events: [], next: 0, oldest: null, gap: false })
+  it('journal vide : next = since (ou 0), oldest = 1, pas de trou', async () => {
+    assert.deepEqual(await page(''), { events: [], next: 0, oldest: 1, gap: false })
+    assert.deepEqual(await page('?since=0'), { events: [], next: 0, oldest: 1, gap: false })
   })
 
   it('since exclusif, limit, types, plus récents sans since', async () => {
