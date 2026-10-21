@@ -1,5 +1,5 @@
 // Cas d'usage du git-engine : analyse du dépôt local, commits liés, hook post-commit, Pull Requests GitHub.
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import { GitHubError, type GitHubClient, type GitHubPullRequest } from '../git-engine/github.ts'
 import { hookStatus, installHook, uninstallHook } from '../git-engine/hook.ts'
 import {
@@ -26,7 +26,7 @@ import { requireProject } from './common.ts'
 const BATCH_SIZE = 500
 const MAX_UNKNOWN_REFERENCES = 50
 
-async function projectWorkItemIds(prisma: PrismaClient, projectId: number): Promise<Set<number>> {
+async function projectWorkItemIds(prisma: Db, projectId: number): Promise<Set<number>> {
   const items = await prisma.workItem.findMany({ where: { projectId }, select: { id: true } })
   return new Set(items.map((item) => item.id))
 }
@@ -74,7 +74,7 @@ function oneAtATime<T>(projectId: number, task: () => Promise<T>): Promise<T> {
 }
 
 export function scanRepository(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
   options: { maxCommitsPerBranch: number; now: Date },
 ): Promise<GitScanResultDto> {
@@ -82,7 +82,7 @@ export function scanRepository(
 }
 
 async function scan(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
   options: { maxCommitsPerBranch: number; now: Date },
 ): Promise<GitScanResultDto> {
@@ -163,7 +163,7 @@ async function scan(
 }
 
 export async function listProjectCommits(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
   query: { workItemId?: number; limit?: number },
 ): Promise<ProjectCommitDto[]> {
@@ -192,14 +192,14 @@ function scanUrl(publicUrl: string, projectId: number): string {
   return `${publicUrl.replace(/\/+$/, '')}/api/projects/${projectId}/git/scan`
 }
 
-export async function getHook(prisma: PrismaClient, projectId: number, publicUrl: string): Promise<HookStatusDto> {
+export async function getHook(prisma: Db, projectId: number, publicUrl: string): Promise<HookStatusDto> {
   const project = await requireProject(prisma, projectId)
   const status = await withRepository(() => hookStatus(repositoryPath(project), projectId))
   return { ...status, scanUrl: scanUrl(publicUrl, projectId) }
 }
 
 export async function setHook(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
   publicUrl: string,
   install: boolean,
@@ -235,7 +235,7 @@ function pullRequestReferences(pull: GitHubPullRequest): Map<number, 'title' | '
  * le corps, numéro en tête de nom de branche). Les statuts des éléments ne sont pas modifiés.
  */
 export async function syncPullRequests(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
   github: GitHubClient,
   options: { max: number; now: Date },
@@ -315,7 +315,7 @@ function pullRequestFields(pr: PullRequest) {
 }
 
 export async function listPullRequests(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
   query: { state?: PullRequestState[] },
 ): Promise<PullRequestDto[]> {

@@ -1,6 +1,6 @@
 // Conteneurs de la hiérarchie : Phases (d'un projet), Epics (d'une phase), Stories (d'un epic).
 // Un epic ou une story peut être déplacé(e), mais uniquement à l'intérieur du même projet.
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import type { Prisma } from '../generated/prisma/client.ts'
 import { badRequest } from '../http/errors.ts'
 import type {
@@ -23,6 +23,7 @@ import {
   resolveDate,
 } from './common.ts'
 import { toEpicDto, toPhaseDto, toStoryDto } from './mappers.ts'
+import { deleteWithItems } from './work-items.ts'
 
 const ORDER = [{ position: 'asc' }, { id: 'asc' }] as const satisfies Prisma.PhaseOrderByWithRelationInput[]
 
@@ -55,13 +56,13 @@ function updateFields(input: PhaseUpdate, current: Dated) {
 
 // --- Phases --------------------------------------------------------------------------------------
 
-export async function listPhases(prisma: PrismaClient, projectId: number): Promise<PhaseDto[]> {
+export async function listPhases(prisma: Db, projectId: number): Promise<PhaseDto[]> {
   await requireProject(prisma, projectId)
   const phases = await prisma.phase.findMany({ where: { projectId }, orderBy: [...ORDER] })
   return phases.map(toPhaseDto)
 }
 
-export async function createPhase(prisma: PrismaClient, projectId: number, input: ContainerCreate): Promise<PhaseDto> {
+export async function createPhase(prisma: Db, projectId: number, input: ContainerCreate): Promise<PhaseDto> {
   await requireProject(prisma, projectId)
   const max = await prisma.phase.aggregate({ where: { projectId }, _max: { position: true } })
   const phase = await prisma.phase.create({
@@ -70,31 +71,31 @@ export async function createPhase(prisma: PrismaClient, projectId: number, input
   return toPhaseDto(phase)
 }
 
-export async function getPhase(prisma: PrismaClient, phaseId: number): Promise<PhaseDto> {
+export async function getPhase(prisma: Db, phaseId: number): Promise<PhaseDto> {
   return toPhaseDto(await requirePhase(prisma, phaseId))
 }
 
-export async function updatePhase(prisma: PrismaClient, phaseId: number, input: PhaseUpdate): Promise<PhaseDto> {
+export async function updatePhase(prisma: Db, phaseId: number, input: PhaseUpdate): Promise<PhaseDto> {
   const current = await requirePhase(prisma, phaseId)
   const phase = await prisma.phase.update({ where: { id: phaseId }, data: updateFields(input, current) })
   return toPhaseDto(phase)
 }
 
 /** Supprime la phase, ses epics, stories et éléments ; ses jalons restent rattachés au projet. */
-export async function deletePhase(prisma: PrismaClient, phaseId: number): Promise<void> {
+export async function deletePhase(prisma: Db, phaseId: number, now: Date = new Date()): Promise<void> {
   await requirePhase(prisma, phaseId)
-  await prisma.phase.delete({ where: { id: phaseId } })
+  await deleteWithItems(prisma, { story: { epic: { phaseId } } }, (tx) => tx.phase.delete({ where: { id: phaseId } }), now)
 }
 
 // --- Epics ---------------------------------------------------------------------------------------
 
-export async function listEpics(prisma: PrismaClient, phaseId: number): Promise<EpicDto[]> {
+export async function listEpics(prisma: Db, phaseId: number): Promise<EpicDto[]> {
   await requirePhase(prisma, phaseId)
   const epics = await prisma.epic.findMany({ where: { phaseId }, orderBy: [...ORDER] })
   return epics.map(toEpicDto)
 }
 
-export async function createEpic(prisma: PrismaClient, phaseId: number, input: ContainerCreate): Promise<EpicDto> {
+export async function createEpic(prisma: Db, phaseId: number, input: ContainerCreate): Promise<EpicDto> {
   await requirePhase(prisma, phaseId)
   const max = await prisma.epic.aggregate({ where: { phaseId }, _max: { position: true } })
   const epic = await prisma.epic.create({
@@ -103,11 +104,11 @@ export async function createEpic(prisma: PrismaClient, phaseId: number, input: C
   return toEpicDto(epic)
 }
 
-export async function getEpic(prisma: PrismaClient, epicId: number): Promise<EpicDto> {
+export async function getEpic(prisma: Db, epicId: number): Promise<EpicDto> {
   return toEpicDto(await requireEpic(prisma, epicId))
 }
 
-export async function updateEpic(prisma: PrismaClient, epicId: number, input: EpicUpdate): Promise<EpicDto> {
+export async function updateEpic(prisma: Db, epicId: number, input: EpicUpdate): Promise<EpicDto> {
   const current = await requireEpic(prisma, epicId)
   const data: Prisma.EpicUncheckedUpdateInput = updateFields(input, current)
 
@@ -127,20 +128,20 @@ export async function updateEpic(prisma: PrismaClient, epicId: number, input: Ep
   return toEpicDto(await prisma.epic.update({ where: { id: epicId }, data }))
 }
 
-export async function deleteEpic(prisma: PrismaClient, epicId: number): Promise<void> {
+export async function deleteEpic(prisma: Db, epicId: number, now: Date = new Date()): Promise<void> {
   await requireEpic(prisma, epicId)
-  await prisma.epic.delete({ where: { id: epicId } })
+  await deleteWithItems(prisma, { story: { epicId } }, (tx) => tx.epic.delete({ where: { id: epicId } }), now)
 }
 
 // --- Stories -------------------------------------------------------------------------------------
 
-export async function listStories(prisma: PrismaClient, epicId: number): Promise<StoryDto[]> {
+export async function listStories(prisma: Db, epicId: number): Promise<StoryDto[]> {
   await requireEpic(prisma, epicId)
   const stories = await prisma.story.findMany({ where: { epicId }, orderBy: [...ORDER] })
   return stories.map(toStoryDto)
 }
 
-export async function createStory(prisma: PrismaClient, epicId: number, input: ContainerCreate): Promise<StoryDto> {
+export async function createStory(prisma: Db, epicId: number, input: ContainerCreate): Promise<StoryDto> {
   await requireEpic(prisma, epicId)
   const max = await prisma.story.aggregate({ where: { epicId }, _max: { position: true } })
   const story = await prisma.story.create({
@@ -149,11 +150,11 @@ export async function createStory(prisma: PrismaClient, epicId: number, input: C
   return toStoryDto(story)
 }
 
-export async function getStory(prisma: PrismaClient, storyId: number): Promise<StoryDto> {
+export async function getStory(prisma: Db, storyId: number): Promise<StoryDto> {
   return toStoryDto(await requireStory(prisma, storyId))
 }
 
-export async function updateStory(prisma: PrismaClient, storyId: number, input: StoryUpdate): Promise<StoryDto> {
+export async function updateStory(prisma: Db, storyId: number, input: StoryUpdate): Promise<StoryDto> {
   const current = await requireStory(prisma, storyId)
   const data: Prisma.StoryUncheckedUpdateInput = updateFields(input, current)
 
@@ -173,7 +174,7 @@ export async function updateStory(prisma: PrismaClient, storyId: number, input: 
   return toStoryDto(await prisma.story.update({ where: { id: storyId }, data }))
 }
 
-export async function deleteStory(prisma: PrismaClient, storyId: number): Promise<void> {
+export async function deleteStory(prisma: Db, storyId: number, now: Date = new Date()): Promise<void> {
   await requireStory(prisma, storyId)
-  await prisma.story.delete({ where: { id: storyId } })
+  await deleteWithItems(prisma, { storyId }, (tx) => tx.story.delete({ where: { id: storyId } }), now)
 }

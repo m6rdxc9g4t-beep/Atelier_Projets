@@ -4,7 +4,7 @@ import { roundTo, sumHours } from '../domain/durations.ts'
 import { formatDateOnly, formatDateOnlyOrNull } from '../domain/dates.ts'
 import { STATUS_LABELS } from '../domain/atelier-tab.ts'
 import type { Priority } from '../domain/workflow.ts'
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import type { DatasetColumn, DatasetDto, DatasetInfoDto, DatasetName, DatasetOptions } from '../schemas/exports.ts'
 import { requireProject } from './common.ts'
 import { spentHoursByWorkItem } from './work-items.ts'
@@ -17,8 +17,8 @@ interface DatasetDefinition {
   label: string
   description: string
   columns: DatasetColumn[]
-  count(prisma: PrismaClient): Promise<number>
-  rows(prisma: PrismaClient, projectId: number | undefined): Promise<Row[]>
+  count(prisma: Db): Promise<number>
+  rows(prisma: Db, projectId: number | undefined): Promise<Row[]>
 }
 
 const col = (key: string, label: string, type: DatasetColumn['type']): DatasetColumn => ({ key, label, type })
@@ -146,7 +146,7 @@ const DATASETS: Record<DatasetName, DatasetDefinition> = {
   },
 }
 
-export async function listDatasets(prisma: PrismaClient): Promise<DatasetInfoDto[]> {
+export async function listDatasets(prisma: Db): Promise<DatasetInfoDto[]> {
   return Promise.all(
     (Object.keys(DATASETS) as DatasetName[]).map(async (name) => {
       const { label, description, count } = DATASETS[name]
@@ -155,7 +155,7 @@ export async function listDatasets(prisma: PrismaClient): Promise<DatasetInfoDto
   )
 }
 
-export async function getDataset(prisma: PrismaClient, name: DatasetName, options: DatasetOptions, now: Date): Promise<DatasetDto> {
+export async function getDataset(prisma: Db, name: DatasetName, options: DatasetOptions, now: Date): Promise<DatasetDto> {
   if (options.projectId !== undefined) await requireProject(prisma, options.projectId)
   const { label, columns, rows } = DATASETS[name]
   return { name, label, generatedAt: now.toISOString(), columns, rows: await rows(prisma, options.projectId) }

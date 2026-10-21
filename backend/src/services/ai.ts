@@ -13,7 +13,7 @@ import {
   type SummaryCommit,
 } from '../ai-bridge/prompts.ts'
 import { roundTo, toDuration } from '../domain/durations.ts'
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import { GitRepositoryError, openRepository, readCommitPatch } from '../git-engine/repository.ts'
 import { badGateway, badRequest, forbidden, HttpError, notFound } from '../http/errors.ts'
 import type {
@@ -77,13 +77,13 @@ function ollamaFailure(error: unknown): never {
 }
 
 /** Moteur Claude utilisable : en ligne, CLI installée et connectée (la connexion n'est pas vérifiée hors ligne). */
-async function claudeEngineState(prisma: PrismaClient, settings: AiSettings, refresh = false) {
+async function claudeEngineState(prisma: Db, settings: AiSettings, refresh = false) {
   const online = await isOnline(prisma)
   if (!online) return { online, engine: null }
   return { online, engine: await settings.claudeEngine.status({ refresh }) }
 }
 
-export async function getAiStatus(prisma: PrismaClient, settings: AiSettings, options: { refresh?: boolean } = {}): Promise<AiStatusDto> {
+export async function getAiStatus(prisma: Db, settings: AiSettings, options: { refresh?: boolean } = {}): Promise<AiStatusDto> {
   const [models, launcher, { online, engine }] = await Promise.all([
     settings.ollama.listModels().then(
       (list) => ({ list, error: null }),
@@ -139,7 +139,7 @@ interface ResolvedEngine {
  * indisponible (502) ; « auto » = Claude si en ligne et disponible, sinon Ollama.
  */
 async function resolveEngine(
-  prisma: PrismaClient,
+  prisma: Db,
   settings: AiSettings,
   input: { engine?: EngineChoice; model?: string; claudeModel?: ClaudeModel },
 ): Promise<ResolvedEngine> {
@@ -188,7 +188,7 @@ const ENGINE_LABEL: Record<AiEngine, string> = { ollama: 'Le modèle', claude: '
 // --- Découpage d'une Story ---------------------------------------------------------------------------
 
 export async function breakdownStory(
-  prisma: PrismaClient,
+  prisma: Db,
   settings: AiSettings,
   input: BreakdownRequest,
   signal?: AbortSignal,
@@ -247,7 +247,7 @@ export async function breakdownStory(
 // --- Résumé des commits d'un élément ---------------------------------------------------------------
 
 export async function summarizeCommits(
-  prisma: PrismaClient,
+  prisma: Db,
   settings: AiSettings,
   input: SummarizeRequest,
   signal?: AbortSignal,
@@ -324,7 +324,7 @@ export async function summarizeCommits(
 
 // --- Claude CLI ------------------------------------------------------------------------------------
 
-async function claudeContext(prisma: PrismaClient, workItemId: number) {
+async function claudeContext(prisma: Db, workItemId: number) {
   const item = await prisma.workItem.findUnique({
     where: { id: workItemId },
     include: {
@@ -355,12 +355,12 @@ async function claudeContext(prisma: PrismaClient, workItemId: number) {
   return { item, prompt, cwd: item.project.localRepoPath }
 }
 
-export async function getClaudePrompt(prisma: PrismaClient, workItemId: number): Promise<ClaudePromptDto> {
+export async function getClaudePrompt(prisma: Db, workItemId: number): Promise<ClaudePromptDto> {
   const { item, prompt, cwd } = await claudeContext(prisma, workItemId)
   return { workItemId: item.id, prompt, cwd }
 }
 
-export async function launchClaude(prisma: PrismaClient, settings: AiSettings, input: ClaudeLaunchRequest): Promise<ClaudeLaunchResultDto> {
+export async function launchClaude(prisma: Db, settings: AiSettings, input: ClaudeLaunchRequest): Promise<ClaudeLaunchResultDto> {
   let workItemId: number | null = null
   let cwd: string | null
   let prompt: string | null

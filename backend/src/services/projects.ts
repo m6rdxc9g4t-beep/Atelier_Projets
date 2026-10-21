@@ -1,12 +1,13 @@
 // Projets : CRUD, slug unique, budget saisi en heures ou en jours.
 import { DEFAULT_HOURS_PER_DAY } from '../domain/durations.ts'
 import { slugify, slugSearchPrefix, uniqueSlug } from '../domain/slug.ts'
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import type { Prisma } from '../generated/prisma/client.ts'
 import { badRequest, conflict } from '../http/errors.ts'
 import type { ProjectCreate, ProjectDto, ProjectUpdate } from '../schemas/projects.ts'
 import { assertDateOrder, inputDate, requireProject, resolveDate, resolveHours } from './common.ts'
 import { toProjectDto } from './mappers.ts'
+import { deleteWithItems } from './work-items.ts'
 
 function assertGithubPair(owner: string | null, repo: string | null): void {
   if ((owner === null) !== (repo === null)) {
@@ -14,7 +15,7 @@ function assertGithubPair(owner: string | null, repo: string | null): void {
   }
 }
 
-async function freeSlug(prisma: PrismaClient, base: string): Promise<string> {
+async function freeSlug(prisma: Db, base: string): Promise<string> {
   const taken = await prisma.project.findMany({
     where: { slug: { startsWith: slugSearchPrefix(base) } },
     select: { slug: true },
@@ -23,22 +24,22 @@ async function freeSlug(prisma: PrismaClient, base: string): Promise<string> {
   return uniqueSlug(base, (slug) => slugs.has(slug))
 }
 
-async function assertSlugAvailable(prisma: PrismaClient, slug: string): Promise<void> {
+async function assertSlugAvailable(prisma: Db, slug: string): Promise<void> {
   if (await prisma.project.findUnique({ where: { slug }, select: { id: true } })) {
     throw conflict(`Le slug « ${slug} » est déjà utilisé par un autre projet`)
   }
 }
 
-export async function listProjects(prisma: PrismaClient): Promise<ProjectDto[]> {
+export async function listProjects(prisma: Db): Promise<ProjectDto[]> {
   const projects = await prisma.project.findMany({ orderBy: [{ name: 'asc' }, { id: 'asc' }] })
   return projects.map(toProjectDto)
 }
 
-export async function getProject(prisma: PrismaClient, projectId: number): Promise<ProjectDto> {
+export async function getProject(prisma: Db, projectId: number): Promise<ProjectDto> {
   return toProjectDto(await requireProject(prisma, projectId))
 }
 
-export async function createProject(prisma: PrismaClient, input: ProjectCreate): Promise<ProjectDto> {
+export async function createProject(prisma: Db, input: ProjectCreate): Promise<ProjectDto> {
   const hoursPerDay = input.hoursPerDay ?? DEFAULT_HOURS_PER_DAY
   const startDate = inputDate(input.startDate ?? null)
   const dueDate = inputDate(input.dueDate ?? null)
@@ -73,7 +74,7 @@ export async function createProject(prisma: PrismaClient, input: ProjectCreate):
   return toProjectDto(project)
 }
 
-export async function updateProject(prisma: PrismaClient, projectId: number, input: ProjectUpdate): Promise<ProjectDto> {
+export async function updateProject(prisma: Db, projectId: number, input: ProjectUpdate): Promise<ProjectDto> {
   const current = await requireProject(prisma, projectId)
   const hoursPerDay = input.hoursPerDay ?? current.hoursPerDay
   const startDate = resolveDate(input.startDate, current.startDate)
@@ -96,7 +97,7 @@ export async function updateProject(prisma: PrismaClient, projectId: number, inp
   return toProjectDto(await prisma.project.update({ where: { id: projectId }, data }))
 }
 
-export async function deleteProject(prisma: PrismaClient, projectId: number): Promise<void> {
+export async function deleteProject(prisma: Db, projectId: number, now: Date = new Date()): Promise<void> {
   await requireProject(prisma, projectId)
-  await prisma.project.delete({ where: { id: projectId } })
+  await deleteWithItems(prisma, { projectId }, (tx) => tx.project.delete({ where: { id: projectId } }), now)
 }

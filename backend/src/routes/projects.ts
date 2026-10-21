@@ -57,7 +57,7 @@ export const projectRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
-      await deleteProject(app.prisma, request.params.projectId)
+      await deleteProject(app.prisma, request.params.projectId, app.settings.now())
       return reply.code(204).send(null)
     },
   )

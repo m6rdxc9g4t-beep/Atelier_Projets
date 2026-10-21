@@ -1,30 +1,30 @@
 // Briques partagées des services : chargement avec 404, positions, dates et conversions saisies.
 import { parseDateOnlyOrNull } from '../domain/dates.ts'
 import { daysToHours, roundTo } from '../domain/durations.ts'
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import type { Epic, Phase, Project, Story } from '../generated/prisma/client.ts'
 import { badRequest, notFound } from '../http/errors.ts'
 
-export async function requireProject(prisma: PrismaClient, projectId: number): Promise<Project> {
+export async function requireProject(prisma: Db, projectId: number): Promise<Project> {
   const project = await prisma.project.findUnique({ where: { id: projectId } })
   if (!project) throw notFound(`Projet #${projectId} introuvable`)
   return project
 }
 
-export async function requirePhase(prisma: PrismaClient, phaseId: number): Promise<Phase & { project: Project }> {
+export async function requirePhase(prisma: Db, phaseId: number): Promise<Phase & { project: Project }> {
   const phase = await prisma.phase.findUnique({ where: { id: phaseId }, include: { project: true } })
   if (!phase) throw notFound(`Phase #${phaseId} introuvable`)
   return phase
 }
 
-export async function requireEpic(prisma: PrismaClient, epicId: number): Promise<Epic & { phase: Phase }> {
+export async function requireEpic(prisma: Db, epicId: number): Promise<Epic & { phase: Phase }> {
   const epic = await prisma.epic.findUnique({ where: { id: epicId }, include: { phase: true } })
   if (!epic) throw notFound(`Epic #${epicId} introuvable`)
   return epic
 }
 
 export async function requireStory(
-  prisma: PrismaClient,
+  prisma: Db,
   storyId: number,
 ): Promise<Story & { epic: Epic & { phase: Phase & { project: Project } } }> {
   const story = await prisma.story.findUnique({

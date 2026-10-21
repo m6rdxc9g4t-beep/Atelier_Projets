@@ -9,7 +9,7 @@ import { formatDateOnly } from '../domain/dates.ts'
 import { percentOf, sumHours, toDuration, toDurationOrNull } from '../domain/durations.ts'
 import { computeCodes, effectiveSpan, enclosingSpan, type DateSpan } from '../domain/hierarchy.ts'
 import { emptyTypeCounts, isDone, isRejected, WORK_ITEM_STATUSES } from '../domain/workflow.ts'
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import type { Epic, Milestone, Phase, Project, Story } from '../generated/prisma/client.ts'
 import type {
   AggregateDto,
@@ -48,7 +48,7 @@ interface ProjectSnapshot {
   milestones: Milestone[]
 }
 
-async function loadSnapshot(prisma: PrismaClient, projectId: number): Promise<ProjectSnapshot> {
+async function loadSnapshot(prisma: Db, projectId: number): Promise<ProjectSnapshot> {
   const project = await requireProject(prisma, projectId)
   const order = [{ position: 'asc' as const }, { id: 'asc' as const }]
   const [phases, rows, spent, milestones] = await Promise.all([
@@ -92,7 +92,7 @@ function pointSpan(date: Date): DateSpan {
 
 // --- Dashboard -----------------------------------------------------------------------------------
 
-export async function getDashboard(prisma: PrismaClient, projectId: number, options: ReportOptions): Promise<DashboardDto> {
+export async function getDashboard(prisma: Db, projectId: number, options: ReportOptions): Promise<DashboardDto> {
   const { project, items } = await loadSnapshot(prisma, projectId)
   const hoursPerDay = options.hoursPerDay ?? project.hoursPerDay
   const spentHours = sumHours(items.map((item) => item.spentHours))
@@ -129,7 +129,7 @@ export async function getDashboard(prisma: PrismaClient, projectId: number, opti
 
 // --- Arborescence (Gantt & hiérarchie) -----------------------------------------------------------
 
-export async function getProjectTree(prisma: PrismaClient, projectId: number, options: ReportOptions): Promise<ProjectTreeDto> {
+export async function getProjectTree(prisma: Db, projectId: number, options: ReportOptions): Promise<ProjectTreeDto> {
   const { project, phases, itemsByStory, items, milestones } = await loadSnapshot(prisma, projectId)
   const hoursPerDay = options.hoursPerDay ?? project.hoursPerDay
   const codes = computeCodes(phases)
@@ -188,7 +188,7 @@ export async function getProjectTree(prisma: PrismaClient, projectId: number, op
 
 // --- Tableau des temps ---------------------------------------------------------------------------
 
-export async function getTimesheet(prisma: PrismaClient, projectId: number, filters: TimesheetFilters): Promise<TimesheetDto> {
+export async function getTimesheet(prisma: Db, projectId: number, filters: TimesheetFilters): Promise<TimesheetDto> {
   const { project, phases, itemsByStory } = await loadSnapshot(prisma, projectId)
   const hoursPerDay = filters.hoursPerDay ?? project.hoursPerDay
   const codes = computeCodes(phases)
@@ -262,7 +262,7 @@ const BALANCE_FR: Record<string, string> = { UNDER: 'Sous le budget', ON_BUDGET:
 
 /** Tableau des temps (mêmes filtres que la vue) au format CSV, avec une ligne de totaux. */
 export async function getTimesheetCsv(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
   filters: TimesheetFilters,
   today: string,

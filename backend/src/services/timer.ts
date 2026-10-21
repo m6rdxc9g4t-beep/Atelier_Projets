@@ -2,7 +2,7 @@
 // (durée arrondie au centième d'heure, au moins 0,01 h, au plus 24 h ; jour = jour du démarrage).
 import { roundTo } from '../domain/durations.ts'
 import { todayDateOnly } from '../domain/dates.ts'
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import { badRequest, notFound } from '../http/errors.ts'
 import type {
   RunningTimerDto,
@@ -13,6 +13,7 @@ import type {
   TimerStopResultDto,
 } from '../schemas/timer.ts'
 import { toTimeEntryDto } from './mappers.ts'
+import { emitEvents, timeEntryEvent } from './atelier-events.ts'
 
 export interface Clock {
   timeZone: string
@@ -22,9 +23,9 @@ export interface Clock {
 const TIMER_ID = 1
 const MAX_HOURS = 24
 
-type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]
+type Tx = Db
 
-async function loadTimer(prisma: PrismaClient | Tx) {
+async function loadTimer(prisma: Db | Tx) {
   return prisma.runningTimer.findUnique({
     where: { id: TIMER_ID },
     include: { workItem: { select: { id: true, projectId: true, type: true, title: true } } },
@@ -42,13 +43,13 @@ function toDto(timer: NonNullable<Awaited<ReturnType<typeof loadTimer>>>, now: D
   }
 }
 
-export async function getTimer(prisma: PrismaClient, clock: Clock): Promise<TimerStateDto> {
+export async function getTimer(prisma: Db, clock: Clock): Promise<TimerStateDto> {
   const timer = await loadTimer(prisma)
   return { timer: timer ? toDto(timer, clock.now) : null }
 }
 
 /** Démarre le chronomètre (en une transaction : le chronomètre en cours sur un autre élément est arrêté et saisi). */
-export async function startTimer(prisma: PrismaClient, input: TimerStart, clock: Clock): Promise<TimerStartResultDto> {
+export async function startTimer(prisma: Db, input: TimerStart, clock: Clock): Promise<TimerStartResultDto> {
   return prisma.$transaction(async (tx) => {
     const item = await tx.workItem.findUnique({ where: { id: input.workItemId }, select: { id: true } })
     if (!item) throw notFound(`Élément #${input.workItemId} introuvable`)
@@ -66,7 +67,7 @@ export async function startTimer(prisma: PrismaClient, input: TimerStart, clock:
 }
 
 /** Arrête le chronomètre et saisit le temps écoulé, en une transaction. */
-export async function stopTimer(prisma: PrismaClient, input: TimerStop, clock: Clock): Promise<TimerStopResultDto> {
+export async function stopTimer(prisma: Db, input: TimerStop, clock: Clock): Promise<TimerStopResultDto> {
   return prisma.$transaction((tx) => stopIn(tx, input, clock))
 }
 
@@ -74,7 +75,7 @@ async function stopIn(tx: Tx, input: TimerStop, clock: Clock): Promise<TimerStop
   {
     const timer = await tx.runningTimer.findUnique({
       where: { id: TIMER_ID },
-      include: { workItem: { select: { id: true, project: { select: { hoursPerDay: true } } } } },
+      include: { workItem: { select: { id: true, projectId: true, title: true, project: { select: { hoursPerDay: true } } } } },
     })
     if (!timer) throw badRequest('Aucun chronomètre en cours')
     const elapsedHours = Math.max(0, clock.now.getTime() - timer.startedAt.getTime()) / 3_600_000
@@ -85,12 +86,14 @@ async function stopIn(tx: Tx, input: TimerStop, clock: Clock): Promise<TimerStop
       data: { workItemId: timer.workItem.id, spentOn, hours, comment: input.comment?.trim() || 'Chronomètre' },
     })
     await tx.runningTimer.delete({ where: { id: TIMER_ID } })
+    // Arrêt du chronomètre (y compris quand un démarrage ailleurs l'arrête) = saisie de temps.
+    await emitEvents(tx, [timeEntryEvent(timer.workItem, entry)], clock.now)
     return { workItemId: timer.workItem.id, timeEntry: toTimeEntryDto(entry, timer.workItem.project.hoursPerDay), capped }
   }
 }
 
 /** Abandonne le chronomètre sans rien saisir. */
-export async function discardTimer(prisma: PrismaClient): Promise<void> {
+export async function discardTimer(prisma: Db): Promise<void> {
   const deleted = await prisma.runningTimer.deleteMany({ where: { id: TIMER_ID } })
   if (deleted.count === 0) throw badRequest('Aucun chronomètre en cours')
 }

@@ -72,7 +72,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 201: WorkItemDetailSchema, ...errorResponses(400, 404) },
       },
     },
-    async (request, reply) => reply.code(201).send(await createWorkItem(app.prisma, request.params.storyId, request.body)),
+    async (request, reply) => reply.code(201).send(await createWorkItem(app.prisma, request.params.storyId, request.body, app.settings.now())),
   )
 
   app.post(
@@ -86,7 +86,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 201: Type.Array(WorkItemSchema), ...errorResponses(400, 404) },
       },
     },
-    async (request, reply) => reply.code(201).send(await createWorkItems(app.prisma, request.params.storyId, request.body.items)),
+    async (request, reply) => reply.code(201).send(await createWorkItems(app.prisma, request.params.storyId, request.body.items, app.settings.now())),
   )
 
   app.get(
@@ -114,7 +114,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 200: WorkItemDetailSchema, ...errorResponses(400, 404) },
       },
     },
-    async (request) => updateWorkItem(app.prisma, request.params.workItemId, request.body),
+    async (request) => updateWorkItem(app.prisma, request.params.workItemId, request.body, app.settings.now()),
   )
 
   app.delete(
@@ -123,7 +123,7 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
       schema: { tags, summary: 'Supprimer un élément', params: WorkItemParams, response: { 204: NoContent, ...errorResponses(400, 404) } },
     },
     async (request, reply) => {
-      await deleteWorkItem(app.prisma, request.params.workItemId)
+      await deleteWorkItem(app.prisma, request.params.workItemId, app.settings.now())
       return reply.code(204).send(null)
     },
   )
