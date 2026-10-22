@@ -3,11 +3,11 @@
   Atelier Projets : installe l'application de bureau Windows pour l'utilisateur courant (docs/SUITE.md §9.1).
 
 .DESCRIPTION
-  Sans droits d'administrateur. Vérifie les prérequis (Git, Node.js 22.12+ ou 24+), fait la première mise à jour
+  Sans droits d'administrateur. Vérifie les prérequis (Git, Node.js 22.12 ou plus récent), fait la première mise à jour
   (npm ci depuis le lockfile, client Prisma, copie de la base puis migrations, compilation : desktop/prepare.cjs),
   crée le lanceur « Atelier Projets.exe » dans %LOCALAPPDATA%\Programs\Atelier_Projets (copie d'Electron qui lit le
   code dans ce dépôt), les raccourcis du menu Démarrer (dossier « Atelier ») et du Bureau, puis enregistre l'app dans
-  HKCU\Software\Atelier\Apps\projets (ouverture depuis les autres apps de la suite, §9.4).
+  HKCU\Software\Atelier\Apps\projets (Lanceur = raccourci du menu Démarrer, ouvert par les autres apps de la suite, §9.6).
 
   Ensuite, après un « git pull », relancer simplement l'application : elle se met à jour toute seule (§8).
   Relancer ce script répare l'installation (par exemple après un déplacement du dépôt) sans toucher aux données.
@@ -144,9 +144,9 @@ if (-not $node -or -not $npm) {
   $ok = $false
   if ($version -match '^v(\d+)\.(\d+)\.') {
     $majeure = [int]$Matches[1]; $mineure = [int]$Matches[2]
-    $ok = ($majeure -eq 22 -and $mineure -ge 12) -or $majeure -ge 24
+    $ok = $majeure -gt 22 -or ($majeure -eq 22 -and $mineure -ge 12)
   }
-  if (-not $ok) { $manque += "Node.js 22.12+ ou 24+ (trouvé : $version) : winget install --id OpenJS.NodeJS.LTS -e" }
+  if (-not $ok) { $manque += "Node.js 22.12 ou plus récent (trouvé : $version) : winget install --id OpenJS.NodeJS.LTS -e" }
 }
 if ($manque.Count -gt 0) {
   Write-Host 'X Prérequis manquants (à installer, puis rouvrir PowerShell et relancer ce script) :' -ForegroundColor Red
@@ -236,7 +236,8 @@ if ($verif.ExitCode -ne 0) {
 
 Etape "Enregistrement : $Registre"
 New-Item -Path $Registre -Force | Out-Null
-Set-ItemProperty -LiteralPath $Registre -Name 'Lanceur' -Value $Lanceur
+# Lanceur = raccourci du menu Démarrer (icône, cible) : les autres apps l'ouvrent par explorer.exe (docs/SUITE.md §9.6).
+Set-ItemProperty -LiteralPath $Registre -Name 'Lanceur' -Value $RaccourciMenu
 Set-ItemProperty -LiteralPath $Registre -Name 'Nom' -Value $Nom
 Set-ItemProperty -LiteralPath $Registre -Name 'Depot' -Value $Depot
 

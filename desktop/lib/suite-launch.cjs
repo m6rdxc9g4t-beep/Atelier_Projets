@@ -2,14 +2,15 @@
 // en ligne : Atelier Cuisine, https et hôte exact) ouvre l'application installée ; sinon, ou en cas d'échec, l'adresse
 // part dans le navigateur.
 // - macOS : `/usr/bin/open -b <identifiant>` ;
-// - Windows : lanceur enregistré dans HKCU\Software\Atelier\Apps\<viz|tab|projets|nexus> (valeur « Lanceur »), lu par
-//   reg.exe (sans shell) et démarré directement (.exe), par wscript.exe (.vbs) ou par l'Explorateur (.lnk).
+// - Windows (docs/SUITE.md §9.6) : lanceur inscrit dans HKCU\Software\Atelier\Apps\<viz|tab|projets|nexus> (valeur
+//   « Lanceur » = raccourci .lnk du menu Démarrer), lu par reg.exe (sans shell) et ouvert **toujours** par le shell
+//   Windows : `explorer.exe "<Lanceur>"` (execFile), quelle que soit l'extension ; jamais exécuté directement.
 // L'app ouverte ne reçoit qu'un environnement minimal (lib/environment.cjs) : aucune variable de celle-ci
 // (DATABASE_URL, PORT, ATELIER_*, ELECTRON_*…) ne lui passe.
 // Logique pure, dépendances injectables : testée sans Electron (test/suite-launch.test.cjs).
 'use strict'
 
-const { execFile: nodeExecFile, spawn: nodeSpawn } = require('node:child_process')
+const { execFile: nodeExecFile } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 const { minimalEnvironment } = require('./environment.cjs')
@@ -56,44 +57,44 @@ function suiteBundleFor(url) {
 }
 
 /**
- * Commande qui démarre un lanceur Windows enregistré, sans shell : [exécutable, ...arguments], ou null si le lanceur
- * n'est pas un chemin absolu d'un type connu (.exe direct, .vbs par wscript.exe, .lnk par l'Explorateur).
+ * Commande qui ouvre un lanceur Windows inscrit (§9.6) : [explorer.exe, lanceur], ou null si le lanceur n'est pas un
+ * chemin absolu local (relatif ou réseau \\serveur\… refusés). L'Explorateur démarre l'app avec l'environnement de la
+ * session, quelle que soit l'extension (.lnk attendu).
  */
 function windowsLaunchCommand(launcher, env) {
-  if (typeof launcher !== 'string' || !path.win32.isAbsolute(launcher) || /^\\\\/.test(launcher)) return null
+  if (typeof launcher !== 'string' || !path.win32.isAbsolute(launcher) || /^[\\/]{2}/.test(launcher)) return null
   const root = envValue(env, 'SystemRoot', 'win32') || 'C:\\Windows'
-  const extension = path.win32.extname(launcher).toLowerCase()
-  if (extension === '.exe') return [launcher]
-  if (extension === '.vbs') return [path.win32.join(root, 'System32', 'wscript.exe'), launcher]
-  if (extension === '.lnk') return [path.win32.join(root, 'explorer.exe'), launcher]
-  return null
+  return [path.win32.join(root, 'explorer.exe'), launcher]
 }
 
-/** Démarre un processus détaché ; résout true s'il a démarré, false sinon (fichier absent, refusé). */
-function startDetached(spawn, command, env) {
+/**
+ * Lance l'Explorateur (execFile, sans shell). Il rend souvent un code de sortie non nul même quand l'ouverture a
+ * réussi : seul un échec de lancement (explorer.exe introuvable, refusé) compte comme un échec.
+ */
+function runExplorer(execFile, command, env) {
   return new Promise((resolve) => {
-    let child
     try {
-      child = spawn(command[0], command.slice(1), { env, cwd: path.win32.dirname(command[command.length - 1]), detached: true, stdio: 'ignore', windowsHide: false })
+      execFile(command[0], command.slice(1), { env, windowsHide: false }, (error) => resolve(!error || typeof error.code === 'number'))
     } catch {
-      return resolve(false)
+      resolve(false)
     }
-    child.once('error', () => resolve(false))
-    child.once('spawn', () => {
-      child.unref()
-      resolve(true)
-    })
   })
 }
 
 async function openOnWindows(app, deps) {
-  const { env = process.env, spawn = nodeSpawn, exists = fs.existsSync, readRegistry = (key, name) => readRegistryValue(key, name, { env }), sessionPath = () => windowsSessionPath({ env }) } = deps
+  const {
+    env = process.env,
+    execFile = nodeExecFile,
+    exists = fs.existsSync,
+    readRegistry = (key, name) => readRegistryValue(key, name, { env }),
+    sessionPath = () => windowsSessionPath({ env }),
+  } = deps
   if (!app.key) return false
   const launcher = await readRegistry(`${REGISTRY_ROOT}\\${app.key}`, 'Lanceur')
   const command = windowsLaunchCommand(launcher, env)
   if (!command || !exists(launcher)) return false
   const childEnv = minimalEnvironment(env, { platform: 'win32', pathValue: await sessionPath() })
-  return startDetached(spawn, command, childEnv)
+  return runExplorer(execFile, command, childEnv)
 }
 
 function openOnMac(bundle, { execFile = nodeExecFile, env = process.env }) {

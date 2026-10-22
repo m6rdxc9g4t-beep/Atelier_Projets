@@ -3,7 +3,6 @@
 'use strict'
 
 const assert = require('node:assert/strict')
-const { EventEmitter } = require('node:events')
 const { describe, it } = require('node:test')
 const { suiteBundleFor, openSuiteOrExternal, windowsLaunchCommand } = require('../lib/suite-launch.cjs')
 
@@ -105,7 +104,7 @@ describe('openSuiteOrExternal', () => {
   })
 })
 
-describe('Windows : lanceur enregistré dans HKCU\\Software\\Atelier\\Apps (§9.4)', () => {
+describe('Windows : lanceur inscrit dans HKCU\\Software\\Atelier\\Apps, ouvert par l’Explorateur (§9.4, §9.6)', () => {
   const windowsEnv = {
     USERPROFILE: 'C:\\Users\\François',
     USERNAME: 'François',
@@ -113,10 +112,12 @@ describe('Windows : lanceur enregistré dans HKCU\\Software\\Atelier\\Apps (§9.
     Path: 'C:\\depot\\node_modules\\.bin;C:\\WINDOWS\\system32',
     DATABASE_URL: 'file:./prisma/dev.db',
     ATELIER_REPO: 'C:\\Users\\François\\Atelier_Projets',
+    ELECTRON_RUN_AS_NODE: '1',
   }
+  const LNK = 'C:\\Users\\François\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Atelier\\Atelier Tab.lnk'
 
-  function windowsDeps({ launchers = {}, missing = [], spawnFails = false } = {}) {
-    const calls = { registry: [], spawn: [], external: [] }
+  function windowsDeps({ launchers = {}, missing = [], result = null } = {}) {
+    const calls = { registry: [], exec: [], external: [] }
     return {
       calls,
       deps: {
@@ -128,27 +129,22 @@ describe('Windows : lanceur enregistré dans HKCU\\Software\\Atelier\\Apps (§9.
         },
         sessionPath: async () => 'C:\\WINDOWS\\system32;C:\\Program Files\\nodejs',
         exists: (file) => !missing.includes(file),
-        spawn: (file, args, options) => {
-          calls.spawn.push({ file, args, options })
-          const child = new EventEmitter()
-          child.unref = () => (calls.unref = true)
-          setImmediate(() => (spawnFails ? child.emit('error', new Error('ENOENT')) : child.emit('spawn')))
-          return child
+        execFile: (file, args, options, done) => {
+          calls.exec.push({ file, args, options })
+          setImmediate(() => done(result))
         },
         openExternal: async (url) => calls.external.push(url),
       },
     }
   }
 
-  it('démarre le lanceur de l’app (exe), détaché, sans shell, avec un environnement minimal', async () => {
-    const exe = 'C:\\Users\\François\\AppData\\Local\\Programs\\Atelier_Tab\\Atelier Tab.exe'
-    const { calls, deps } = windowsDeps({ launchers: { tab: exe } })
+  it('ouvre le raccourci inscrit par explorer.exe (execFile, sans shell), avec l’environnement minimal', async () => {
+    const { calls, deps } = windowsDeps({ launchers: { tab: LNK } })
     assert.equal(await openSuiteOrExternal('http://127.0.0.1:4175/', deps), 'app')
     assert.deepEqual(calls.registry, ['HKCU\\Software\\Atelier\\Apps\\tab Lanceur'])
-    const [{ file, args, options }] = calls.spawn
-    assert.equal(file, exe)
-    assert.deepEqual(args, [])
-    assert.equal(options.detached, true)
+    const [{ file, args, options }] = calls.exec
+    assert.equal(file, 'C:\\WINDOWS\\explorer.exe')
+    assert.deepEqual(args, [LNK])
     assert.equal(options.shell, undefined)
     assert.deepEqual(options.env, {
       USERPROFILE: 'C:\\Users\\François',
@@ -156,29 +152,29 @@ describe('Windows : lanceur enregistré dans HKCU\\Software\\Atelier\\Apps (§9.
       SystemRoot: 'C:\\WINDOWS',
       Path: 'C:\\WINDOWS\\system32;C:\\Program Files\\nodejs',
     })
-    assert.equal(calls.unref, true)
     assert.deepEqual(calls.external, [])
   })
 
-  it('.vbs par wscript.exe, .lnk par l’Explorateur ; types inconnus, chemins relatifs ou réseau refusés', () => {
-    const env = { SystemRoot: 'C:\\WINDOWS' }
-    assert.deepEqual(windowsLaunchCommand('C:\\Apps\\Atelier Viz\\lancer.vbs', env), ['C:\\WINDOWS\\System32\\wscript.exe', 'C:\\Apps\\Atelier Viz\\lancer.vbs'])
-    assert.deepEqual(windowsLaunchCommand('C:\\Apps\\Viz.lnk', env), ['C:\\WINDOWS\\explorer.exe', 'C:\\Apps\\Viz.lnk'])
-    assert.equal(windowsLaunchCommand('C:\\Apps\\viz.cmd', env), null)
-    assert.equal(windowsLaunchCommand('viz.exe', env), null)
-    assert.equal(windowsLaunchCommand('\\\\serveur\\partage\\viz.exe', env), null)
-    assert.equal(windowsLaunchCommand(null, env), null)
+  it('toujours par l’Explorateur, quelle que soit l’extension ; code de sortie non nul de l’Explorateur = ouvert', async () => {
+    for (const launcher of ['C:\\Apps\\Atelier Viz\\viz.exe', 'C:\\Apps\\lancer.vbs', 'C:\\Apps\\viz.cmd']) {
+      const { calls, deps } = windowsDeps({ launchers: { viz: launcher }, result: Object.assign(new Error('Command failed'), { code: 1 }) })
+      assert.equal(await openSuiteOrExternal('http://127.0.0.1:8000', deps), 'app')
+      assert.deepEqual(calls.exec.map((call) => [call.file, ...call.args]), [['C:\\WINDOWS\\explorer.exe', launcher]])
+    }
+    assert.deepEqual(windowsLaunchCommand('viz.lnk', {}), null)
+    assert.deepEqual(windowsLaunchCommand('\\\\serveur\\partage\\viz.lnk', {}), null)
+    assert.deepEqual(windowsLaunchCommand(null, {}), null)
+    assert.deepEqual(windowsLaunchCommand('D:\\Viz.lnk', {}), ['C:\\Windows\\explorer.exe', 'D:\\Viz.lnk'])
   })
 
-  it('navigateur si l’app n’est pas enregistrée, si le lanceur a disparu ou ne démarre pas', async () => {
+  it('navigateur si l’app n’est pas inscrite, si le raccourci a disparu ou si l’Explorateur ne démarre pas', async () => {
     const none = windowsDeps()
     assert.equal(await openSuiteOrExternal('http://127.0.0.1:8000', none.deps), 'browser')
     assert.deepEqual(none.calls.external, ['http://127.0.0.1:8000'])
-    const exe = 'C:\\Apps\\viz.exe'
-    const gone = windowsDeps({ launchers: { viz: exe }, missing: [exe] })
+    const gone = windowsDeps({ launchers: { viz: LNK }, missing: [LNK] })
     assert.equal(await openSuiteOrExternal('http://127.0.0.1:8000', gone.deps), 'browser')
-    assert.deepEqual(gone.calls.spawn, [])
-    const broken = windowsDeps({ launchers: { viz: exe }, spawnFails: true })
+    assert.deepEqual(gone.calls.exec, [])
+    const broken = windowsDeps({ launchers: { viz: LNK }, result: Object.assign(new Error('spawn ENOENT'), { code: 'ENOENT' }) })
     assert.equal(await openSuiteOrExternal('http://127.0.0.1:8000', broken.deps), 'browser')
     assert.deepEqual(broken.calls.external, ['http://127.0.0.1:8000'])
   })

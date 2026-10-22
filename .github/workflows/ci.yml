@@ -101,8 +101,12 @@ jobs:
           $lanceur = "$profil\AppData\Local\Programs\Atelier_Projets\Atelier Projets.exe"
           if (-not (Test-Path -LiteralPath $lanceur)) { throw 'Lanceur absent' }
           if (-not (Test-Path -LiteralPath "$profil\Menu\Atelier\Atelier Projets.lnk")) { throw 'Raccourci du menu Démarrer absent' }
+          # §9.6 : Lanceur inscrit = raccourci .lnk du menu Démarrer, dont la cible est le lanceur.
+          $raccourci = "$profil\Menu\Atelier\Atelier Projets.lnk"
           $enregistre = (Get-ItemProperty -LiteralPath 'HKCU:\Software\Atelier\Apps\projets').Lanceur
-          if ($enregistre -ne $lanceur) { throw "Registre : $enregistre" }
+          if ($enregistre -ne $raccourci) { throw "Registre : $enregistre" }
+          $cible = (New-Object -ComObject WScript.Shell).CreateShortcut($raccourci).TargetPath
+          if ($cible -ne $lanceur) { throw "Cible du raccourci : $cible" }
           $etat = git -C "$depot" status --porcelain
           if ($etat) { $etat; throw 'Le dépôt paraît modifié après l''installation.' }
 

@@ -76,7 +76,10 @@ function ignoredMessage(ignored) {
 
 // --- Environnement minimal transmis à une autre app de la suite --------------------------------------------------
 
-/** Noms transmis tels quels (utilisateur, dossier personnel, langue, fuseau, dossiers temporaires et système). */
+/**
+ * Noms transmis tels quels (liste de docs/SUITE.md §9.6, plus les LC_*) : utilisateur, dossier personnel, langue, fuseau,
+ * dossiers temporaires et système. PATH est ajouté à part.
+ */
 const MINIMAL_NAMES = Object.freeze([
   'HOME',
   'USERPROFILE',
@@ -87,7 +90,6 @@ const MINIMAL_NAMES = Object.freeze([
   'USERDOMAIN',
   'LOGNAME',
   'LANG',
-  'LANGUAGE',
   'TZ',
   'TMPDIR',
   'TEMP',
@@ -103,9 +105,6 @@ const MINIMAL_NAMES = Object.freeze([
   'ProgramFiles',
   'ProgramFiles(x86)',
   'ProgramW6432',
-  'CommonProgramFiles',
-  'CommonProgramFiles(x86)',
-  'CommonProgramW6432',
 ])
 
 /** PATH système : dossiers du système d'exploitation seulement (macOS, Linux), ou de Windows. */
