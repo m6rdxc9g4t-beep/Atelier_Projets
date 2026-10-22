@@ -90,14 +90,17 @@ export function relativeCommandMessage(command: string): string {
 }
 
 /**
- * Noms essayés pour une commande : sous Windows, « claude » désigne claude.exe (installeur officiel) ; un .cmd ou un
- * .bat n'est jamais retenu (il ne se lance qu'à travers cmd.exe, donc avec un shell).
+ * Noms essayés pour une commande : sous Windows, « claude » cherché dans le PATH désigne claude.exe (installeur
+ * officiel ; le script « claude » sans extension posé par npm n'est pas exécutable) ; un chemin absolu donné
+ * (CLAUDE_CLI) est essayé avec « .exe », puis tel quel. Un .cmd ou un .bat n'est jamais retenu (il ne se lance qu'à
+ * travers cmd.exe, donc avec un shell).
  */
 export function executableNames(command: string, platform: NodeJS.Platform = process.platform): string[] {
   if (platform !== 'win32') return [command]
   const extension = path.win32.extname(command).toLowerCase()
   if (extension === '.exe') return [command]
-  return extension === '' ? [`${command}.exe`] : []
+  if (extension !== '') return []
+  return path.win32.isAbsolute(command) ? [`${command}.exe`, command] : [`${command}.exe`]
 }
 
 /**
@@ -126,7 +129,7 @@ export async function findExecutable(command: string, searchPath: string | undef
  */
 export function claudeFallbackDirs(home: string = homedir(), platform: NodeJS.Platform = process.platform): string[] {
   if (platform === 'win32') return [path.win32.join(home, '.local', 'bin')]
-  return [path.join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin']
+  return [path.posix.join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin']
 }
 
 /**

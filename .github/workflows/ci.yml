@@ -53,6 +53,7 @@ jobs:
           if ($etat) { $etat; throw 'Le clone Windows paraît modifié : vérifier .gitattributes.' }
       # Sorties gardées dans $RUNNER_TEMP\journaux : recopiées en annotations en cas d'échec (dernière étape).
       - name: npm ci
+        id: npmci
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\journaux" | Out-Null
@@ -60,13 +61,16 @@ jobs:
           exit $LASTEXITCODE
       - name: Module natif better-sqlite3 (binaire précompilé Windows)
         run: node -e "const D=require(require.resolve('better-sqlite3',{paths:[require('path').resolve('backend')]}));const d=new D(':memory:');console.log('better-sqlite3', d.prepare('select sqlite_version() v').get().v)"
-      - run: npm run db:generate --workspace=@atelier/backend
+      - name: Client Prisma
+        id: generate
+        run: npm run db:generate --workspace=@atelier/backend
       - name: npm test
         shell: pwsh
         run: |
           npm test 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\npm-test.log"
           exit $LASTEXITCODE
       - name: npm run check
+        if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
         shell: pwsh
         run: |
           npm run check 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\npm-check.log"
@@ -74,6 +78,8 @@ jobs:
 
       # Étapes en PowerShell 7 ; install.ps1 lancé par powershell.exe (5.1), la commande documentée (§9.1).
       - name: Installation dans un profil temporaire
+        id: installation
+        if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -101,6 +107,8 @@ jobs:
           if ($etat) { $etat; throw 'Le dépôt paraît modifié après l''installation.' }
 
       - name: Lanceur en mode « mise à jour seulement » (après un git pull, puis rien à refaire)
+        id: lanceur
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -135,6 +143,7 @@ jobs:
           Write-Host 'OK : mise à jour au lancement, puis rien à refaire.'
 
       - name: Désinstallation (données conservées)
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

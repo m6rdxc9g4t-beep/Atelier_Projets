@@ -298,7 +298,8 @@ describe('hook post-commit', () => {
       assert.ok(content.startsWith(`#!/bin/sh\n${hookMarkers(projectId).begin}`))
       assert.ok(content.endsWith('echo "lint"\n'))
       assert.ok(content.includes(`'${scanUrl}'`))
-      assert.equal((await stat(hookFile)).mode & 0o111, 0o111)
+      // Exécutable (POSIX) ; Git for Windows exécute un hook qui commence par « #! » sans bit x.
+      if (process.platform !== 'win32') assert.equal((await stat(hookFile)).mode & 0o111, 0o111)
 
       const removed = await api('DELETE', `/api/projects/${projectId}/git/hook`)
       assert.equal(removed.body.installed, false)

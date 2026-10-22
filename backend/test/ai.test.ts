@@ -234,7 +234,7 @@ describe('lanceur de Claude CLI', () => {
     assert.equal(shellQuote('$(x) `y`'), `'$(x) \`y\`'`)
   })
 
-  it('trouve la CLI dans le PATH et lit sa version', async () => {
+  it('trouve la CLI dans le PATH et lit sa version', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     const bin = path.join(dir, 'bin')
     await import('node:fs/promises').then((fs) => fs.mkdir(bin))
     await writeFile(path.join(bin, 'claude'), '#!/bin/sh\necho "2.1.300 (Claude Code)"\n')
@@ -273,7 +273,7 @@ describe('lanceur de Claude CLI', () => {
     assert.deepEqual(bare, { command: `cd -- '/repo' && 'claude'`, promptFile: null, launched: false })
   })
 
-  it('« -- » : un prompt qui commence par un tiret reste un prompt pour la vraie CLI', async () => {
+  it('« -- » : un prompt qui commence par un tiret reste un prompt pour la vraie CLI', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     // Fausse CLI qui affiche ses arguments : le prompt arrive après « -- », jamais comme option.
     const bin = path.join(dir, 'args-bin')
     await import('node:fs/promises').then((fs) => fs.mkdir(bin))
@@ -290,12 +290,13 @@ describe('lanceur de Claude CLI', () => {
     assert.deepEqual(executableNames('claude', 'win32'), ['claude.exe'])
     assert.deepEqual(executableNames('C:\\Outils\\Claude.EXE', 'win32'), ['C:\\Outils\\Claude.EXE'])
     assert.deepEqual(executableNames('claude.cmd', 'win32'), [])
+    assert.deepEqual(executableNames('C:\\Outils\\claude', 'win32'), ['C:\\Outils\\claude.exe', 'C:\\Outils\\claude'])
     assert.deepEqual(executableNames('claude', 'darwin'), ['claude'])
     assert.deepEqual(claudeFallbackDirs('C:\\Users\\François', 'win32'), ['C:\\Users\\François\\.local\\bin'])
     assert.deepEqual(claudeFallbackDirs('/Users/moi', 'darwin'), ['/Users/moi/.local/bin', '/opt/homebrew/bin', '/usr/local/bin'])
   })
 
-  it('transmet à la session un PATH sans les outils npm du projet', () => {
+  it('transmet à la session un PATH sans les outils npm du projet', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, () => {
     const search = ['/repo/backend/node_modules/.bin', '/repo/node_modules/.bin', '/usr/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin', '/opt/homebrew/bin', '/usr/bin'].join(':')
     assert.equal(sessionPath(search, '/Users/moi/.local/bin/claude'), '/Users/moi/.local/bin:/opt/homebrew/bin:/usr/bin')
     assert.equal(sessionPath(search, 'claude'), '/opt/homebrew/bin:/usr/bin')
@@ -311,7 +312,7 @@ describe('lanceur de Claude CLI', () => {
     await assert.rejects(launcher.prepare(request), /chemin absolu/)
   })
 
-  it('sur macOS : ouvre un script .command dans le terminal choisi', async () => {
+  it('sur macOS : ouvre un script .command dans le terminal choisi', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     const opened: string[][] = []
     const launcher = createClaudeLauncher({
       command: '/opt/claude/bin/claude',

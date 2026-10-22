@@ -349,7 +349,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     assert.match(unreadable.error ?? '', /claude update/)
   })
 
-  it('vraie CLI simulée : entrée standard, arguments et environnement reçus ; délai dépassé et annulation', async () => {
+  it('vraie CLI simulée : entrée standard, arguments et environnement reçus ; délai dépassé et annulation', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     // La fausse CLI renvoie ce qu'elle a reçu : la conversation (entrée standard), ses arguments, sa clé API éventuelle.
     const executable = await fakeCli(
       'echo',
