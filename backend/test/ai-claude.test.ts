@@ -16,6 +16,7 @@ import {
   createClaudeEngine,
   formatConversation,
   parseResult,
+  spawnRunner,
   type ClaudeEngine,
   type ClaudeEngineStatus,
   type ClaudeRequest,
@@ -83,13 +84,13 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     assert.deepEqual(claudeArguments({ model: 'opus', system: 'S', maxTurns: 2, schema }).slice(-2), ['--json-schema', '{"type":"object"}'])
   })
 
-  it('environnement en liste blanche exacte (§5.3), dossier de l’exécutable en tête du PATH', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, () => {
+  it('environnement en liste blanche exacte (§5.3), dossier de l’exécutable en tête du PATH', () => {
     const env = claudeEnvironment(
       {
         HOME: '/home/moi',
         USER: 'moi',
         LOGNAME: 'moi',
-        PATH: `/repo/node_modules/.bin${path.delimiter}bin${path.delimiter}.${path.delimiter}/usr/bin${path.delimiter}/opt/homebrew/bin`,
+        PATH: `/repo/node_modules/.bin:bin:.:/usr/bin:/opt/homebrew/bin`,
         SHELL: '/bin/zsh',
         LANG: 'fr_FR.UTF-8',
         LC_ALL: 'fr_FR.UTF-8',
@@ -111,12 +112,13 @@ describe('moteur Claude : appel isolé de la CLI', () => {
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '0',
       },
       '/home/moi/.local/bin/claude',
+      'linux',
     )
     assert.deepEqual(env, {
       HOME: '/home/moi',
       USER: 'moi',
       LOGNAME: 'moi',
-      PATH: ['/home/moi/.local/bin', '/usr/bin', '/opt/homebrew/bin'].join(path.delimiter),
+      PATH: ['/home/moi/.local/bin', '/usr/bin', '/opt/homebrew/bin'].join(':'),
       SHELL: '/bin/zsh',
       LANG: 'fr_FR.UTF-8',
       LC_ALL: 'fr_FR.UTF-8',
@@ -126,7 +128,66 @@ describe('moteur Claude : appel isolé de la CLI', () => {
       CLAUDE_CONFIG_DIR: '/home/moi/.claude',
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     })
-    assert.equal(claudeEnvironment({}, '/opt/claude/claude').PATH, ['/opt/claude', '/usr/bin', '/bin'].join(path.delimiter), 'PATH absent : valeur sûre')
+    assert.equal(claudeEnvironment({}, '/opt/claude/claude', 'linux').PATH, ['/opt/claude', '/usr/bin', '/bin'].join(':'), 'PATH absent : valeur sûre')
+  })
+
+  it('Windows : liste blanche §5.3 + variables Windows de §9.6 (casse indifférente), « Path » sous ce nom, rien d’autre', () => {
+    const env = claudeEnvironment(
+      {
+        USERPROFILE: 'C:\\Users\\François',
+        HOMEDRIVE: 'C:',
+        HOMEPATH: '\\Users\\François',
+        USERNAME: 'François',
+        APPDATA: 'C:\\Users\\François\\AppData\\Roaming',
+        LOCALAPPDATA: 'C:\\Users\\François\\AppData\\Local',
+        SYSTEMROOT: 'C:\\WINDOWS',
+        SystemDrive: 'C:',
+        windir: 'C:\\WINDOWS',
+        ComSpec: 'C:\\WINDOWS\\system32\\cmd.exe',
+        PATHEXT: '.COM;.EXE;.BAT;.CMD',
+        TEMP: 'C:\\Users\\François\\AppData\\Local\\Temp',
+        TMP: 'C:\\Users\\François\\AppData\\Local\\Temp',
+        ProgramData: 'C:\\ProgramData',
+        Path: 'C:\\depot\\node_modules\\.bin;relatif;C:\\WINDOWS\\system32;C:\\Program Files\\nodejs',
+        LANG: 'fr_FR.UTF-8',
+        ANTHROPIC_API_KEY: 'sk-ant-secret',
+        GITHUB_TOKEN: 'ghp_secret',
+        ProgramFiles: 'C:\\Program Files',
+        PSModulePath: 'C:\\x',
+        NODE_OPTIONS: '--require x',
+        DATABASE_URL: 'file:./dev.db',
+      },
+      'C:\\Users\\François\\.local\\bin\\claude.exe',
+      'win32',
+    )
+    assert.deepEqual(env, {
+      USERPROFILE: 'C:\\Users\\François',
+      HOMEDRIVE: 'C:',
+      HOMEPATH: '\\Users\\François',
+      USERNAME: 'François',
+      APPDATA: 'C:\\Users\\François\\AppData\\Roaming',
+      LOCALAPPDATA: 'C:\\Users\\François\\AppData\\Local',
+      SYSTEMROOT: 'C:\\WINDOWS',
+      SystemDrive: 'C:',
+      windir: 'C:\\WINDOWS',
+      ComSpec: 'C:\\WINDOWS\\system32\\cmd.exe',
+      PATHEXT: '.COM;.EXE;.BAT;.CMD',
+      TEMP: 'C:\\Users\\François\\AppData\\Local\\Temp',
+      TMP: 'C:\\Users\\François\\AppData\\Local\\Temp',
+      ProgramData: 'C:\\ProgramData',
+      LANG: 'fr_FR.UTF-8',
+      Path: 'C:\\Users\\François\\.local\\bin;C:\\WINDOWS\\system32;C:\\Program Files\\nodejs',
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+    })
+    // Ces variables Windows ne passent pas sous macOS / Linux.
+    assert.equal(claudeEnvironment({ APPDATA: 'x', USERPROFILE: 'y' }, '/usr/local/bin/claude', 'darwin').APPDATA, undefined)
+  })
+
+  it('exécutant : un .cmd ou un .bat n’est jamais lancé (ni cmd.exe, ni shell)', async () => {
+    await assert.rejects(
+      spawnRunner('C:\\Users\\x\\AppData\\Roaming\\npm\\claude.cmd', ['-p'], { input: null, cwd: dir, env: {}, timeoutMs: 1000 }),
+      (error) => error instanceof ClaudeError && error.kind === 'missing' && /jamais lancé par cmd\.exe/.test(error.message),
+    )
   })
 
   it('met le prompt système à part et la conversation sur l’entrée standard', () => {
