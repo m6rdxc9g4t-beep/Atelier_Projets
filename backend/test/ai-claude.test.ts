@@ -241,7 +241,8 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     await assert.rejects(readdir(first?.options.cwd ?? ''), 'dossier temporaire supprimé après l’appel')
     assert.equal(first?.options.env.ANTHROPIC_API_KEY, undefined)
     assert.equal(first?.options.env.GITHUB_TOKEN, undefined)
-    assert.equal(first?.options.env.PATH, [path.dirname(executable), '/usr/bin'].join(path.delimiter))
+    // Sous Windows, la variable s'appelle « Path » (§9.6).
+    assert.equal(first?.options.env[process.platform === 'win32' ? 'Path' : 'PATH'], [path.dirname(executable), '/usr/bin'].join(path.delimiter))
     assert.equal(first?.options.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, '1')
     assert.equal(first?.options.timeoutMs, 180_000)
   })
