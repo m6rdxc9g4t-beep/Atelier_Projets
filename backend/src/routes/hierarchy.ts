@@ -86,7 +86,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
-      await deletePhase(app.prisma, request.params.phaseId)
+      await deletePhase(app.prisma, request.params.phaseId, app.settings.now())
       return reply.code(204).send(null)
     },
   )
@@ -134,7 +134,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
     '/epics/:epicId',
     { schema: { tags, summary: 'Supprimer un epic', params: EpicParams, response: { 204: NoContent, ...errorResponses(400, 404) } } },
     async (request, reply) => {
-      await deleteEpic(app.prisma, request.params.epicId)
+      await deleteEpic(app.prisma, request.params.epicId, app.settings.now())
       return reply.code(204).send(null)
     },
   )
@@ -182,7 +182,7 @@ export const hierarchyRoutes: FastifyPluginAsyncTypebox = async (app) => {
     '/stories/:storyId',
     { schema: { tags, summary: 'Supprimer une story', params: StoryParams, response: { 204: NoContent, ...errorResponses(400, 404) } } },
     async (request, reply) => {
-      await deleteStory(app.prisma, request.params.storyId)
+      await deleteStory(app.prisma, request.params.storyId, app.settings.now())
       return reply.code(204).send(null)
     },
   )

@@ -20,6 +20,7 @@ Ce fichier est la **spécification fonctionnelle et visuelle** de référence. L
 | **IA : choix du moteur** | Mode hors ligne / en ligne (backend), « Moteur : Auto · Ollama · Claude », Claude par la CLI isolée (`claude -p`), pastilles d'état dans l'en-tête (`docs/SUITE.md` §5) | ✅ Terminée — en attente de validation |
 | **Phase 6 — Planification & suivi** | Gantt interactif (glisser-déposer des barres, bords et jalons, dépendances « fin → début », conflits et replanification, chemin critique), impression PDF du Gantt, export CSV des temps, chronomètre, sauvegardes automatiques de la base, tests de navigateur (Playwright) | ✅ Terminée — en attente de validation |
 | **Suite Atelier** | Ports 5174 / 4174, thème Clair / Sombre / Système, sélecteur d'applications, import DataFlow depuis Atelier Tab, jeux de données pour Atelier Viz (`docs/SUITE.md`) | ✅ Terminée — en attente de validation |
+| **Nœud Atelier** | Manifeste `atelier-node/1`, actions en snake_case, tables `atelier-table/1`, journal d'événements, idempotence générale des écritures (`docs/SUITE.md` §7, pour Atelier Nexus) | ✅ Terminée — en attente de validation |
 
 ## ⚡ Démarrage rapide
 
@@ -404,14 +405,15 @@ Les commits contenant `feature #12345`, `task #12345` ou `bug #12345` sont autom
 
 ## 🔌 7. API REST du backend
 
-Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`**. Routes de la Suite Atelier (import Atelier Tab, jeux de données pour Atelier Viz) : voir [§8](#-8-suite-atelier). Le frontend affiche ces réponses telles quelles : les conversions, agrégats et bilans sont calculés ici.
+Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`**. Routes de la Suite Atelier (import Atelier Tab, jeux de données pour Atelier Viz, nœud Atelier pour Atelier Nexus sous `/api/atelier`) : voir [§8](#-8-suite-atelier). Le frontend affiche ces réponses telles quelles : les conversions, agrégats et bilans sont calculés ici.
 
 ### Conventions
 
 - **Durées** : stockées en heures, toujours renvoyées sous la forme `{ "hours": 24, "days": 3 }` (1 jour = `hoursPerDay` du projet, 8 h par défaut). En écriture, une estimation ou un budget se saisit soit en heures (`estimatedHours`, `budgetHours`), soit en jours (`estimatedDays`, `budgetDays`) ; les saisies de temps se font en heures.
 - **Dates** : dates calendaires en `AAAA-MM-JJ` ; horodatages en ISO 8601 (UTC).
 - **Écriture** : `POST` → `201` avec la ressource créée, `PATCH` partiel → `200`, `DELETE` → `204`. Les corps JSON sont typés strictement : un champ inconnu, `"50"` à la place de `50` ou `null` sur un champ obligatoire sont refusés ; `null` efface un champ facultatif (dates, estimation, budget, dépôt…).
-- **Erreurs** : `{ "statusCode", "error", "code", "message" }` — `VALIDATION_ERROR` / `BAD_REQUEST` (400), `NOT_FOUND` (404), `CONFLICT` (409).
+- **Erreurs** : `{ "statusCode", "error", "code", "message" }` — `VALIDATION_ERROR` / `BAD_REQUEST` (400), `NOT_FOUND` (404), `CONFLICT` (409). Seules les routes `/api/atelier/*` (nœud Atelier, §8) répondent `{ "detail", "code" }`.
+- **Événements** : toute écriture d'un élément, d'une saisie de temps ou d'un jalon (par ces routes, l'import ou le chronomètre) alimente le journal du nœud Atelier (`GET /api/atelier/events`, §8).
 
 ### Ressources
 
@@ -513,7 +515,7 @@ Deux façons d'importer une table d'Atelier Tab :
 - **Rangement** : Phase « Imports Atelier Tab » › Epic `<workspace.name>` › Story `<source_table.name ?? project.name>`, retrouvés par leur titre et créés au besoin. Une table **déjà importée** garde sa story : les nouvelles lignes rejoignent celle qui regroupe le plus de ses éléments existants (dans le projet `?projectId=` s'il est donné), même si le projet, la story ou la table ont été renommés ou les éléments déplacés (avertissement « Nouveaux éléments rangés avec ceux déjà importés… » si le chemin diffère de l'enveloppe). Aucun conteneur n'est créé quand toutes les lignes existent déjà ; la réponse désigne alors le projet et la story de ces éléments.
 - **Colonnes** (`atelier_mapping`) : `entity_title` → titre (ligne ignorée avec avertissement s'il est vide), `workflow_state` → statut (codes, libellés et synonymes « Ouvert », « Nouveau », « Fait », « Terminé », « Clos », « Bloqué », « Résolu », « Rejeté », « Annulé », sans tenir compte de la casse ni des accents ; inconnu → « À faire » + avertissement), `start_date` / `due_date` → dates, `description` → début de la description ; les autres colonnes (montants HT/TTC, responsable, quantité, case à cocher, `custom`) forment le tableau Markdown « Données Atelier Tab » de la description. Les erreurs de formule (`#DIV/0!`…) sont ignorées avec un avertissement.
 - **Réimport** : chaque élément garde `externalRef = "atelier-tab:<source_table.id ?? project.id>:<record_id>"` (colonne unique de `WorkItem`) ; un nouvel import met à jour l'élément au lieu d'en créer un autre (`updated`, ou `unchanged` si rien n'a changé). Seuls titre, statut, dates et description sont mis à jour : estimation, temps, journal et position restent ceux d'Atelier Projets.
-- **`Idempotency-Key`** : la réponse d'un import est enregistrée (table SQLite `ImportIdempotency`, dans la même transaction que l'import, conservée 30 jours) ; la même clé rejouée renvoie la même réponse (en-tête `Idempotency-Replayed: true`) sans réimporter, même après un redémarrage de l'API. Réutilisée pour un autre contenu : `409 IDEMPOTENCY_KEY_REUSED`.
+- **`Idempotency-Key`** : la réponse d'un import est enregistrée (table SQLite `IdempotencyRecord`, portée `imports.atelier_tab`, dans la même transaction que l'import, conservée 30 jours) ; la même clé rejouée renvoie la même réponse (en-tête `Idempotency-Replayed: true`) sans réimporter, même après un redémarrage de l'API. Réutilisée pour un autre contenu : `409 IDEMPOTENCY_KEY_REUSED`.
 - **`X-Atelier-Schema-Version`** : s'il est présent et différent de `2.1.0` → `422 UNSUPPORTED_SCHEMA_VERSION` (de même pour `schema_version` dans le corps).
 - **Jeton** : `ATELIER_IMPORT_TOKEN` dans `backend/.env` ; défini, l'en-tête `Authorization: Bearer <jeton>` est exigé (`401` sinon) des **appels externes** : sans en-tête `Origin` (webhook, relais de l'app de bureau Tab, `curl`) ou d'une autre origine (Atelier Tab dans le navigateur) — à renseigner dans le webhook d'Atelier Tab. L'interface d'Atelier Projets n'en a pas besoin : règle « même origine » = `Origin` égale exactement à `http(s)://<Host>` (schéma, nom et port ; le relais `/api` de Vite garde le `Host` du navigateur). Le jeton est vérifié dès la réception (hook `onRequest`), avant la lecture du corps ; comparaison des empreintes SHA-256 à temps constant. Sans jeton configuré, l'en-tête est ignoré.
 - **CORS** : seules ces deux routes répondent aux autres origines `http://127.0.0.1:<port>` et `http://localhost:<port>` (Atelier Tab dans le navigateur), méthodes `POST, OPTIONS`, en-têtes `Content-Type, Authorization, Idempotency-Key, X-Atelier-Schema-Version`. L'app de bureau Atelier Tab relaie ses envois depuis son processus principal, **sans en-tête `Origin`** : c'est un appel local ordinaire. L'origine `null` est **refusée** partout (`403`, sans en-tête CORS) : n'importe quelle page web peut l'envoyer (iframe sandbox, URL `data:`, fichier local). Le garde « API locale » reste actif : l'en-tête `Host` doit être local et un autre site (`Origin` étranger) est refusé (`403`).
@@ -540,3 +542,40 @@ Lecture seule, calculés par le backend (Atelier Viz les importe avec son connec
 | `milestones` | `id`, `projet`, `phase` (vide pour un jalon de projet), `nom`, `date`, `atteint` |
 
 Types : `string`, `number`, `date` (`AAAA-MM-JJ`), `datetime` (ISO 8601), `boolean` ; les clés sont en `snake_case` sans accent, les libellés en français.
+
+### Nœud Atelier (Atelier Nexus, contrat `atelier-node/1`)
+
+Atelier Nexus enchaîne les applications de la suite dans des workflows ([`docs/SUITE.md`](./docs/SUITE.md) §7) : Projets y est un **nœud HTTP** qui décrit ses actions, échange des tables `atelier-table/1` et publie ses événements. Tout reste local (garde « API locale » inchangée) ; aucune action ne touche au mode en ligne.
+
+| Route | Effet |
+| :--- | :--- |
+| `GET /atelier/manifest` | `{ contract: "atelier-node/1", app: "projets", transport: "http", actions, events }` : schémas d'entrée et de sortie (JSON Schema 2020-12) dérivés des schémas TypeBox des routes |
+| `GET /atelier/events?since=&limit=&types=` | `{ events: [{ seq, type, at, subject: { kind, id, label }, data }], next, oldest, gap }` — `since` exclusif (sans `since` : les plus récents), `limit` ≤ 500 (100), `types=a,b` |
+
+| Action (`id`) | Type | Route | Sortie | Idempotence |
+| :--- | :--- | :--- | :--- | :--- |
+| `projects.list` | lecture | `GET /atelier/projects` | json | — |
+| `projects.tree` | lecture | `GET /atelier/projects/{project_id}/tree` | json | — |
+| `work_items.list` | lecture | `GET /atelier/projects/{project_id}/work-items?status=&type=&story_id=&q=&updated_since=` | `atelier-table/1` (colonnes du jeu `work-items`) | — |
+| `work_items.get` | lecture | `GET /atelier/work-items/{work_item_id}` | json | — |
+| `work_items.create` | écriture | `POST /atelier/stories/{story_id}/work-items` `{ type, title, status?, priority?, description?, estimated_hours?, due_date?, start_date? }` | json (`{ id, … }`) | `header` |
+| `work_items.update` | écriture | `PATCH /atelier/work-items/{work_item_id}` `{ status?, progress?, priority?, due_date?, title? }` | json | `natural` |
+| `work_items.log` | écriture | `POST /atelier/work-items/{work_item_id}/log-entries` `{ text, at?, hours? }` | `{ work_item_id, at, entry }` | `header` |
+| `time_entries.create` | écriture | `POST /atelier/work-items/{work_item_id}/time-entries` `{ hours, spent_on?, comment? }` | json | `header` |
+| `milestones.list` | lecture | `GET /atelier/projects/{project_id}/milestones` | `atelier-table/1` | — |
+| `milestones.reach` | écriture | `POST /atelier/milestones/{milestone_id}/reach` `{ reached_at? }` (sans effet si déjà atteint) | json | `natural` |
+| `tables.get` | lecture | `GET /atelier/tables/{name}?project_id=` (`work-items`, `time-entries`, `milestones`) | `atelier-table/1` | — |
+| `imports.atelier_tab` | écriture | `POST /imports/atelier-tab` (route existante, corps DataFlow) | json (camelCase) | `header` |
+
+- **Format** : entrées et sorties en `snake_case` ; les actions délèguent aux services existants (mêmes règles métier, mêmes validations) et convertissent leurs réponses. Les routes existantes ne changent pas.
+- **Événements** (émis par les services, dans la transaction de l'écriture) : `projets.work_item.created` (aussi un par élément d'une création par lot), `projets.work_item.updated` (`fields` : champs changés), `projets.work_item.status_changed` (avec `updated`), `projets.work_item.deleted` (aussi pour les éléments emportés par la suppression d'une story, d'un epic, d'une phase ou d'un projet), `projets.time_entry.created` (saisie ou arrêt du chronomètre), `projets.milestone.reached` (`reachedAt` posé), `projets.import.completed` (un seul par import). `data` ne contient que des identifiants (chaînes), statuts, dates et nombres. Table `AtelierEvent` : `seq` jamais réutilisé ; conservés : les 1 000 derniers, et tous ceux de moins de 30 jours ; `gap: true` si des événements postérieurs à `since` ont été purgés.
+- **`Idempotency-Key`** (actions `header`) : même mécanisme que l'import (table `IdempotencyRecord`, une portée par action, dans la transaction de l'écriture, 30 jours) — même clé et même contenu (chemin, requête, corps) → même réponse avec `Idempotency-Replayed: true`, sans écriture ni événement ; autre contenu → `409 IDEMPOTENCY_KEY_REUSED`. Nexus envoie `nexus:<run>:<step>`.
+- **Erreurs** : `{ "detail": "message", "code": "NOT_FOUND | VALIDATION | CONFLICT | IDEMPOTENCY_KEY_REUSED | FORBIDDEN_HOST | FORBIDDEN_ORIGIN | …" }`.
+
+```bash
+curl -s http://127.0.0.1:3000/api/atelier/manifest | jq '.actions[].id'
+curl -s -X POST http://127.0.0.1:3000/api/atelier/stories/1/work-items \
+  -H 'Content-Type: application/json' -H 'Idempotency-Key: nexus:run-1:step-2' \
+  -d '{"type":"TASK","title":"Relire le contrat","estimated_hours":2}'
+curl -s 'http://127.0.0.1:3000/api/atelier/events?since=0&types=projets.work_item.status_changed'
+```

@@ -54,23 +54,23 @@ export const scheduleRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 200: ResolveResultSchema, ...errorResponses(400, 404) },
       },
     },
-    async (request) => resolveScheduleConflicts(app.prisma, request.params.projectId),
+    async (request) => resolveScheduleConflicts(app.prisma, request.params.projectId, app.settings.now()),
   )
 
   const shift = { tags, body: ShiftSchema, response: { 200: ShiftResultSchema, ...errorResponses(400, 404) } }
   app.post(
     '/phases/:phaseId/shift',
     { schema: { ...shift, summary: 'Déplacer une phase avec son contenu et ses jalons', params: PhaseParams } },
-    async (request) => shiftContainer(app.prisma, 'phase', request.params.phaseId, request.body),
+    async (request) => shiftContainer(app.prisma, 'phase', request.params.phaseId, request.body, app.settings.now()),
   )
   app.post(
     '/epics/:epicId/shift',
     { schema: { ...shift, summary: 'Déplacer un epic avec son contenu', params: EpicParams } },
-    async (request) => shiftContainer(app.prisma, 'epic', request.params.epicId, request.body),
+    async (request) => shiftContainer(app.prisma, 'epic', request.params.epicId, request.body, app.settings.now()),
   )
   app.post(
     '/stories/:storyId/shift',
     { schema: { ...shift, summary: 'Déplacer une story avec ses éléments', params: StoryParams } },
-    async (request) => shiftContainer(app.prisma, 'story', request.params.storyId, request.body),
+    async (request) => shiftContainer(app.prisma, 'story', request.params.storyId, request.body, app.settings.now()),
   )
 }

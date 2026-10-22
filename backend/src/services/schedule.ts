@@ -3,7 +3,7 @@
 import { formatDateOnly, parseDateOnly } from '../domain/dates.ts'
 import { effectiveSpan, type DateSpan } from '../domain/hierarchy.ts'
 import { criticalPath, daysBetween, dependencySlack, resolveConflicts, shiftDay, wouldCreateCycle, type Dependency } from '../domain/schedule.ts'
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import { badRequest, conflict, notFound } from '../http/errors.ts'
 import type {
   DependencyCreate,
@@ -14,6 +14,15 @@ import type {
   ShiftResultDto,
 } from '../schemas/schedule.ts'
 import { requireProject } from './common.ts'
+import { emitEvents } from './atelier-events.ts'
+import { updateEvents } from './work-items.ts'
+
+/** Événements « modifié » (dates) des éléments déplacés par le Gantt. */
+async function emitDateChanges(tx: Db, ids: number[], now: Date): Promise<void> {
+  if (ids.length === 0) return
+  const items = await tx.workItem.findMany({ where: { id: { in: ids } }, select: { id: true, projectId: true, title: true }, orderBy: { id: 'asc' } })
+  await emitEvents(tx, items.flatMap((item) => updateEvents(item, ['start_date', 'due_date'])), now)
+}
 
 type Dated = { startDate: Date | null; dueDate: Date | null }
 
@@ -25,7 +34,7 @@ function spanOf(item: Dated): DateSpan | null {
 
 /** Dépendances d'un projet, avec marge et conflit, et le chemin critique (vue Gantt). */
 export async function projectSchedule(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
 ): Promise<{ dependencies: ProjectDependencyDto[]; criticalPath: number[] }> {
   const [items, dependencies] = await Promise.all([
@@ -49,7 +58,7 @@ export async function projectSchedule(
 
 /** Prédécesseurs et successeurs d'un élément (fiche). */
 export async function workItemDependencies(
-  prisma: PrismaClient,
+  prisma: Db,
   workItemId: number,
 ): Promise<{ predecessors: DependencyRefDto[]; successors: DependencyRefDto[] }> {
   const select = { id: true, type: true, title: true, status: true, startDate: true, dueDate: true } as const
@@ -78,7 +87,7 @@ export async function workItemDependencies(
   }
 }
 
-export async function addDependency(prisma: PrismaClient, successorId: number, input: DependencyCreate): Promise<void> {
+export async function addDependency(prisma: Db, successorId: number, input: DependencyCreate): Promise<void> {
   const [successor, predecessor] = await Promise.all([
     prisma.workItem.findUnique({ where: { id: successorId }, select: { projectId: true } }),
     prisma.workItem.findUnique({ where: { id: input.predecessorId }, select: { projectId: true } }),
@@ -103,13 +112,13 @@ export async function addDependency(prisma: PrismaClient, successorId: number, i
   })
 }
 
-export async function removeDependency(prisma: PrismaClient, successorId: number, predecessorId: number): Promise<void> {
+export async function removeDependency(prisma: Db, successorId: number, predecessorId: number): Promise<void> {
   const deleted = await prisma.workItemDependency.deleteMany({ where: { successorId, predecessorId } })
   if (deleted.count === 0) throw notFound(`#${successorId} ne dépend pas de #${predecessorId}`)
 }
 
 /** Replanifie les éléments en conflit : chaque successeur commence le lendemain de la fin de ses prédécesseurs. */
-export async function resolveScheduleConflicts(prisma: PrismaClient, projectId: number): Promise<ResolveResultDto> {
+export async function resolveScheduleConflicts(prisma: Db, projectId: number, now: Date = new Date()): Promise<ResolveResultDto> {
   await requireProject(prisma, projectId)
   return prisma.$transaction(async (tx) => {
     const [items, dependencies] = await Promise.all([
@@ -128,6 +137,7 @@ export async function resolveScheduleConflicts(prisma: PrismaClient, projectId: 
       const days = daysBetween(before.start, span.start)
       await tx.workItem.update({ where: { id }, data: { startDate: shifted(item.startDate, days), dueDate: shifted(item.dueDate, days) } })
     }
+    await emitDateChanges(tx, [...moved.keys()].filter((id) => own.has(id) && spans.has(id)), now)
     return { moved: [...moved].map(([id, span]) => ({ id, startDate: span.start, dueDate: span.end })).sort((a, b) => a.id - b.id) }
   })
 }
@@ -144,7 +154,7 @@ type Level = 'phase' | 'epic' | 'story'
  * Déplace une barre de Gantt (phase, epic ou story) : ses propres dates, celles de tout son contenu
  * (epics, stories, éléments) et, pour une phase, de ses jalons — tout ou rien.
  */
-export async function shiftContainer(prisma: PrismaClient, level: Level, id: number, input: ShiftInput): Promise<ShiftResultDto> {
+export async function shiftContainer(prisma: Db, level: Level, id: number, input: ShiftInput, now: Date = new Date()): Promise<ShiftResultDto> {
   const days = input.days
   return prisma.$transaction(async (tx) => {
     let storyIds: number[] = []
@@ -187,9 +197,12 @@ export async function shiftContainer(prisma: PrismaClient, level: Level, id: num
     containers += await shiftRows(await tx.story.findMany({ where: { id: { in: storyIds } }, select: dates }), (rowId, data) =>
       tx.story.update({ where: { id: rowId }, data }),
     )
-    const workItems = await shiftRows(await tx.workItem.findMany({ where: { storyId: { in: storyIds } }, select: dates }), (rowId, data) =>
-      tx.workItem.update({ where: { id: rowId }, data }),
-    )
+    const shiftedItems: number[] = []
+    const workItems = await shiftRows(await tx.workItem.findMany({ where: { storyId: { in: storyIds } }, select: dates }), (rowId, data) => {
+      shiftedItems.push(rowId)
+      return tx.workItem.update({ where: { id: rowId }, data })
+    })
+    await emitDateChanges(tx, shiftedItems, now)
     let milestones = 0
     if (phaseIds.length > 0) {
       for (const milestone of await tx.milestone.findMany({ where: { phaseId: { in: phaseIds } }, select: { id: true, date: true } })) {

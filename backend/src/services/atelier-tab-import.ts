@@ -5,10 +5,9 @@
 // garde sa story (celle de ses éléments existants), même si le projet, la story ou la table ont été renommés ;
 // aucun conteneur n'est créé quand il n'y a rien à créer.
 //
-// Idempotence : la réponse d'un import est enregistrée dans la table ImportIdempotency, dans la même
-// transaction que l'import. Une table SQLite plutôt qu'un cache en mémoire : la clé survit à un redémarrage
-// de l'API (nouvelle tentative du webhook après une coupure), sans dépendance de plus, et l'enregistrement
-// est atomique avec l'import (pas de fenêtre où l'import est fait mais la clé perdue).
+// Idempotence : mécanisme commun des écritures (services/idempotency.ts, table IdempotencyRecord, portée
+// « imports.atelier_tab ») : la réponse est enregistrée dans la même transaction que l'import, qui émet aussi
+// un seul événement projets.import.completed (services/atelier-events.ts).
 import { createHash, timingSafeEqual } from 'node:crypto'
 import {
   ATELIER_TAB_SCHEMA_VERSION,
@@ -21,17 +20,15 @@ import {
 import { formatDateOnlyOrNull, parseDateOnlyOrNull } from '../domain/dates.ts'
 import { slugify, slugSearchPrefix, uniqueSlug } from '../domain/slug.ts'
 import { isDone, type WorkItemType } from '../domain/workflow.ts'
-import type { PrismaClient } from '../db/client.ts'
-import type { Prisma } from '../generated/prisma/client.ts'
+import type { Db } from '../db/client.ts'
 import { HttpError, notFound } from '../http/errors.ts'
 import { MARKDOWN_MAX_LENGTH } from '../schemas/common.ts'
 import type { ImportOptions, ImportPreviewDto, ImportResultDto } from '../schemas/atelier-tab.ts'
+import { emitEvents, nodeEvent, ref } from './atelier-events.ts'
 import { nextPosition } from './common.ts'
 
-type Tx = Prisma.TransactionClient | PrismaClient
+type Tx = Db
 
-/** Réponses d'import conservées (rejeu d'une clé Idempotency-Key) : 30 jours. */
-export const IDEMPOTENCY_RETENTION_MS = 30 * 24 * 3600 * 1000
 /** Un gros import (milliers de lignes) dépasse le délai par défaut de 5 s d'une transaction Prisma. */
 const TRANSACTION_TIMEOUT_MS = 120_000
 
@@ -245,7 +242,7 @@ function count(rows: { action: string }[], action: string): number {
 
 // --- Aperçu --------------------------------------------------------------------------------------------
 
-export async function previewAtelierTabImport(prisma: PrismaClient, request: ImportRequest): Promise<ImportPreviewDto> {
+export async function previewAtelierTabImport(prisma: Db, request: ImportRequest): Promise<ImportPreviewDto> {
   const { envelope, options } = request
   assertSchemaVersion(request.headers.schemaVersion, envelope)
   const plan = planAtelierTabImport(envelope, { maxDescriptionLength: MARKDOWN_MAX_LENGTH })
@@ -319,132 +316,103 @@ async function ensureContainers(tx: Tx, plan: ImportPlan, target: Target): Promi
   return { projectId: project.id, storyId }
 }
 
-function requestHash(request: ImportRequest): string {
-  return createHash('sha256')
-    .update(JSON.stringify({ options: request.options, envelope: request.envelope }))
-    .digest('hex')
+/** Contenu haché pour l'idempotence (corps + paramètres) : même empreinte qu'avant la généralisation (clés conservées). */
+export function importHashSource(request: ImportRequest): unknown {
+  return { options: request.options, envelope: request.envelope }
 }
 
-export interface ImportOutcome {
-  result: ImportResultDto
-  /** Réponse rejouée depuis une clé Idempotency-Key déjà traitée. */
-  replayed: boolean
-}
+/** Portée des clés Idempotency-Key de l'import (table IdempotencyRecord). */
+export const IMPORT_SCOPE = 'imports.atelier_tab'
+/** Un gros import (milliers de lignes) dépasse le délai par défaut de 5 s d'une transaction Prisma. */
+export const IMPORT_TRANSACTION_TIMEOUT_MS = TRANSACTION_TIMEOUT_MS
 
-async function storedResponse(tx: Tx, key: string, hash: string): Promise<ImportOutcome | null> {
-  const stored = await tx.importIdempotency.findUnique({ where: { key } })
-  if (!stored) return null
-  if (stored.requestHash !== hash) {
-    throw new HttpError(409, 'IDEMPOTENCY_KEY_REUSED', 'Cette clé Idempotency-Key a déjà servi pour un autre contenu : utiliser une nouvelle clé')
-  }
-  return { result: JSON.parse(stored.response) as ImportResultDto, replayed: true }
-}
-
-export async function importFromAtelierTab(
-  prisma: PrismaClient,
-  request: ImportRequest,
-  now: Date = new Date(),
-): Promise<ImportOutcome> {
+/**
+ * Import dans la transaction de l'appelant (http/idempotency.ts l'ouvre, avec l'enregistrement de la clé) :
+ * crée ou met à jour les éléments, puis émet un seul événement projets.import.completed (docs/SUITE.md §7.3).
+ */
+export async function importAtelierTabIn(tx: Tx, request: ImportRequest, now: Date): Promise<ImportResultDto> {
   const { envelope, options } = request
   assertSchemaVersion(request.headers.schemaVersion, envelope)
-  const key = request.headers.idempotencyKey?.trim() || null
-  const hash = key ? requestHash(request) : ''
-  if (key) {
-    const replay = await storedResponse(prisma, key, hash)
-    if (replay) return replay
-  }
-
   const plan = planAtelierTabImport(envelope, { maxDescriptionLength: MARKDOWN_MAX_LENGTH })
   const type: WorkItemType = options.type ?? 'TASK'
+  const target = await findTarget(tx, plan, options)
+  const existing = await findExisting(tx, plan)
+  const creating = plan.items.some((item) => !existing.has(item.externalRef))
+  let projectId = target.project?.id ?? null
+  let storyId = target.story.id
+  const rows: ReturnType<typeof itemRow>[] = []
 
-  try {
-    return await prisma.$transaction(
-      async (tx) => {
-        // Deux envois simultanés de la même clé : le second voit la réponse du premier.
-        if (key) {
-          const replay = await storedResponse(tx, key, hash)
-          if (replay) return replay
-        }
-        const target = await findTarget(tx, plan, options)
-        const existing = await findExisting(tx, plan)
-        const creating = plan.items.some((item) => !existing.has(item.externalRef))
-        let projectId = target.project?.id ?? null
-        let storyId = target.story.id
-        const rows: ReturnType<typeof itemRow>[] = []
-
-        if (plan.items.length > 0) {
-          // Conteneurs créés seulement s'il reste des éléments à créer (sinon : réimport pur, rien de vide).
-          let position = 0
-          if (creating) {
-            const containers = await ensureContainers(tx, plan, target)
-            projectId = containers.projectId
-            storyId = containers.storyId
-            const max = await tx.workItem.aggregate({ where: { storyId }, _max: { position: true } })
-            position = nextPosition(max._max.position)
-          }
-
-          for (const item of plan.items) {
-            const current = existing.get(item.externalRef)
-            const action = actionFor(item, current)
-            const fields = {
-              title: item.title,
-              status: item.status,
-              description: item.description,
-              startDate: parseDateOnlyOrNull(item.startDate),
-              dueDate: parseDateOnlyOrNull(item.dueDate),
-            }
-            if (!current) {
-              const created = await tx.workItem.create({
-                data: {
-                  ...fields,
-                  projectId: projectId!,
-                  storyId: storyId!,
-                  type,
-                  externalRef: item.externalRef,
-                  progress: isDone(item.status) ? 100 : 0,
-                  position: position++,
-                },
-              })
-              rows.push(itemRow(item, created.id, action))
-            } else {
-              if (action === 'updated') {
-                // Résolu / terminé ⇒ 100 % ; rouvert : l'avancement est conservé (règle de l'API).
-                await tx.workItem.update({
-                  where: { id: current.id },
-                  data: { ...fields, ...(isDone(item.status) && { progress: 100 }) },
-                })
-              }
-              rows.push(itemRow(item, current.id, action))
-            }
-          }
-        }
-
-        const warnings = [...plan.warnings, ...sourceWarnings(plan, target, options, creating), ...movedWarnings(plan, existing, projectId)]
-        const items = sortedByRow([...rows, ...skippedRows(plan)])
-        const result: ImportResultDto = {
-          projectId,
-          storyId,
-          created: count(items, 'created'),
-          updated: count(items, 'updated'),
-          unchanged: count(items, 'unchanged'),
-          skipped: count(items, 'skipped'),
-          warnings,
-          items,
-        }
-        if (key) {
-          await tx.importIdempotency.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - IDEMPOTENCY_RETENTION_MS) } } })
-          await tx.importIdempotency.create({ data: { key, requestHash: hash, statusCode: 200, response: JSON.stringify(result), createdAt: now } })
-        }
-        return { result, replayed: false }
-      },
-      { timeout: TRANSACTION_TIMEOUT_MS, maxWait: TRANSACTION_TIMEOUT_MS },
-    )
-  } catch (error) {
-    // Course perdue sur la clé (P2002) : l'autre requête a importé ; renvoyer sa réponse.
-    if (key && (error as { code?: string }).code === 'P2002') {
-      const replay = await storedResponse(prisma, key, hash)
-      if (replay) return replay
+  if (plan.items.length > 0) {
+    // Conteneurs créés seulement s'il reste des éléments à créer (sinon : réimport pur, rien de vide).
+    let position = 0
+    if (creating) {
+      const containers = await ensureContainers(tx, plan, target)
+      projectId = containers.projectId
+      storyId = containers.storyId
+      const max = await tx.workItem.aggregate({ where: { storyId }, _max: { position: true } })
+      position = nextPosition(max._max.position)
     }
-    throw error
+
+    for (const item of plan.items) {
+      const current = existing.get(item.externalRef)
+      const action = actionFor(item, current)
+      const fields = {
+        title: item.title,
+        status: item.status,
+        description: item.description,
+        startDate: parseDateOnlyOrNull(item.startDate),
+        dueDate: parseDateOnlyOrNull(item.dueDate),
+      }
+      if (!current) {
+        const created = await tx.workItem.create({
+          data: {
+            ...fields,
+            projectId: projectId!,
+            storyId: storyId!,
+            type,
+            externalRef: item.externalRef,
+            progress: isDone(item.status) ? 100 : 0,
+            position: position++,
+          },
+        })
+        rows.push(itemRow(item, created.id, action))
+      } else {
+        if (action === 'updated') {
+          // Résolu / terminé ⇒ 100 % ; rouvert : l'avancement est conservé (règle de l'API).
+          await tx.workItem.update({
+            where: { id: current.id },
+            data: { ...fields, ...(isDone(item.status) && { progress: 100 }) },
+          })
+        }
+        rows.push(itemRow(item, current.id, action))
+      }
+    }
   }
+
+  const warnings = [...plan.warnings, ...sourceWarnings(plan, target, options, creating), ...movedWarnings(plan, existing, projectId)]
+  const items = sortedByRow([...rows, ...skippedRows(plan)])
+  const result: ImportResultDto = {
+    projectId,
+    storyId,
+    created: count(items, 'created'),
+    updated: count(items, 'updated'),
+    unchanged: count(items, 'unchanged'),
+    skipped: count(items, 'skipped'),
+    warnings,
+    items,
+  }
+  // Un seul événement par import (pas un par ligne) ; sujet : le projet de destination (s'il existe).
+  const projectName = target.project?.name ?? plan.projectName
+  await emitEvents(
+    tx,
+    [
+      nodeEvent(
+        'projets.import.completed',
+        { kind: 'project', id: projectId === null ? '' : ref(projectId), label: projectName },
+        { source: 'atelier-tab', created: result.created, updated: result.updated, unchanged: result.unchanged, skipped: result.skipped },
+      ),
+    ],
+    now,
+  )
+  return result
 }

@@ -3,8 +3,8 @@
 import { sumHours } from '../domain/durations.ts'
 import { computeCodes } from '../domain/hierarchy.ts'
 import { appendLogEntry, formatLogEntry } from '../domain/implementation-log.ts'
-import { isDone, type WorkItemStatus } from '../domain/workflow.ts'
-import type { PrismaClient } from '../db/client.ts'
+import { isDone, type WorkItemStatus, type WorkItemType } from '../domain/workflow.ts'
+import type { Db } from '../db/client.ts'
 import type { Prisma } from '../generated/prisma/client.ts'
 import { badRequest, notFound } from '../http/errors.ts'
 import { MARKDOWN_MAX_LENGTH } from '../schemas/common.ts'
@@ -30,6 +30,8 @@ import type { ReportOptions } from '../schemas/reports.ts'
 import { toLinkedPullRequests } from './git.ts'
 import { workItemDependencies } from './schedule.ts'
 import { toContainerRef, toTimeEntryDto, toWorkItemDto, WORK_ITEM_ROW_OMIT } from './mappers.ts'
+import { emitEvents, nodeEvent, ref, type NodeEvent } from './atelier-events.ts'
+import { toSnakeKey } from '../domain/snake-case.ts'
 
 /** Ordre hiérarchique (identique à l'arborescence) : à chaque niveau, position puis id. */
 const HIERARCHY_ORDER: Prisma.WorkItemOrderByWithRelationInput[] = [
@@ -56,7 +58,7 @@ function progressFor(status: WorkItemStatus, progress: number | undefined): numb
 
 /** Heures saisies par WorkItem (somme des TimeEntry). */
 export async function spentHoursByWorkItem(
-  prisma: PrismaClient,
+  prisma: Db,
   where: Prisma.TimeEntryWhereInput,
 ): Promise<Map<number, number>> {
   const groups = await prisma.timeEntry.groupBy({ by: ['workItemId'], where, _sum: { hours: true } })
@@ -64,7 +66,7 @@ export async function spentHoursByWorkItem(
 }
 
 /** Codes « PHASE 1 / EPIC 2 / STORY 2.1 » du projet. */
-export async function loadHierarchyCodes(prisma: PrismaClient, projectId: number) {
+export async function loadHierarchyCodes(prisma: Db, projectId: number) {
   const phases = await prisma.phase.findMany({
     where: { projectId },
     select: { id: true, position: true, epics: { select: { id: true, position: true, stories: { select: { id: true, position: true } } } } },
@@ -72,7 +74,7 @@ export async function loadHierarchyCodes(prisma: PrismaClient, projectId: number
   return computeCodes(phases)
 }
 
-async function nextWorkItemPosition(prisma: PrismaClient, storyId: number): Promise<number> {
+async function nextWorkItemPosition(prisma: Db, storyId: number): Promise<number> {
   const max = await prisma.workItem.aggregate({ where: { storyId }, _max: { position: true } })
   return nextPosition(max._max.position)
 }
@@ -95,7 +97,7 @@ function matchesQuery(q: string | undefined): (item: { id: number; title: string
 }
 
 export async function listProjectWorkItems(
-  prisma: PrismaClient,
+  prisma: Db,
   projectId: number,
   filters: WorkItemFilters,
 ): Promise<WorkItemDto[]> {
@@ -121,7 +123,7 @@ export async function listProjectWorkItems(
     .map((item) => toWorkItemDto(item, spent.get(item.id) ?? 0, project.hoursPerDay))
 }
 
-export async function listStoryWorkItems(prisma: PrismaClient, storyId: number): Promise<WorkItemDto[]> {
+export async function listStoryWorkItems(prisma: Db, storyId: number): Promise<WorkItemDto[]> {
   const story = await requireStory(prisma, storyId)
   const [items, spent] = await Promise.all([
     prisma.workItem.findMany({ where: { storyId }, omit: WORK_ITEM_ROW_OMIT, orderBy: [{ position: 'asc' }, { id: 'asc' }] }),
@@ -132,7 +134,7 @@ export async function listStoryWorkItems(prisma: PrismaClient, storyId: number):
 }
 
 export async function getWorkItemDetail(
-  prisma: PrismaClient,
+  prisma: Db,
   workItemId: number,
   options: ReportOptions = {},
 ): Promise<WorkItemDetailDto> {
@@ -202,45 +204,86 @@ function newWorkItemData(project: { id: number; hoursPerDay: number }, storyId: 
   }
 }
 
+/** Événement « élément créé » (docs/SUITE.md §7.3). */
+function createdEvent(item: { id: number; projectId: number; storyId: number; type: WorkItemType; status: WorkItemStatus; title: string }): NodeEvent {
+  return nodeEvent(
+    'projets.work_item.created',
+    { kind: 'work_item', id: ref(item.id), label: item.title },
+    { project_id: ref(item.projectId), story_id: ref(item.storyId), type: item.type, status: item.status },
+  )
+}
+
 export async function createWorkItem(
-  prisma: PrismaClient,
+  prisma: Db,
   storyId: number,
   input: WorkItemCreate,
+  now: Date = new Date(),
 ): Promise<WorkItemDetailDto> {
   const story = await requireStory(prisma, storyId)
   const data = newWorkItemData(story.epic.phase.project, storyId, input)
-  const item = await prisma.workItem.create({
-    data: { ...data, position: input.position ?? (await nextWorkItemPosition(prisma, storyId)) },
+  const id = await prisma.$transaction(async (tx) => {
+    const item = await tx.workItem.create({
+      data: { ...data, position: input.position ?? (await nextWorkItemPosition(tx, storyId)) },
+    })
+    await emitEvents(tx, [createdEvent(item)], now)
+    return item.id
   })
-  return getWorkItemDetail(prisma, item.id)
+  return getWorkItemDetail(prisma, id)
 }
 
 /**
  * Crée plusieurs éléments dans une story, en fin de liste et dans l'ordre donné, en une seule transaction :
  * tous sont créés ou aucun (découpage proposé par l'IA, saisie en lot).
  */
-export async function createWorkItems(prisma: PrismaClient, storyId: number, inputs: WorkItemCreate[]): Promise<WorkItemDto[]> {
+export async function createWorkItems(prisma: Db, storyId: number, inputs: WorkItemCreate[], now: Date = new Date()): Promise<WorkItemDto[]> {
   const story = await requireStory(prisma, storyId)
   const rows = inputs.map((input) => ({ input, data: newWorkItemData(story.epic.phase.project, storyId, input) }))
   const ids = await prisma.$transaction(async (tx) => {
     const max = await tx.workItem.aggregate({ where: { storyId }, _max: { position: true } })
     let position = nextPosition(max._max.position)
-    const created: number[] = []
+    const created: Awaited<ReturnType<typeof tx.workItem.create>>[] = []
     for (const { input, data } of rows) {
       const item = await tx.workItem.create({ data: { ...data, position: input.position ?? position } })
       position = Math.max(position, item.position) + 1
-      created.push(item.id)
+      created.push(item)
     }
-    return created
+    // Un événement « créé » par élément, dans la transaction du lot (tout ou rien).
+    await emitEvents(tx, created.map(createdEvent), now)
+    return created.map((item) => item.id)
   })
   const all = await listStoryWorkItems(prisma, storyId)
   return ids.map((id) => all.find((item) => item.id === id)).filter((item): item is WorkItemDto => item !== undefined)
 }
 
+/** Champs réellement changés (noms en snake_case, comme les propriétés du nœud Atelier). */
+function changedFields(current: Record<string, unknown>, data: Record<string, unknown>): string[] {
+  const same = (a: unknown, b: unknown) => (a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : a === b)
+  return Object.entries(data)
+    .filter(([key, value]) => value !== undefined && !same(current[key], value))
+    .map(([key]) => toSnakeKey(key))
+}
+
+/** Événements d'une modification : « modifié » (champs changés) et, si le statut change, « statut changé ». */
+export function updateEvents(
+  item: { id: number; projectId: number; title: string },
+  fields: string[],
+  status?: { from: WorkItemStatus; to: WorkItemStatus },
+): NodeEvent[] {
+  if (fields.length === 0) return []
+  const subject = { kind: 'work_item' as const, id: ref(item.id), label: item.title }
+  return [
+    ...(status && status.from !== status.to
+      ? [nodeEvent('projets.work_item.status_changed', subject, { project_id: ref(item.projectId), from: status.from, to: status.to })]
+      : []),
+    nodeEvent('projets.work_item.updated', subject, { project_id: ref(item.projectId), fields }),
+  ]
+}
+
 export async function updateWorkItem(
-  prisma: PrismaClient,
+  prisma: Db,
   workItemId: number,
   input: WorkItemUpdate,
+  now: Date = new Date(),
 ): Promise<WorkItemDetailDto> {
   const current = await prisma.workItem.findUnique({ where: { id: workItemId }, include: { project: true } })
   if (!current) throw notFound(`Élément #${workItemId} introuvable`)
@@ -273,14 +316,38 @@ export async function updateWorkItem(
     if (input.position === undefined) data.position = await nextWorkItemPosition(prisma, target.id)
   }
 
-  await prisma.workItem.update({ where: { id: workItemId }, data })
+  const fields = changedFields(current, data)
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.workItem.update({ where: { id: workItemId }, data })
+    await emitEvents(tx, updateEvents(updated, fields, { from: current.status, to: updated.status }), now)
+  })
   return getWorkItemDetail(prisma, workItemId)
 }
 
-export async function deleteWorkItem(prisma: PrismaClient, workItemId: number): Promise<void> {
+/** Événements « supprimé » des éléments qui vont disparaître (directement ou avec leur conteneur). */
+export async function deletedEvents(prisma: Db, where: Prisma.WorkItemWhereInput): Promise<NodeEvent[]> {
+  const items = await prisma.workItem.findMany({ where, select: { id: true, projectId: true, title: true }, orderBy: { id: 'asc' } })
+  return items.map((item) =>
+    nodeEvent('projets.work_item.deleted', { kind: 'work_item', id: ref(item.id), label: item.title }, { project_id: ref(item.projectId) }),
+  )
+}
+
+/**
+ * Supprime un conteneur (projet, phase, epic, story) et émet « élément supprimé » pour chaque élément emporté,
+ * dans la même transaction.
+ */
+export async function deleteWithItems(prisma: Db, where: Prisma.WorkItemWhereInput, remove: (tx: Db) => Promise<unknown>, now: Date): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const events = await deletedEvents(tx, where)
+    await remove(tx)
+    await emitEvents(tx, events, now)
+  })
+}
+
+export async function deleteWorkItem(prisma: Db, workItemId: number, now: Date = new Date()): Promise<void> {
   const item = await prisma.workItem.findUnique({ where: { id: workItemId }, select: { id: true } })
   if (!item) throw notFound(`Élément #${workItemId} introuvable`)
-  await prisma.workItem.delete({ where: { id: workItemId } })
+  await deleteWithItems(prisma, { id: workItemId }, (tx) => tx.workItem.delete({ where: { id: workItemId } }), now)
 }
 
 /**
@@ -288,7 +355,7 @@ export async function deleteWorkItem(prisma: PrismaClient, workItemId: number): 
  * Lecture et écriture dans une même transaction : deux ajouts simultanés (ex. ai-bridge) ne s'écrasent pas.
  */
 export async function addLogEntry(
-  prisma: PrismaClient,
+  prisma: Db,
   workItemId: number,
   input: LogEntryCreate,
   clock: { timeZone: string; now: Date },
@@ -298,6 +365,12 @@ export async function addLogEntry(
   const at = input.at === undefined ? clock.now : inputTimestamp(input.at, 'at')
   const entry = formatLogEntry({ text, at, hours: input.hours ?? null }, clock.timeZone)
 
+  await appendLogEntryIn(prisma, workItemId, entry, clock.now)
+  return getWorkItemDetail(prisma, workItemId)
+}
+
+/** Ajout atomique d'une entrée déjà formatée (lecture et écriture dans une transaction) + événement « modifié ». */
+async function appendLogEntryIn(prisma: Db, workItemId: number, entry: string, now: Date): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const item = await tx.workItem.findUnique({ where: { id: workItemId }, select: { implementationLog: true } })
     if (!item) throw notFound(`Élément #${workItemId} introuvable`)
@@ -305,7 +378,25 @@ export async function addLogEntry(
     if (implementationLog.length > MARKDOWN_MAX_LENGTH) {
       throw badRequest(`Le journal dépasserait ${MARKDOWN_MAX_LENGTH.toLocaleString('fr-FR')} caractères`)
     }
-    await tx.workItem.update({ where: { id: workItemId }, data: { implementationLog } })
+    const updated = await tx.workItem.update({ where: { id: workItemId }, data: { implementationLog } })
+    await emitEvents(tx, updateEvents(updated, ['implementation_log']), now)
   })
-  return getWorkItemDetail(prisma, workItemId)
+}
+
+/**
+ * Entrée de journal pour le nœud Atelier : même règle que addLogEntry, mais renvoie l'entrée ajoutée
+ * (et pas toute la fiche, qui contient le journal complet).
+ */
+export async function addLogEntryText(
+  prisma: Db,
+  workItemId: number,
+  input: LogEntryCreate,
+  clock: { timeZone: string; now: Date },
+): Promise<{ workItemId: number; at: string; entry: string }> {
+  const text = input.text.trim()
+  if (text === '') throw badRequest('Le texte de l’entrée est vide')
+  const at = input.at === undefined ? clock.now : inputTimestamp(input.at, 'at')
+  const entry = formatLogEntry({ text, at, hours: input.hours ?? null }, clock.timeZone)
+  await appendLogEntryIn(prisma, workItemId, entry, clock.now)
+  return { workItemId, at: at.toISOString(), entry }
 }

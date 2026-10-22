@@ -1,23 +1,24 @@
 // Saisies de temps (« + Saisir Temps ») : en heures, sur un jour calendaire.
 import { todayDateOnly } from '../domain/dates.ts'
 import { roundTo } from '../domain/durations.ts'
-import type { PrismaClient } from '../db/client.ts'
+import type { Db } from '../db/client.ts'
 import type { Prisma } from '../generated/prisma/client.ts'
 import { notFound } from '../http/errors.ts'
 import type { TimeEntryCreate, TimeEntryDto, TimeEntryUpdate } from '../schemas/time-entries.ts'
 import { inputDate } from './common.ts'
 import { toTimeEntryDto } from './mappers.ts'
+import { emitEvents, timeEntryEvent } from './atelier-events.ts'
 
-async function requireWorkItemProject(prisma: PrismaClient, workItemId: number) {
+async function requireWorkItemProject(prisma: Db, workItemId: number) {
   const item = await prisma.workItem.findUnique({
     where: { id: workItemId },
-    select: { id: true, project: { select: { hoursPerDay: true } } },
+    select: { id: true, projectId: true, title: true, project: { select: { hoursPerDay: true } } },
   })
   if (!item) throw notFound(`Élément #${workItemId} introuvable`)
   return item
 }
 
-async function requireTimeEntry(prisma: PrismaClient, timeEntryId: number) {
+async function requireTimeEntry(prisma: Db, timeEntryId: number) {
   const entry = await prisma.timeEntry.findUnique({
     where: { id: timeEntryId },
     include: { workItem: { select: { project: { select: { hoursPerDay: true } } } } },
@@ -26,28 +27,32 @@ async function requireTimeEntry(prisma: PrismaClient, timeEntryId: number) {
   return entry
 }
 
-export async function listTimeEntries(prisma: PrismaClient, workItemId: number): Promise<TimeEntryDto[]> {
+export async function listTimeEntries(prisma: Db, workItemId: number): Promise<TimeEntryDto[]> {
   const item = await requireWorkItemProject(prisma, workItemId)
   const entries = await prisma.timeEntry.findMany({ where: { workItemId }, orderBy: [{ spentOn: 'desc' }, { id: 'desc' }] })
   return entries.map((entry) => toTimeEntryDto(entry, item.project.hoursPerDay))
 }
 
 export async function createTimeEntry(
-  prisma: PrismaClient,
+  prisma: Db,
   workItemId: number,
   input: TimeEntryCreate,
   clock: { timeZone: string; now: Date },
 ): Promise<TimeEntryDto> {
   const item = await requireWorkItemProject(prisma, workItemId)
   const spentOn = inputDate(input.spentOn ?? todayDateOnly(clock.timeZone, clock.now))
-  const entry = await prisma.timeEntry.create({
-    data: { workItemId, spentOn, hours: roundTo(input.hours, 2), comment: input.comment?.trim() ?? '' },
+  const entry = await prisma.$transaction(async (tx) => {
+    const created = await tx.timeEntry.create({
+      data: { workItemId, spentOn, hours: roundTo(input.hours, 2), comment: input.comment?.trim() ?? '' },
+    })
+    await emitEvents(tx, [timeEntryEvent(item, created)], clock.now)
+    return created
   })
   return toTimeEntryDto(entry, item.project.hoursPerDay)
 }
 
 export async function updateTimeEntry(
-  prisma: PrismaClient,
+  prisma: Db,
   timeEntryId: number,
   input: TimeEntryUpdate,
 ): Promise<TimeEntryDto> {
@@ -60,7 +65,7 @@ export async function updateTimeEntry(
   return toTimeEntryDto(entry, current.workItem.project.hoursPerDay)
 }
 
-export async function deleteTimeEntry(prisma: PrismaClient, timeEntryId: number): Promise<void> {
+export async function deleteTimeEntry(prisma: Db, timeEntryId: number): Promise<void> {
   await requireTimeEntry(prisma, timeEntryId)
   await prisma.timeEntry.delete({ where: { id: timeEntryId } })
 }
