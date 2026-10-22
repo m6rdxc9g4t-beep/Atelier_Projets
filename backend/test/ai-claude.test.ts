@@ -16,6 +16,7 @@ import {
   createClaudeEngine,
   formatConversation,
   parseResult,
+  spawnRunner,
   type ClaudeEngine,
   type ClaudeEngineStatus,
   type ClaudeRequest,
@@ -89,7 +90,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
         HOME: '/home/moi',
         USER: 'moi',
         LOGNAME: 'moi',
-        PATH: `/repo/node_modules/.bin${path.delimiter}bin${path.delimiter}.${path.delimiter}/usr/bin${path.delimiter}/opt/homebrew/bin`,
+        PATH: `/repo/node_modules/.bin:bin:.:/usr/bin:/opt/homebrew/bin`,
         SHELL: '/bin/zsh',
         LANG: 'fr_FR.UTF-8',
         LC_ALL: 'fr_FR.UTF-8',
@@ -111,12 +112,13 @@ describe('moteur Claude : appel isolé de la CLI', () => {
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '0',
       },
       '/home/moi/.local/bin/claude',
+      'linux',
     )
     assert.deepEqual(env, {
       HOME: '/home/moi',
       USER: 'moi',
       LOGNAME: 'moi',
-      PATH: ['/home/moi/.local/bin', '/usr/bin', '/opt/homebrew/bin'].join(path.delimiter),
+      PATH: ['/home/moi/.local/bin', '/usr/bin', '/opt/homebrew/bin'].join(':'),
       SHELL: '/bin/zsh',
       LANG: 'fr_FR.UTF-8',
       LC_ALL: 'fr_FR.UTF-8',
@@ -126,7 +128,66 @@ describe('moteur Claude : appel isolé de la CLI', () => {
       CLAUDE_CONFIG_DIR: '/home/moi/.claude',
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     })
-    assert.equal(claudeEnvironment({}, '/opt/claude/claude').PATH, ['/opt/claude', '/usr/bin', '/bin'].join(path.delimiter), 'PATH absent : valeur sûre')
+    assert.equal(claudeEnvironment({}, '/opt/claude/claude', 'linux').PATH, ['/opt/claude', '/usr/bin', '/bin'].join(':'), 'PATH absent : valeur sûre')
+  })
+
+  it('Windows : liste blanche §5.3 + variables Windows de §9.6 (casse indifférente), « Path » sous ce nom, rien d’autre', () => {
+    const env = claudeEnvironment(
+      {
+        USERPROFILE: 'C:\\Users\\François',
+        HOMEDRIVE: 'C:',
+        HOMEPATH: '\\Users\\François',
+        USERNAME: 'François',
+        APPDATA: 'C:\\Users\\François\\AppData\\Roaming',
+        LOCALAPPDATA: 'C:\\Users\\François\\AppData\\Local',
+        SYSTEMROOT: 'C:\\WINDOWS',
+        SystemDrive: 'C:',
+        windir: 'C:\\WINDOWS',
+        ComSpec: 'C:\\WINDOWS\\system32\\cmd.exe',
+        PATHEXT: '.COM;.EXE;.BAT;.CMD',
+        TEMP: 'C:\\Users\\François\\AppData\\Local\\Temp',
+        TMP: 'C:\\Users\\François\\AppData\\Local\\Temp',
+        ProgramData: 'C:\\ProgramData',
+        Path: 'C:\\depot\\node_modules\\.bin;relatif;C:\\WINDOWS\\system32;C:\\Program Files\\nodejs',
+        LANG: 'fr_FR.UTF-8',
+        ANTHROPIC_API_KEY: 'sk-ant-secret',
+        GITHUB_TOKEN: 'ghp_secret',
+        ProgramFiles: 'C:\\Program Files',
+        PSModulePath: 'C:\\x',
+        NODE_OPTIONS: '--require x',
+        DATABASE_URL: 'file:./dev.db',
+      },
+      'C:\\Users\\François\\.local\\bin\\claude.exe',
+      'win32',
+    )
+    assert.deepEqual(env, {
+      USERPROFILE: 'C:\\Users\\François',
+      HOMEDRIVE: 'C:',
+      HOMEPATH: '\\Users\\François',
+      USERNAME: 'François',
+      APPDATA: 'C:\\Users\\François\\AppData\\Roaming',
+      LOCALAPPDATA: 'C:\\Users\\François\\AppData\\Local',
+      SYSTEMROOT: 'C:\\WINDOWS',
+      SystemDrive: 'C:',
+      windir: 'C:\\WINDOWS',
+      ComSpec: 'C:\\WINDOWS\\system32\\cmd.exe',
+      PATHEXT: '.COM;.EXE;.BAT;.CMD',
+      TEMP: 'C:\\Users\\François\\AppData\\Local\\Temp',
+      TMP: 'C:\\Users\\François\\AppData\\Local\\Temp',
+      ProgramData: 'C:\\ProgramData',
+      LANG: 'fr_FR.UTF-8',
+      Path: 'C:\\Users\\François\\.local\\bin;C:\\WINDOWS\\system32;C:\\Program Files\\nodejs',
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+    })
+    // Ces variables Windows ne passent pas sous macOS / Linux.
+    assert.equal(claudeEnvironment({ APPDATA: 'x', USERPROFILE: 'y' }, '/usr/local/bin/claude', 'darwin').APPDATA, undefined)
+  })
+
+  it('exécutant : un .cmd ou un .bat n’est jamais lancé (ni cmd.exe, ni shell)', async () => {
+    await assert.rejects(
+      spawnRunner('C:\\Users\\x\\AppData\\Roaming\\npm\\claude.cmd', ['-p'], { input: null, cwd: dir, env: {}, timeoutMs: 1000 }),
+      (error) => error instanceof ClaudeError && error.kind === 'missing' && /jamais lancé par cmd\.exe/.test(error.message),
+    )
   })
 
   it('met le prompt système à part et la conversation sur l’entrée standard', () => {
@@ -180,7 +241,8 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     await assert.rejects(readdir(first?.options.cwd ?? ''), 'dossier temporaire supprimé après l’appel')
     assert.equal(first?.options.env.ANTHROPIC_API_KEY, undefined)
     assert.equal(first?.options.env.GITHUB_TOKEN, undefined)
-    assert.equal(first?.options.env.PATH, [path.dirname(executable), '/usr/bin'].join(path.delimiter))
+    // Sous Windows, la variable s'appelle « Path » (§9.6).
+    assert.equal(first?.options.env[process.platform === 'win32' ? 'Path' : 'PATH'], [path.dirname(executable), '/usr/bin'].join(path.delimiter))
     assert.equal(first?.options.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, '1')
     assert.equal(first?.options.timeoutMs, 180_000)
   })
@@ -213,7 +275,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     await assert.rejects(engine.chat({ model: 'sonnet', messages: [{ role: 'user', content: '?' }] }), (error) => error instanceof ClaudeError && error.kind === 'missing')
   })
 
-  it('cherche la CLI dans CLAUDE_CLI, le PATH puis ~/.local/bin, /opt/homebrew/bin, /usr/local/bin', async () => {
+  it('cherche la CLI dans CLAUDE_CLI, le PATH puis ~/.local/bin, /opt/homebrew/bin, /usr/local/bin', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     const home = path.join(dir, 'home')
     await mkdir(path.join(home, '.local', 'bin'), { recursive: true })
     await writeFile(path.join(home, '.local', 'bin', 'claude'), '#!/bin/sh\n')
@@ -224,7 +286,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     assert.equal(await findClaudeExecutable('/nonexistent/claude', '/nonexistent', fallback), null, 'chemin explicite : pas de repli')
   })
 
-  it('recherche : chemins absolus seulement, ni entrée relative ni node_modules/.bin, CLAUDE_CLI relatif refusé', async () => {
+  it('recherche : chemins absolus seulement, ni entrée relative ni node_modules/.bin, CLAUDE_CLI relatif refusé', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     const root = path.join(dir, 'search')
     const make = async (relative: string) => {
       const file = path.join(root, relative)
@@ -349,7 +411,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     assert.match(unreadable.error ?? '', /claude update/)
   })
 
-  it('vraie CLI simulée : entrée standard, arguments et environnement reçus ; délai dépassé et annulation', async () => {
+  it('vraie CLI simulée : entrée standard, arguments et environnement reçus ; délai dépassé et annulation', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     // La fausse CLI renvoie ce qu'elle a reçu : la conversation (entrée standard), ses arguments, sa clé API éventuelle.
     const executable = await fakeCli(
       'echo',

@@ -56,6 +56,7 @@ async function startBackend({ repo, node = 'node', env = process.env, logFile, b
     cwd: path.join(repo, 'backend'),
     env: { ...env, NODE_ENV: env.NODE_ENV ?? 'production' },
     stdio: ['ignore', log, log],
+    windowsHide: true, // Windows : aucune fenêtre de console pour l'API
   })
   fs.closeSync(log)
   let exited = null
@@ -72,7 +73,7 @@ async function startBackend({ repo, node = 'node', env = process.env, logFile, b
   throw new Error(`L’API ne répond pas après ${Math.round(timeoutMs / 1000)} s.`)
 }
 
-/** SIGTERM (arrêt propre : base fermée), puis SIGKILL après 5 s. */
+/** SIGTERM (arrêt propre : base fermée ; sous Windows, arrêt immédiat du processus), puis SIGKILL après 5 s. */
 function stopProcess(child) {
   return new Promise((resolve) => {
     if (child.exitCode !== null || child.signalCode !== null) return resolve()

@@ -1,17 +1,23 @@
 #!/usr/bin/env node
 // Prépare l'application de bureau dans le terminal (dépendances depuis le lockfile, sauvegarde et migrations,
-// compilation si besoin) : utilisé par scripts/macos/install-desktop.sh pour que le premier lancement soit immédiat.
-// Même mise à jour, même verrou et même journal que l'application (docs/SUITE.md §8).
+// compilation si besoin) : utilisé par scripts/macos/install-desktop.sh et scripts/windows/install.ps1 pour que le
+// premier lancement soit immédiat. Même mise à jour, même verrou et même journal que l'application (docs/SUITE.md §8) ;
+// comme elle, ignore les variables héritées d'une autre app (DATABASE_URL…, lib/environment.cjs).
+// Code de sortie : 0 réussite (« à jour » ou « compilée »), 1 échec de la mise à jour.
 'use strict'
 
 const os = require('node:os')
 const path = require('node:path')
+const { desktopEnvironment, ignoredMessage } = require('./lib/environment.cjs')
+const { logDirectory } = require('./lib/paths.cjs')
 const { prepare } = require('./lib/prepare.cjs')
 
 const repo = path.resolve(__dirname, '..')
-const logDir =
-  process.env.ATELIER_LOG_DIR || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Logs', 'Atelier_Projets') : os.tmpdir())
-const logFile = path.join(logDir, process.platform === 'darwin' || process.env.ATELIER_LOG_DIR ? 'mise-a-jour.log' : `atelier-projets-mise-a-jour-${process.pid}.log`)
+const logDir = logDirectory()
+const logFile = logDir ? path.join(logDir, 'mise-a-jour.log') : path.join(os.tmpdir(), `atelier-projets-mise-a-jour-${process.pid}.log`)
+
+const { ignored } = desktopEnvironment(process.env)
+if (ignored.length > 0) console.log(`  ${ignoredMessage(ignored)}`)
 
 prepare(repo, { logFile, onStatus: (text) => console.log(`  → ${text}`) })
   .then((steps) => console.log(steps.includes('build') ? '✔ Application compilée.' : '✔ Application déjà à jour.'))

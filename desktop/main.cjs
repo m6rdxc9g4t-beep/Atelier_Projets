@@ -5,8 +5,13 @@
 // (http://127.0.0.1:4174) ; Cmd+Q arrête tout. Si l'application tourne déjà dans un terminal
 // (npm run app / npm run dev), la fenêtre l'utilise sans rien relancer.
 //
-// Lancée par « Atelier Projets.app » (scripts/macos/install-desktop.sh), qui fixe ATELIER_REPO et le PATH,
-// ou directement : npm start --workspace=@atelier/desktop
+// Lancée par « Atelier Projets.app » (scripts/macos/install-desktop.sh), qui fixe ATELIER_REPO et le PATH, par
+// « Atelier Projets.exe » sous Windows (scripts/windows/install.ps1, qui fixe ATELIER_REPO), ou directement :
+// npm start --workspace=@atelier/desktop
+//
+// --mise-a-jour-seulement : fait la mise à jour (sans fenêtre) puis s'arrête — code 0 réussite (rien à faire ou
+// mise à jour faite), 1 échec de la mise à jour, 2 autre erreur (Node introuvable, dépôt absent), 3 application déjà
+// ouverte (la mise à jour se fera à son prochain lancement). Sert à install.ps1 et à la CI (docs/SUITE.md §9.5).
 'use strict'
 
 const { app, BrowserWindow, Menu, dialog, nativeTheme, screen, shell } = require('electron')
@@ -15,30 +20,47 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { apiStatus, isUp, readApiAddress, startBackend } = require('./lib/backend.cjs')
+const { ignoredMessage, sanitizeProcessEnv } = require('./lib/environment.cjs')
 const { findNode } = require('./lib/node-path.cjs')
+const { dataDirectory, logDirectory } = require('./lib/paths.cjs')
 const { prepare, UpdateError } = require('./lib/prepare.cjs')
 const { openSuiteOrExternal } = require('./lib/suite-launch.cjs')
 const { startUiServer } = require('./lib/ui-server.cjs')
+
+// Variables héritées d'une autre app (ouverte depuis Atelier Nexus : DATABASE_URL de nexus.db, PORT…) : ignorées
+// avant tout, la configuration vient de backend/.env ou des valeurs par défaut (docs/SUITE.md §9.4, lib/environment.cjs).
+const IGNORED_ENV = sanitizeProcessEnv()
 
 const REPO = path.resolve(process.env.ATELIER_REPO || path.join(__dirname, '..'))
 const UI_PORT = Number(process.env.ATELIER_UI_PORT || 4174)
 const UI_URL = `http://127.0.0.1:${UI_PORT}`
 const PRODUCT = 'Atelier Projets'
+const IS_WINDOWS = process.platform === 'win32'
+const UPDATE_ONLY_FLAG = '--mise-a-jour-seulement'
+const UPDATE_ONLY = process.argv.includes(UPDATE_ONLY_FLAG)
+/** Identifiant de l'app (macOS : CFBundleIdentifier ; Windows : AppUserModelID, regroupement dans la barre des tâches). */
+const APP_ID = 'local.atelier-projets.desktop'
 
 app.setName(PRODUCT)
-const LOG_DIR =
-  process.env.ATELIER_LOG_DIR ||
-  (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Logs', 'Atelier_Projets') : path.join(app.getPath('userData'), 'logs'))
+// Windows : données propres à l'app dans %APPDATA%\Atelier_Projets (docs/SUITE.md §9.2) ; macOS inchangé.
+const DATA_DIR = dataDirectory()
+if (DATA_DIR) app.setPath('userData', DATA_DIR)
+if (IS_WINDOWS) app.setAppUserModelId(APP_ID)
+const LOG_DIR = logDirectory() ?? path.join(app.getPath('userData'), 'logs')
 const LOG_FILE = path.join(LOG_DIR, 'app.log')
 /** Journal des mises à jour (npm ci, sauvegarde et migrations, compilation) : docs/SUITE.md §8.2. */
 const UPDATE_LOG = path.join(LOG_DIR, 'mise-a-jour.log')
 fs.mkdirSync(LOG_DIR, { recursive: true })
 
-/** Chemin lisible (~ pour le dossier personnel), pour les messages. */
+/** Chemin lisible (~ pour le dossier personnel sur macOS / Linux ; chemin complet sous Windows), pour les messages. */
 function displayPath(file) {
+  if (IS_WINDOWS) return file
   const home = os.homedir()
   return file.startsWith(`${home}${path.sep}`) ? `~${file.slice(home.length)}` : file
 }
+
+/** Icône de la fenêtre et de la barre des tâches sous Windows (le lanceur est l'exécutable d'Electron renommé). */
+const WINDOW_ICON = path.join(REPO, 'scripts', 'windows', 'atelier-projets.ico')
 
 function log(message) {
   fs.appendFileSync(LOG_FILE, `[${new Date().toLocaleString('fr-FR')}] ${message}\n`)
@@ -85,6 +107,7 @@ function createWindow() {
     show: false,
     // Proche de --atelier-bg (charte néon monochrome, vert citron) : sombre ≈ signature 6 % dans #07070A, clair ≈ 5 % dans #FBFBFD.
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0D100E' : '#F6FAF4',
+    ...(IS_WINDOWS && fs.existsSync(WINDOW_ICON) ? { icon: WINDOW_ICON } : {}),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true },
   })
   if (bounds.maximized) mainWindow.maximize()
@@ -183,7 +206,7 @@ function buildMenu() {
         { label: 'Journal des mises à jour', click: () => void shell.openPath(UPDATE_LOG) },
         { label: 'Documentation de l’API', click: () => void shell.openExternal(`${UI_URL}/api/docs`) },
         { label: 'Ouvrir dans le navigateur', click: () => void shell.openExternal(UI_URL) },
-        { label: 'Afficher le dépôt dans le Finder', click: () => void shell.openPath(REPO) },
+        { label: isMac ? 'Afficher le dépôt dans le Finder' : 'Afficher le dépôt dans l’Explorateur', click: () => void shell.openPath(REPO) },
       ],
     },
   ]
@@ -205,9 +228,8 @@ async function uiAlreadyServed() {
 
 async function start() {
   log(`===== Démarrage (dépôt ${REPO}) =====`)
-  if (!fs.existsSync(path.join(REPO, 'backend', 'package.json'))) {
-    throw new Error(`Dépôt introuvable : ${REPO}\nRelancer « npm run app:install » depuis le dépôt.`)
-  }
+  if (IGNORED_ENV.length > 0) log(ignoredMessage(IGNORED_ENV))
+  checkRepo()
 
   if (await uiAlreadyServed()) {
     log(`Interface déjà servie sur ${UI_URL} : utilisée telle quelle.`)
@@ -248,6 +270,24 @@ async function start() {
   log(`Interface servie sur ${UI_URL}.`)
 }
 
+/** Commande qui réinstalle le lanceur, selon le système. */
+const REINSTALL = IS_WINDOWS ? 'powershell -ExecutionPolicy Bypass -File scripts\\windows\\install.ps1' : 'npm run app:install'
+
+function checkRepo() {
+  if (!fs.existsSync(path.join(REPO, 'backend', 'package.json'))) {
+    throw new Error(`Dépôt introuvable : ${REPO}\nRelancer « ${REINSTALL} » depuis le dépôt.`)
+  }
+  // Le lanceur contient sa propre copie d'Electron (elle survit à npm ci) : signalée si le dépôt en attend une autre.
+  try {
+    const wanted = JSON.parse(fs.readFileSync(path.join(REPO, 'node_modules', 'electron', 'package.json'), 'utf8')).version
+    if (process.versions.electron && wanted && wanted !== process.versions.electron) {
+      log(`Electron du lanceur ${process.versions.electron}, du dépôt ${wanted} : relancer « ${REINSTALL} » pour mettre le lanceur à jour.`)
+    }
+  } catch {
+    /* dépendances pas encore installées */
+  }
+}
+
 /** Choix « Quitter » après un échec de mise à jour : le démarrage s'arrête sans autre message. */
 const QUIT = Symbol('quit')
 
@@ -262,12 +302,14 @@ async function useSystemNode() {
   const found = await findNode()
   if (!found) {
     throw new Error(
-      'Node.js et npm introuvables (PATH du terminal zsh, ~/.homebrew/bin, /opt/homebrew/bin, /usr/local/bin, nvm).\nInstaller Node.js 24, puis relancer l’application.',
+      IS_WINDOWS
+        ? 'Node.js et npm introuvables (PATH, %ProgramFiles%\\nodejs, nvm-windows, Volta, fnm, %LOCALAPPDATA%\\Programs\\nodejs).\nInstaller Node.js 24 (winget install OpenJS.NodeJS.LTS), puis relancer l’application.'
+        : 'Node.js et npm introuvables (PATH du terminal zsh, ~/.homebrew/bin, /opt/homebrew/bin, /usr/local/bin, nvm).\nInstaller Node.js 24, puis relancer l’application.',
     )
   }
   process.env.PATH = found.path
   nodeFound = found
-  log(`Node ${found.version} : ${found.dir}${found.supported ? '' : ' — version non prise en charge par le dépôt (Node 22.12+ ou 24+ attendu)'}`)
+  log(`Node ${found.version} : ${found.dir}${found.supported ? '' : ' — version non prise en charge par le dépôt (Node 22.12 ou plus récent attendu)'}`)
 }
 
 /** Mise à jour depuis le dépôt ; en cas d'échec, l'écran de démarrage propose la version précédente, un nouvel essai ou de quitter. */
@@ -364,13 +406,48 @@ async function shutdown() {
   }
 }
 
+// --- Mise à jour seulement (install.ps1, CI) ------------------------------------------------------------
+
+/** Fait la mise à jour sans fenêtre puis quitte avec un code de sortie (voir l'en-tête du fichier). */
+async function updateOnly() {
+  process.stdout.on('error', () => undefined) // sortie fermée ou absente : le journal suffit
+  const say = (text) => {
+    log(text)
+    try {
+      process.stdout.write(`${text}\n`)
+    } catch {
+      /* pas de sortie standard (application graphique) */
+    }
+  }
+  if (!app.requestSingleInstanceLock()) {
+    say('Atelier Projets est ouvert : la mise à jour se fera à son prochain lancement (le fermer pour la faire maintenant).')
+    return app.exit(3)
+  }
+  try {
+    say(`===== Mise à jour seulement (dépôt ${REPO}) =====`)
+    if (IGNORED_ENV.length > 0) say(ignoredMessage(IGNORED_ENV))
+    checkRepo()
+    await useSystemNode()
+    const steps = await prepare(REPO, { logFile: UPDATE_LOG, onStatus: (text) => say(`  → ${text}`) })
+    say(steps.includes('build') ? `✔ Mise à jour faite (${steps.join(', ')}).` : '✔ Déjà à jour (migrations vérifiées).')
+    app.exit(0)
+  } catch (error) {
+    say(`✘ ${error instanceof Error ? error.message : String(error)}`)
+    if (error instanceof UpdateError) say(`  Détail : ${UPDATE_LOG}`)
+    app.exit(error instanceof UpdateError ? 1 : 2)
+  }
+}
+
 // --- Cycle de vie -------------------------------------------------------------------------------------
 
-if (!app.requestSingleInstanceLock()) {
+if (UPDATE_ONLY) {
+  void updateOnly()
+} else if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    if (!mainWindow) return
+  app.on('second-instance', (_event, argv) => {
+    // Une mise à jour seule lancée pendant que l'app est ouverte ne ramène pas la fenêtre.
+    if (argv.includes(UPDATE_ONLY_FLAG) || !mainWindow) return
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.focus()
   })

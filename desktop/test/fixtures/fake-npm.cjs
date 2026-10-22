@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // npm simulé pour test/prepare.test.cjs : note chaque appel (FAKE_NPM_CALLS, une ligne JSON) avec l'état du dépôt
 // au moment de l'appel, produit les fichiers attendus et échoue à l'étape FAKE_NPM_FAIL (ci, db:deploy, build-frontend…).
+// Lancé par « node fake-npm.cjs … » (sans shell, comme npm-cli.js sous Windows). db:deploy refuse, comme
+// backend/src/config.ts (loadConfig), un DATABASE_URL qui n'est pas une URL SQLite « file: ».
 'use strict'
 
 const fs = require('node:fs')
@@ -21,7 +23,7 @@ const write = (file, content) => {
   fs.writeFileSync(path.join(repo, file), content)
 }
 
-const call = { args }
+const call = { args, inherited: Object.fromEntries(['DATABASE_URL', 'PORT', 'HOST', 'NODE_ENV'].map((name) => [name, process.env[name] ?? null])) }
 const workspace = (args.find((arg) => arg.startsWith('--workspace=')) ?? '').replace('--workspace=@atelier/', '')
 if (args[0] === 'ci') call.modulesBefore = { root: fs.existsSync(path.join(repo, 'node_modules')), backend: fs.existsSync(path.join(repo, 'backend', 'node_modules')) }
 if (args[1] === 'build') call.distBefore = read(`${workspace}/dist/${workspace === 'backend' ? 'server.js' : 'index.html'}`)
@@ -40,6 +42,11 @@ if (args[0] === 'ci') {
   process.exit(0)
 }
 if (args[1] === 'db:generate') write('backend/src/generated/index.ts', '// généré')
+const databaseUrl = process.env.DATABASE_URL?.trim()
+if (args[1] === 'db:deploy' && databaseUrl && !databaseUrl.startsWith('file:')) {
+  console.error(`✘ Sauvegarde de la base impossible avant les migrations : DATABASE_URL doit être une URL SQLite « file:… » (reçu : ${databaseUrl})`)
+  process.exit(1)
+}
 if (args[1] === 'db:deploy' && fail === 'db:deploy') {
   console.error('Error: P3018 A migration failed to apply.')
   process.exit(1)

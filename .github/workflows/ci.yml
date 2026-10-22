@@ -1,0 +1,171 @@
+# Intégration continue d'Atelier Projets.
+# - linux : tests (backend, frontend, design system, app de bureau), vérifications (types, OpenAPI, jetons), compilation.
+# - windows : mêmes tests et vérifications, puis installation de l'app de bureau dans un profil temporaire
+#   (scripts/windows/install.ps1, dépôt dans un chemin avec espaces et accents) et lancements du lanceur en mode
+#   « mise à jour seulement » : après un commit (git pull simulé), le premier met à jour, le second ne refait rien
+#   (docs/SUITE.md §9.5 ; fins de ligne §9.3). Variables d'une autre app (DATABASE_URL de Nexus) ignorées (§9.4).
+name: CI
+
+on:
+  push:
+    branches: [feat/windows]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux — tests, vérifications, compilation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --include=dev --no-audit --no-fund
+      - run: npm run db:generate --workspace=@atelier/backend
+      - run: npm test
+      - run: npm run check
+      - run: npm run build
+
+  windows:
+    name: Windows — tests, installation, mise à jour au lancement
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Fins de ligne (clone Windows jamais « modifié »)
+        shell: pwsh
+        run: |
+          git config --get core.autocrlf
+          $etat = git status --porcelain
+          if ($etat) { $etat; throw 'Le clone Windows paraît modifié : vérifier .gitattributes.' }
+      # Sorties gardées dans $RUNNER_TEMP\journaux : recopiées en annotations en cas d'échec (dernière étape).
+      - name: npm ci
+        id: npmci
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\journaux" | Out-Null
+          npm ci --include=dev --no-audit --no-fund 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\npm-ci.log"
+          exit $LASTEXITCODE
+      - name: Module natif better-sqlite3 (binaire précompilé Windows)
+        run: node -e "const D=require(require.resolve('better-sqlite3',{paths:[require('path').resolve('backend')]}));const d=new D(':memory:');console.log('better-sqlite3', d.prepare('select sqlite_version() v').get().v)"
+      - name: Client Prisma
+        id: generate
+        run: npm run db:generate --workspace=@atelier/backend
+      - name: npm test
+        shell: pwsh
+        run: |
+          npm test 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\npm-test.log"
+          exit $LASTEXITCODE
+      - name: npm run check
+        if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          npm run check 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\npm-check.log"
+          exit $LASTEXITCODE
+
+      # Étapes en PowerShell 7 ; install.ps1 lancé par powershell.exe (5.1), la commande documentée (§9.1).
+      - name: Installation dans un profil temporaire
+        id: installation
+        if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Profil et dépôt dans des chemins avec espaces et accents (C:\Users\François\…).
+          $profil = Join-Path $env:RUNNER_TEMP "Profil Fran$([char]0xE7)ois"
+          $depot = Join-Path $env:RUNNER_TEMP "D$([char]0xE9)p$([char]0xF4)t d'essai\Atelier Projets"
+          New-Item -ItemType Directory -Force -Path "$profil\AppData\Roaming", "$profil\AppData\Local", "$profil\Menu" | Out-Null
+          git clone --quiet --no-hardlinks . "$depot"
+          if ($LASTEXITCODE -ne 0) { throw 'git clone' }
+          git -C "$depot" config user.name 'CI Atelier'
+          git -C "$depot" config user.email 'ci@example.invalid'
+          "PROFIL=$profil" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "DEPOT=$depot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $env:APPDATA = "$profil\AppData\Roaming"
+          $env:LOCALAPPDATA = "$profil\AppData\Local"
+          $env:USERPROFILE = $profil
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$depot\scripts\windows\install.ps1" -SansBureau -DossierMenuDemarrer "$profil\Menu" 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\install.log"
+          if ($LASTEXITCODE -ne 0) { throw "install.ps1 : code $LASTEXITCODE" }
+          $lanceur = "$profil\AppData\Local\Programs\Atelier_Projets\Atelier Projets.exe"
+          if (-not (Test-Path -LiteralPath $lanceur)) { throw 'Lanceur absent' }
+          if (-not (Test-Path -LiteralPath "$profil\Menu\Atelier\Atelier Projets.lnk")) { throw 'Raccourci du menu Démarrer absent' }
+          # §9.6 : Lanceur inscrit = raccourci .lnk du menu Démarrer, dont la cible est le lanceur.
+          $raccourci = "$profil\Menu\Atelier\Atelier Projets.lnk"
+          $enregistre = (Get-ItemProperty -LiteralPath 'HKCU:\Software\Atelier\Apps\projets').Lanceur
+          if ($enregistre -ne $raccourci) { throw "Registre : $enregistre" }
+          $cible = (New-Object -ComObject WScript.Shell).CreateShortcut($raccourci).TargetPath
+          if ($cible -ne $lanceur) { throw "Cible du raccourci : $cible" }
+          $etat = git -C "$depot" status --porcelain
+          if ($etat) { $etat; throw 'Le dépôt paraît modifié après l''installation.' }
+
+      - name: Lanceur en mode « mise à jour seulement » (après un git pull, puis rien à refaire)
+        id: lanceur
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:APPDATA = "$env:PROFIL\AppData\Roaming"
+          $env:LOCALAPPDATA = "$env:PROFIL\AppData\Local"
+          $env:USERPROFILE = $env:PROFIL
+          # Cas réel (§9.4) : variables héritées d'Atelier Nexus, à ignorer.
+          $env:DATABASE_URL = 'sqlite+aiosqlite:///C:/Users/x/AppData/Roaming/Atelier Nexus/nexus.db'
+          $env:PORT = '8100'
+          $lanceur = "$env:PROFIL\AppData\Local\Programs\Atelier_Projets\Atelier Projets.exe"
+          $tampon = Join-Path $env:DEPOT 'desktop\.build-stamp.json'
+          function Lancer {
+            $p = Start-Process -FilePath $lanceur -ArgumentList '--mise-a-jour-seulement' -Wait -PassThru
+            return $p.ExitCode
+          }
+          # « git pull » simulé : un commit qui touche l'interface.
+          Add-Content -LiteralPath (Join-Path $env:DEPOT 'frontend\src\main.tsx') -Value '// CI : changement après un git pull'
+          git -C "$env:DEPOT" commit --quiet -am 'ci: changement simulé'
+          $avant = Get-Content -LiteralPath $tampon -Raw
+          $code = Lancer
+          if ($code -ne 0) { throw "Premier lancement : code $code" }
+          $apres = Get-Content -LiteralPath $tampon -Raw
+          if ($apres -eq $avant) { throw 'Premier lancement : la mise à jour n''a pas été faite.' }
+          $code = Lancer
+          if ($code -ne 0) { throw "Second lancement : code $code" }
+          if ((Get-Content -LiteralPath $tampon -Raw) -ne $apres) { throw 'Second lancement : la mise à jour a été refaite.' }
+          $journal = Get-Content -LiteralPath "$env:PROFIL\AppData\Local\Atelier_Projets\Logs\mise-a-jour.log" -Raw -Encoding UTF8
+          $dernier = ([regex]::Matches($journal, '===== Mise à jour du|--- Lancement du[^\n]*') | Select-Object -Last 1).Value
+          if ($dernier -notmatch 'dépôt à jour, migrations vérifiées') { throw "Le second lancement aurait dû seulement vérifier les migrations ($dernier)." }
+          if ($journal -match 'nexus\.db') { throw 'Valeur d''une variable héritée journalisée.' }
+          if (-not (Test-Path -LiteralPath (Join-Path $env:DEPOT 'backend\prisma\dev.db'))) { throw 'Base absente du dépôt (§9.2).' }
+          Write-Host 'OK : mise à jour au lancement, puis rien à refaire.'
+
+      - name: Désinstallation (données conservées)
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:APPDATA = "$env:PROFIL\AppData\Roaming"
+          $env:LOCALAPPDATA = "$env:PROFIL\AppData\Local"
+          $env:USERPROFILE = $env:PROFIL
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$env:DEPOT\scripts\windows\install.ps1" -Desinstaller -DossierMenuDemarrer "$env:PROFIL\Menu"
+          if ($LASTEXITCODE -ne 0) { throw "Désinstallation : code $LASTEXITCODE" }
+          if (Test-Path -LiteralPath "$env:PROFIL\AppData\Local\Programs\Atelier_Projets") { throw 'Lanceur encore présent' }
+          if (Test-Path -LiteralPath 'HKCU:\Software\Atelier\Apps\projets') { throw 'Enregistrement encore présent' }
+          if (-not (Test-Path -LiteralPath (Join-Path $env:DEPOT 'backend\prisma\dev.db'))) { throw 'La base a été supprimée !' }
+
+      - name: Journaux (en cas d'échec)
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -ErrorAction SilentlyContinue "$env:PROFIL\AppData\Local\Atelier_Projets" | ForEach-Object {
+            Write-Host "===== $($_.FullName)"
+            if (-not $_.PSIsContainer) { Get-Content -LiteralPath $_.FullName -Tail 200 }
+          }
+          & .github/scripts/annoter-journaux.ps1 -Fichiers @("$env:RUNNER_TEMP\journaux\*.log", "$env:PROFIL\AppData\Local\Atelier_Projets\Logs\*.log")

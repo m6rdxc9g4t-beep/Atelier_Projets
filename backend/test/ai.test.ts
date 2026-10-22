@@ -7,8 +7,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import {
+  claudeFallbackDirs,
   createClaudeLauncher,
+  executableNames,
   findExecutable,
+  resolveClaudeLaunch,
+  unresolvedCmdMessage,
   sessionPath,
   shellQuote,
   type ClaudeCliStatus,
@@ -232,7 +236,7 @@ describe('lanceur de Claude CLI', () => {
     assert.equal(shellQuote('$(x) `y`'), `'$(x) \`y\`'`)
   })
 
-  it('trouve la CLI dans le PATH et lit sa version', async () => {
+  it('trouve la CLI dans le PATH et lit sa version', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     const bin = path.join(dir, 'bin')
     await import('node:fs/promises').then((fs) => fs.mkdir(bin))
     await writeFile(path.join(bin, 'claude'), '#!/bin/sh\necho "2.1.300 (Claude Code)"\n')
@@ -271,7 +275,7 @@ describe('lanceur de Claude CLI', () => {
     assert.deepEqual(bare, { command: `cd -- '/repo' && 'claude'`, promptFile: null, launched: false })
   })
 
-  it('« -- » : un prompt qui commence par un tiret reste un prompt pour la vraie CLI', async () => {
+  it('« -- » : un prompt qui commence par un tiret reste un prompt pour la vraie CLI', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     // Fausse CLI qui affiche ses arguments : le prompt arrive après « -- », jamais comme option.
     const bin = path.join(dir, 'args-bin')
     await import('node:fs/promises').then((fs) => fs.mkdir(bin))
@@ -284,7 +288,48 @@ describe('lanceur de Claude CLI', () => {
     assert.equal(output, '[--permission-mode]\n[plan]\n[--]\n[- [ ] Ajouter le bouton\n--version]\n')
   })
 
-  it('transmet à la session un PATH sans les outils npm du projet', () => {
+  it('Windows : claude.exe puis claude.cmd (résolu ensuite), jamais .bat ; repli %USERPROFILE%\\.local\\bin (§9.6)', () => {
+    assert.deepEqual(executableNames('claude', 'win32'), ['claude.exe', 'claude.cmd'])
+    assert.deepEqual(executableNames('C:\\Outils\\Claude.EXE', 'win32'), ['C:\\Outils\\Claude.EXE'])
+    assert.deepEqual(executableNames('claude.bat', 'win32'), [])
+    assert.deepEqual(executableNames('claude.ps1', 'win32'), [])
+    assert.deepEqual(executableNames('C:\\Outils\\claude', 'win32'), ['C:\\Outils\\claude.exe', 'C:\\Outils\\claude.cmd', 'C:\\Outils\\claude'])
+    assert.deepEqual(executableNames('claude', 'darwin'), ['claude'])
+    assert.deepEqual(claudeFallbackDirs('C:\\Users\\François', 'win32'), ['C:\\Users\\François\\.local\\bin'])
+    assert.deepEqual(claudeFallbackDirs('/Users/moi', 'darwin'), ['/Users/moi/.local/bin', '/opt/homebrew/bin', '/usr/local/bin'])
+  })
+
+  it('Windows : claude.cmd de npm résolu en node.exe + cli.js, refusé sinon ; claude.exe lancé tel quel (§9.6)', () => {
+    const npmDir = 'C:\\Users\\François\\AppData\\Roaming\\npm'
+    const pkg = `${npmDir}\\node_modules\\@anthropic-ai\\claude-code`
+    const cmd = `${npmDir}\\claude.cmd`
+    const files = new Map<string, string>([[`${pkg}\\cli.js`, ''], ['C:\\Program Files\\nodejs\\node.exe', '']])
+    const fs = { exists: (file: string) => files.has(file), readFile: (file: string) => files.get(file) ?? (() => { throw new Error('ENOENT') })() }
+    const options = { platform: 'win32' as const, searchPath: 'C:\\depot\\node_modules\\.bin;relatif;C:\\Program Files\\nodejs', ...fs }
+    assert.deepEqual(resolveClaudeLaunch(cmd, options), { executable: 'C:\\Program Files\\nodejs\\node.exe', args: [`${pkg}\\cli.js`] })
+    // node.exe à côté du .cmd d'abord ; bin déclaré par le package.json.
+    files.set(`${npmDir}\\node.exe`, '')
+    files.set(`${pkg}\\package.json`, JSON.stringify({ bin: { claude: 'dist/claude.mjs' } }))
+    files.set(`${pkg}\\dist\\claude.mjs`, '')
+    assert.deepEqual(resolveClaudeLaunch(cmd, options), { executable: `${npmDir}\\node.exe`, args: [`${pkg}\\dist\\claude.mjs`] })
+    // bin qui sort du paquet ou n'est pas du JavaScript : refusé.
+    files.set(`${pkg}\\package.json`, JSON.stringify({ bin: { claude: '..\\..\\..\\evil.js' } }))
+    files.set(`${npmDir}\\evil.js`, '')
+    assert.equal(resolveClaudeLaunch(cmd, options), null)
+    files.set(`${pkg}\\package.json`, JSON.stringify({ bin: 'cli.cmd' }))
+    files.set(`${pkg}\\cli.cmd`, '')
+    assert.equal(resolveClaudeLaunch(cmd, options), null)
+    // Paquet absent, ou node.exe introuvable : refusé (jamais cmd.exe).
+    assert.equal(resolveClaudeLaunch('C:\\Ailleurs\\claude.cmd', options), null)
+    files.delete(`${pkg}\\package.json`)
+    files.delete(`${npmDir}\\node.exe`)
+    assert.equal(resolveClaudeLaunch(cmd, { ...options, searchPath: 'C:\\depot\\node_modules\\.bin' }), null)
+    assert.match(unresolvedCmdMessage(cmd), /refusé \(jamais lancé par cmd\.exe\)/)
+    assert.deepEqual(resolveClaudeLaunch('C:\\Users\\François\\.local\\bin\\claude.exe', options), { executable: 'C:\\Users\\François\\.local\\bin\\claude.exe', args: [] })
+    assert.deepEqual(resolveClaudeLaunch('/usr/local/bin/claude', { platform: 'darwin' }), { executable: '/usr/local/bin/claude', args: [] })
+  })
+
+  it('transmet à la session un PATH sans les outils npm du projet', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, () => {
     const search = ['/repo/backend/node_modules/.bin', '/repo/node_modules/.bin', '/usr/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin', '/opt/homebrew/bin', '/usr/bin'].join(':')
     assert.equal(sessionPath(search, '/Users/moi/.local/bin/claude'), '/Users/moi/.local/bin:/opt/homebrew/bin:/usr/bin')
     assert.equal(sessionPath(search, 'claude'), '/opt/homebrew/bin:/usr/bin')
@@ -300,7 +345,7 @@ describe('lanceur de Claude CLI', () => {
     await assert.rejects(launcher.prepare(request), /chemin absolu/)
   })
 
-  it('sur macOS : ouvre un script .command dans le terminal choisi', async () => {
+  it('sur macOS : ouvre un script .command dans le terminal choisi', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     const opened: string[][] = []
     const launcher = createClaudeLauncher({
       command: '/opt/claude/bin/claude',

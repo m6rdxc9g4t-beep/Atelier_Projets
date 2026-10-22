@@ -14,7 +14,16 @@ import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { claudeFallbackDirs, findClaudeExecutable, isRelativeCommand, relativeCommandMessage, sessionPath } from './claude-cli.ts'
+import {
+  claudeFallbackDirs,
+  findClaudeExecutable,
+  isRelativeCommand,
+  relativeCommandMessage,
+  resolveClaudeLaunch,
+  sessionPath,
+  unresolvedCmdMessage,
+  type ClaudeLaunch,
+} from './claude-cli.ts'
 import type { ChatMessage } from './ollama.ts'
 
 /** Modèles proposés (alias de la CLI). Sonnet par défaut. */
@@ -148,18 +157,45 @@ export function claudeArguments(options: { model: ClaudeModel; system: string; m
 export const CLAUDE_ENV_ALLOWLIST = ['HOME', 'USER', 'LOGNAME', 'PATH', 'SHELL', 'LANG', 'TMPDIR', 'TZ', 'CLAUDE_CONFIG_DIR'] as const
 
 /**
+ * Variables ajoutées sous Windows seulement (docs/SUITE.md §9.6) : profil, dossiers de l'utilisateur et du système
+ * dont la CLI a besoin pour trouver sa configuration et sa connexion. Noms comparés sans tenir compte de la casse.
+ */
+export const CLAUDE_ENV_WINDOWS_ALLOWLIST = [
+  'USERPROFILE',
+  'HOMEDRIVE',
+  'HOMEPATH',
+  'USERNAME',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'SystemRoot',
+  'SystemDrive',
+  'windir',
+  'ComSpec',
+  'PATHEXT',
+  'TEMP',
+  'TMP',
+  'ProgramData',
+] as const
+
+/**
  * Environnement de la CLI, en liste blanche (docs/SUITE.md §5.3) : ni ANTHROPIC_* (clé, jeton, adresse : facturation
  * par l'abonnement), ni CLAUDE_CODE_USE_BEDROCK / VERTEX, ni secret de l'application (ATELIER_IMPORT_TOKEN,
  * GITHUB_TOKEN…). PATH : dossier de l'exécutable en tête, sans entrée relative ni node_modules/.bin (sessionPath).
  * CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 : ni télémétrie, ni rapport d'erreur, ni mise à jour automatique.
  */
-export function claudeEnvironment(base: NodeJS.ProcessEnv, executable: string): NodeJS.ProcessEnv {
-  const allowed = new Set<string>(CLAUDE_ENV_ALLOWLIST)
+export function claudeEnvironment(base: NodeJS.ProcessEnv, executable: string, platform: NodeJS.Platform = process.platform): NodeJS.ProcessEnv {
+  const windows = platform === 'win32'
+  // Sous Windows, les noms sont insensibles à la casse (Path, SYSTEMROOT…) ; PATH est traité à part.
+  const normalize = (key: string) => (windows ? key.toUpperCase() : key)
+  const allowed = new Set<string>([...CLAUDE_ENV_ALLOWLIST, ...(windows ? CLAUDE_ENV_WINDOWS_ALLOWLIST : [])].filter((key) => key !== 'PATH').map(normalize))
   const env: NodeJS.ProcessEnv = {}
+  let basePath: string | undefined
   for (const [key, value] of Object.entries(base)) {
-    if (value !== undefined && (allowed.has(key) || key.startsWith('LC_'))) env[key] = value
+    if (value === undefined) continue
+    if (normalize(key) === 'PATH') basePath ??= value
+    else if (allowed.has(normalize(key)) || key.startsWith('LC_')) env[key] = value
   }
-  env.PATH = sessionPath(base.PATH, executable)
+  env[windows ? 'Path' : 'PATH'] = sessionPath(basePath, executable, platform)
   env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
   return env
 }
@@ -204,7 +240,12 @@ export const spawnRunner: ClaudeRunner = (executable, args, { input, cwd, env, t
       reject(new ClaudeError('cancelled', 'Génération annulée'))
       return
     }
-    const child = spawn(executable, [...args], { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] })
+    // Jamais de shell (ni cmd.exe sous Windows : il réinterpréterait le prompt système et le schéma JSON), aucune console.
+    if (/\.(cmd|bat)$/i.test(executable)) {
+      reject(new ClaudeError('missing', unresolvedCmdMessage(executable)))
+      return
+    }
+    const child = spawn(executable, [...args], { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true })
     let stdout = ''
     let stderr = ''
     let settled = false
@@ -257,10 +298,11 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
   let cached: { at: number; value: Promise<ClaudeEngineStatus> } | null = null
 
   /** Lance la CLI dans un dossier temporaire vide, supprimé ensuite. */
-  async function run(executable: string, args: readonly string[], input: string | null, limitMs: number, signal?: AbortSignal): Promise<RunResult> {
+  async function run(launch: ClaudeLaunch, args: readonly string[], input: string | null, limitMs: number, signal?: AbortSignal): Promise<RunResult> {
     const cwd = await mkdtemp(path.join(tmpdir(), 'atelier-projets-claude-'))
     try {
-      return await runner(executable, args, { input, cwd, env: claudeEnvironment(options.env ?? process.env, executable), timeoutMs: limitMs, signal })
+      const env = claudeEnvironment(options.env ?? process.env, launch.executable)
+      return await runner(launch.executable, [...launch.args, ...args], { input, cwd, env, timeoutMs: limitMs, signal })
     } finally {
       await rm(cwd, { recursive: true, force: true }).catch(() => undefined)
     }
@@ -271,9 +313,11 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
     const executable = await findClaudeExecutable(command, searchPath, fallbackDirs)
     const base = { executable, checkedAt, warning: null }
     if (executable === null) return { ...base, installed: false, loggedIn: null, authMethod: null, available: false, error: notFoundMessage(command) }
+    const launch = resolveClaudeLaunch(executable, { searchPath })
+    if (launch === null) return { ...base, installed: true, loggedIn: null, authMethod: null, available: false, error: unresolvedCmdMessage(executable) }
     let info: { loggedIn?: unknown; authMethod?: unknown }
     try {
-      const result = await run(executable, ['auth', 'status'], null, 15_000)
+      const result = await run(launch, ['auth', 'status'], null, 15_000)
       info = JSON.parse(result.stdout.trim() || '{}') as typeof info
     } catch {
       return {
@@ -302,10 +346,12 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
   async function ask(request: ClaudeRequest, schema?: Record<string, unknown>): Promise<Record<string, unknown>> {
     const executable = await findClaudeExecutable(command, searchPath, fallbackDirs)
     if (executable === null) throw new ClaudeError('missing', notFoundMessage(command))
+    const launch = resolveClaudeLaunch(executable, { searchPath })
+    if (launch === null) throw new ClaudeError('missing', unresolvedCmdMessage(executable))
     const { system, prompt } = formatConversation(request.messages)
     // Sortie structurée : un tour de plus, pour la réponse contrainte par le schéma (comme Viz).
     const args = claudeArguments({ model: request.model, system, maxTurns: schema ? 2 : 1, ...(schema && { schema }) })
-    const result = await run(executable, args, prompt, timeoutMs, request.signal)
+    const result = await run(launch, args, prompt, timeoutMs, request.signal)
     const payload = parseResult(result.stdout)
     if (payload === null) {
       let detail = (result.stderr || result.stdout).trim().slice(0, 300)

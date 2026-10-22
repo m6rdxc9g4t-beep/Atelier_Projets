@@ -1,5 +1,7 @@
-// Node.js et npm pour l'application ouverte depuis le Finder (docs/SUITE.md §8) : ordre de recherche (PATH du
-// shell de connexion, PATH du lanceur, Homebrew, nvm), version acceptée par le dépôt. Sans macOS : faux node / npm.
+// Node.js et npm pour l'application ouverte depuis le Finder ou le menu Démarrer (docs/SUITE.md §8, §9.3) : ordre de
+// recherche (macOS : PATH du shell de connexion, PATH du lanceur, Homebrew, nvm ; Windows : PATH de la session lu dans
+// le registre, PATH reçu, dossiers connus), version acceptée par le dépôt, commande npm sans shell. Faux node / npm ;
+// la logique Windows est testée sur tous les systèmes (chemins et registre simulés).
 'use strict'
 
 const assert = require('node:assert/strict')
@@ -7,7 +9,21 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { after, before, describe, it } = require('node:test')
-const { candidateDirs, findNode, loginShellPath, nvmDirs, supportedNode, usableDir } = require('../lib/node-path.cjs')
+const {
+  candidateDirs,
+  expandWindowsVars,
+  findNode,
+  loginShellPath,
+  npmCommand,
+  nvmDirs,
+  parseRegValue,
+  supportedNode,
+  usableDir,
+  windowsSessionPath,
+} = require('../lib/node-path.cjs')
+
+// Faux node / npm en scripts shell : macOS et Linux seulement (la logique Windows a ses propres tests ci-dessous).
+const posixOnly = { skip: process.platform === 'win32' ? 'scripts shell : macOS / Linux' : false }
 
 let root
 let home
@@ -29,11 +45,11 @@ before(() => {
 
 after(() => fs.rmSync(root, { recursive: true, force: true }))
 
-describe('recherche de Node.js', () => {
-  it('accepte les versions du dépôt (^22.12 ou >= 24)', () => {
+describe('recherche de Node.js', posixOnly, () => {
+  it('accepte toute version ≥ 22.12 (§9.6)', () => {
     assert.deepEqual(
       ['v22.11.0', 'v22.12.0', 'v23.5.0', 'v24.0.0', 'v26.1.0', 'v20.0.0', 'n/a'].map(supportedNode),
-      [false, true, false, true, true, false, false],
+      [false, true, true, true, true, false, false],
     )
   })
 
@@ -109,5 +125,118 @@ describe('recherche de Node.js', () => {
     const started = Date.now()
     assert.equal(await loginShellPath({ shell: stuck, timeoutMs: 200 }), null)
     assert.ok(Date.now() - started < 2000)
+  })
+})
+
+describe('recherche de Node.js sous Windows (§9.3)', () => {
+  const win = path.win32
+  const env = {
+    USERPROFILE: 'C:\\Users\\François',
+    LOCALAPPDATA: 'C:\\Users\\François\\AppData\\Local',
+    APPDATA: 'C:\\Users\\François\\AppData\\Roaming',
+    ProgramFiles: 'C:\\Program Files',
+    SystemRoot: 'C:\\WINDOWS',
+    NVM_SYMLINK: 'C:\\nvm4w\\nodejs',
+    NVM_HOME: 'C:\\Users\\François\\AppData\\Local\\nvm',
+  }
+  const home = 'C:\\Users\\François'
+  const readdir = (dir) => {
+    if (dir === env.NVM_HOME) return ['v20.11.0', 'v24.10.2', 'v22.12.0', 'settings.txt']
+    throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+  }
+
+  it('ordre : PATH reçu, PATH de la session (registre), Program Files, nvm-windows, Volta, fnm, Programs\\nodejs', () => {
+    const dirs = candidateDirs({
+      platform: 'win32',
+      env,
+      home,
+      readdir,
+      shellPath: 'C:\\WINDOWS\\system32;"C:\\Program Files\\nodejs\\";relatif;C:\\depot\\node_modules\\.bin',
+      currentPath: 'C:\\WINDOWS\\System32;C:\\Outils',
+    })
+    assert.deepEqual(dirs, [
+      'C:\\WINDOWS\\System32',
+      'C:\\Outils',
+      'C:\\Program Files\\nodejs\\',
+      'C:\\nvm4w\\nodejs',
+      win.join(env.NVM_HOME, 'v24.10.2'),
+      win.join(env.NVM_HOME, 'v22.12.0'),
+      win.join(env.NVM_HOME, 'v20.11.0'),
+      'C:\\Users\\François\\AppData\\Local\\Volta\\bin',
+      'C:\\Program Files\\Volta',
+      'C:\\Users\\François\\AppData\\Roaming\\fnm\\aliases\\default',
+      'C:\\Users\\François\\AppData\\Local\\Programs\\nodejs',
+    ])
+  })
+
+  it('trouve node.exe + npm.cmd, PATH en « ; » avec le dossier choisi en tête, puis Windows et Git', async () => {
+    const files = new Set(['C:\\Program Files\\nodejs\\node.exe', 'C:\\Program Files\\nodejs\\npm.cmd', 'C:\\Outils\\node.exe'])
+    const found = await findNode({
+      platform: 'win32',
+      env,
+      home,
+      readdir,
+      shellPath: 'C:\\Outils',
+      currentPath: '',
+      executable: (file) => files.has(file),
+      version: async () => 'v24.11.0',
+    })
+    assert.equal(found.dir, 'C:\\Program Files\\nodejs')
+    const parts = found.path.split(';')
+    assert.deepEqual(parts.slice(0, 3), ['C:\\Program Files\\nodejs', 'C:\\Outils', 'C:\\WINDOWS\\System32'])
+    // Le PATH reçu passe avant celui du registre (terminal d'installation, menu Démarrer).
+    const first = await findNode({
+      platform: 'win32',
+      env,
+      home,
+      readdir,
+      shellPath: 'C:\\Program Files\\nodejs',
+      currentPath: 'C:\\hostedtoolcache\\node\\24\\x64',
+      executable: (file) => /\\(node\.exe|npm\.cmd)$/.test(file),
+      version: async () => 'v24.11.0',
+    })
+    assert.equal(first.dir, 'C:\\hostedtoolcache\\node\\24\\x64')
+    assert.ok(parts.includes('C:\\Program Files\\Git\\cmd'))
+  })
+
+  it('PATH de la session : registre machine puis utilisateur, %VAR% développés, reg.exe par chemin absolu sans shell', async () => {
+    const calls = []
+    const run = (file, args, options, done) => {
+      calls.push({ file, args, windowsHide: options.windowsHide, shell: options.shell })
+      const machine = args[1].startsWith('HKLM')
+      done(null, `\r\n${args[1]}\r\n    Path    ${machine ? 'REG_EXPAND_SZ    %SystemRoot%\\system32;%ProgramFiles%\\nodejs\\' : 'REG_SZ    %USERPROFILE%\\AppData\\Local\\Microsoft\\WindowsApps;%INCONNUE%\\bin'}\r\n\r\n`)
+    }
+    assert.equal(
+      await windowsSessionPath({ run, env }),
+      'C:\\WINDOWS\\system32;C:\\Program Files\\nodejs\\;C:\\Users\\François\\AppData\\Local\\Microsoft\\WindowsApps;%INCONNUE%\\bin',
+    )
+    assert.deepEqual(calls.map((call) => call.file), ['C:\\WINDOWS\\System32\\reg.exe', 'C:\\WINDOWS\\System32\\reg.exe'])
+    assert.deepEqual(calls[1].args, ['query', 'HKCU\\Environment', '/v', 'Path'])
+    assert.ok(calls.every((call) => call.windowsHide === true && !call.shell))
+    assert.equal(await windowsSessionPath({ run: (_f, _a, _o, done) => done(new Error('accès refusé')), env }), null)
+  })
+
+  it('lit une valeur de « reg query » et développe les variables (casse indifférente)', () => {
+    assert.equal(parseRegValue('\r\nHKEY_CURRENT_USER\\Software\\Atelier\\Apps\\viz\r\n    Lanceur    REG_SZ    C:\\Program Files\\Atelier Viz\\viz.exe\r\n', 'lanceur'), 'C:\\Program Files\\Atelier Viz\\viz.exe')
+    assert.equal(parseRegValue('ERREUR : clé introuvable', 'Lanceur'), null)
+    assert.equal(expandWindowsVars('%localappdata%\\x;%NON%', env), 'C:\\Users\\François\\AppData\\Local\\x;%NON%')
+  })
+
+  it('npm sans shell : node.exe + npm-cli.js à côté, sinon npm.exe (Volta), jamais npm.cmd', () => {
+    const official = new Set(['C:\\Program Files\\nodejs\\node.exe', 'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js'])
+    assert.deepEqual(npmCommand({ platform: 'win32', pathValue: 'C:\\Program Files\\nodejs;C:\\WINDOWS', exists: (file) => official.has(file) }), [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
+    ])
+    const volta = new Set(['C:\\Program Files\\Volta\\node.exe', 'C:\\Program Files\\Volta\\npm.exe'])
+    assert.deepEqual(npmCommand({ platform: 'win32', pathValue: 'C:\\Program Files\\Volta', exists: (file) => volta.has(file) }), ['C:\\Program Files\\Volta\\npm.exe'])
+    assert.equal(npmCommand({ platform: 'win32', pathValue: 'C:\\Program Files\\nodejs', exists: (file) => file.endsWith('npm.cmd') }), null)
+    assert.deepEqual(npmCommand({ platform: 'darwin', pathValue: '/usr/bin' }), ['npm'])
+  })
+
+  it('dossiers : absolus Windows seulement, sans node_modules\\.bin', () => {
+    assert.equal(usableDir('C:\\Program Files\\nodejs', 'win32'), true)
+    assert.equal(usableDir('nodejs', 'win32'), false)
+    assert.equal(usableDir('C:\\depot\\node_modules\\.bin', 'win32'), false)
   })
 })
