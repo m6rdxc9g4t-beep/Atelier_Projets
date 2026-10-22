@@ -31,5 +31,10 @@ backend/prisma/backups/
 e2e/.results/
 playwright-report/
 
-# Application de bureau : état de la dernière compilation
+# Application de bureau : état de la dernière compilation, verrou et dossiers de la mise à jour en cours
+# (version précédente mise de côté, compilation à part) — docs/SUITE.md §8
 desktop/.build-stamp.json
+desktop/.update.lock
+*.avant-maj/
+*.a-supprimer/
+dist.maj/

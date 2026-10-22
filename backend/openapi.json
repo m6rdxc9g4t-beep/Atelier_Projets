@@ -16569,7 +16569,7 @@
                     },
                     "keep": {
                       "type": "integer",
-                      "description": "Sauvegardes conservées de chaque sorte, automatique et manuelle (BACKUP_KEEP)"
+                      "description": "Sauvegardes conservées de chaque sorte, automatique, manuelle et avant migration (BACKUP_KEEP)"
                     },
                     "backups": {
                       "type": "array",
@@ -16599,9 +16599,11 @@
                           "reason": {
                             "enum": [
                               "auto",
-                              "manual"
+                              "manual",
+                              "migration"
                             ],
-                            "type": "string"
+                            "type": "string",
+                            "description": "auto : au démarrage puis toutes les 24 h · manual : « Sauvegarder maintenant » · migration : avant l’application de migrations"
                           }
                         }
                       },
@@ -16651,9 +16653,11 @@
                     "reason": {
                       "enum": [
                         "auto",
-                        "manual"
+                        "manual",
+                        "migration"
                       ],
-                      "type": "string"
+                      "type": "string",
+                      "description": "auto : au démarrage puis toutes les 24 h · manual : « Sauvegarder maintenant » · migration : avant l’application de migrations"
                     }
                   }
                 }
@@ -16704,7 +16708,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^atelier-[0-9T-]+-(auto|manual)\\.db$"
+              "pattern": "^atelier-[0-9T-]+-(auto|manual|migration)\\.db$"
             },
             "in": "path",
             "name": "name",

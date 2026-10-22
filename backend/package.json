@@ -17,9 +17,10 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "postdb:migrate": "prisma generate",
+    "predb:deploy": "tsx scripts/backup-before-migrate.ts",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:setup": "prisma generate && prisma migrate deploy && prisma db seed",
+    "db:setup": "prisma generate && npm run db:deploy && prisma db seed",
     "db:reset": "prisma migrate reset --force && prisma db seed",
     "db:studio": "prisma studio",
     "openapi": "tsx scripts/export-openapi.ts"

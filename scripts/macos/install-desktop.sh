@@ -5,12 +5,12 @@
 #   npm run app:install -- <dossier> → dans un autre dossier (ex. ~/Desktop)
 #
 # Une vraie application : sa propre fenêtre et son icône dans le Dock, sans navigateur. Au lancement, elle met
-# à jour la compilation si le dépôt a changé (git pull), démarre l'API et l'interface ; Cmd+Q arrête tout.
-# Journal : ~/Library/Logs/Atelier_Projets/app.log
+# à jour si le dépôt a changé (git pull : docs/SUITE.md §8), démarre l'API et l'interface ; Cmd+Q arrête tout.
+# Journaux : ~/Library/Logs/Atelier_Projets/app.log et mise-a-jour.log
 #
 # L'application contient Electron et un petit lanceur qui pointe vers ce dépôt : le code de l'application
 # reste dans le dépôt (desktop/main.cjs), un « git pull » suffit pour la mettre à jour. Relancer ce script
-# après un déplacement du dépôt, un changement d'installation de Node, ou une mise à jour d'Electron.
+# après un déplacement du dépôt ou une mise à jour d'Electron (Node est recherché à chaque lancement).
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -31,8 +31,8 @@ if [[ -z "$NODE" || -z "$NPM" ]]; then
 fi
 cd "$REPO"
 if [[ ! -d node_modules/electron ]]; then
-  echo "→ Installation des dépendances (npm install)…"
-  npm install --no-audit --no-fund
+  echo "→ Installation des dépendances depuis le lockfile (npm ci)…"
+  npm ci --include=dev --no-audit --no-fund
 fi
 
 echo "→ Téléchargement d'Electron si besoin…"
@@ -43,7 +43,7 @@ if [[ ! -d "$ELECTRON_APP" ]]; then
   exit 1
 fi
 
-echo "→ Préparation de l'application (base, compilation)…"
+echo "→ Préparation de l'application (sauvegarde et migrations de la base, compilation)…"
 node desktop/prepare.cjs
 
 # PATH enregistré sans les dossiers ajoutés par npm pour ce script (node_modules/.bin, node-gyp-bin) :

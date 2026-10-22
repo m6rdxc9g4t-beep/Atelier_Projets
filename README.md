@@ -37,10 +37,14 @@ Puis ouvrir **http://127.0.0.1:5174** (interface) — documentation de l'API : h
 
 **Application de bureau (macOS) :** `npm run app:install` crée `~/Applications/Atelier Projets.app` (Electron), à glisser dans le Dock. C'est une vraie application : sa propre fenêtre, son icône et son menu, sans navigateur.
 - Au lancement, elle démarre l'API et l'interface compilée (sur `http://127.0.0.1:4174`, l'adresse « app » de la Suite Atelier). Cmd+Q ou la fermeture de la fenêtre arrête tout.
-- Après un `git pull`, le lancement suivant réinstalle les dépendances si besoin, applique les migrations et recompile (une minute environ, écran « Compilation… ») ; sinon elle s'ouvre en 2 à 3 secondes.
+- **Mise à jour automatique** (`docs/SUITE.md` §8) : après un `git pull` (ou une modification locale non commitée), le lancement suivant se met à jour tout seul, écran « Mise à jour… » avec l'étape en cours (une minute environ) ; sinon l'application s'ouvre en 2 à 3 secondes. Dans l'ordre et seulement si nécessaire : dépendances **depuis le lockfile** (`npm ci`, si `package-lock.json` a changé ou si elles manquent), client Prisma, **sauvegarde de la base** puis migrations (`npm run db:deploy`), compilation de l'API et de l'interface. L'application ne fait jamais de `git pull` et ne touche pas aux données (seule la base est migrée, après sa copie).
+  - **Ce qui est sauvegardé** : avant d'appliquer des migrations en attente, une copie complète de la base (`backend/prisma/backups/atelier-…-migration.db`, sorte « avant migration » de **Paramètres → Sauvegardes**, 14 gardées). Rien n'est copié quand il n'y a aucune migration à appliquer.
+  - **En cas d'échec** (réseau, compilation, migration) : message en français dans l'écran de démarrage et détail dans `~/Library/Logs/Atelier_Projets/mise-a-jour.log` (menu Aide → Journal des mises à jour). La version précédente reste intacte jusqu'à la réussite complète (dépendances mises de côté pendant `npm ci`, compilation faite à part puis échangée) : « Ouvrir quand même avec la version précédente », « Réessayer » ou « Quitter » ; le lancement suivant réessaie.
+  - Une seule mise à jour à la fois (verrou `desktop/.update.lock`), même si l'application est lancée deux fois ou en même temps que `node desktop/prepare.cjs`.
+  - Node.js et npm sont cherchés comme dans le terminal, même depuis le Finder : PATH du shell de connexion zsh, puis `~/.homebrew/bin`, `/opt/homebrew/bin`, `/usr/local/bin` et nvm (Node 22.12+ ou 24+).
 - Si l'API tourne déjà dans un terminal (`npm run dev`), la fenêtre l'utilise sans la relancer.
 - Liens externes (GitHub, documentation) : navigateur par défaut. Impression PDF du Gantt et téléchargements (CSV, sauvegardes) : boîtes de dialogue de macOS.
-- Journal : `~/Library/Logs/Atelier_Projets/app.log` (menu Aide → Journal de l'application). À relancer après un déplacement du dépôt ou un changement d'installation de Node.
+- Journaux : `~/Library/Logs/Atelier_Projets/app.log` (menu Aide → Journal de l'application) et `mise-a-jour.log` (mises à jour). `npm run app:install` est à relancer seulement après un déplacement du dépôt ou une mise à jour d'Electron.
 - L'ancien lanceur qui ouvrait le navigateur reste disponible : `npm run app:install:browser`.
 
 **IA (facultatif) :** installer [Ollama](https://ollama.com), puis `ollama pull qwen2.5-coder` (ou `gemma3`) ; le bouton `🤖 IA` de l'en-tête affiche l'état des moteurs et permet de choisir les modèles. **Claude (facultatif) :** installer Claude Code puis `claude auth login` ; passer l'en-tête sur « En ligne » pour que Claude puisse répondre (moteur « Auto » ou « Claude »). Le bouton « Claude CLI » de la fiche d'un élément ouvre en plus une session interactive dans le dépôt du projet.
@@ -66,9 +70,9 @@ Puis ouvrir **http://127.0.0.1:5174** (interface) — documentation de l'API : h
 
 La configuration est facultative : sans fichier `.env`, la base est créée dans `backend/prisma/dev.db` et l'API écoute sur `127.0.0.1:3000`. Pour changer ces valeurs, copier `backend/.env.example` en `backend/.env`.
 
-**Sauvegardes :** la base est copiée au démarrage puis toutes les 24 h dans `backend/prisma/backups/` (14 copies automatiques et 14 manuelles gardées) ; « Sauvegarder maintenant » et le téléchargement des copies sont dans **Paramètres du projet**. Pour restaurer : arrêter l'application, remplacer `backend/prisma/dev.db` par une copie, relancer.
+**Sauvegardes :** la base est copiée au démarrage puis toutes les 24 h dans `backend/prisma/backups/`, et avant toute migration en attente (`npm run db:deploy`, donc `npm run setup` et l'application de bureau) ; 14 copies de chaque sorte (automatique, manuelle, avant migration) sont gardées ; « Sauvegarder maintenant » et le téléchargement des copies sont dans **Paramètres du projet**. Pour restaurer : arrêter l'application, remplacer `backend/prisma/dev.db` par une copie, relancer.
 
-**Après une mise à jour du dépôt :** `npm install` puis `npm run setup` (applique les nouvelles migrations de la base ; le projet de démo est réinséré, vos projets sont conservés).
+**Après une mise à jour du dépôt :** l'application de bureau se met à jour seule au lancement suivant. En terminal : `npm ci` puis `npm run setup` (copie la base puis applique les nouvelles migrations ; le projet de démo est réinséré, vos projets sont conservés).
 
 ---
 

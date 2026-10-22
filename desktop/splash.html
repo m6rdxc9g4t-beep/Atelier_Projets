@@ -54,6 +54,58 @@
         color: var(--atelier-muted, var(--text-muted));
         opacity: 0.8;
       }
+      [hidden] {
+        display: none !important;
+      }
+      #failure {
+        max-width: 560px;
+        padding: 0 24px;
+      }
+      #failure h2 {
+        margin: 0 0 10px;
+        font-size: 16px;
+      }
+      #failure p {
+        margin: 0 0 8px;
+        min-height: 0;
+      }
+      #failure-message {
+        color: var(--atelier-text, var(--text-primary));
+        -webkit-user-select: text;
+        user-select: text;
+      }
+      #failure code {
+        font: 12px ui-monospace, "SF Mono", Menlo, monospace;
+        -webkit-user-select: text;
+        user-select: text;
+        word-break: break-all;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 18px;
+      }
+      button {
+        font: inherit;
+        padding: 7px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--atelier-border-soft, var(--border-color));
+        background: var(--atelier-surface, transparent);
+        color: var(--atelier-text, var(--text-primary));
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--atelier-signature-faint, transparent);
+      }
+      button:focus-visible {
+        outline: none;
+        box-shadow: var(--atelier-focus);
+      }
+      button.atelier-btn-primary {
+        font-weight: 600;
+      }
       @keyframes spin {
         to {
           transform: rotate(360deg);
@@ -63,15 +115,57 @@
   </head>
   <body>
     <main>
-      <div class="ring" aria-hidden="true"></div>
+      <div class="ring" id="ring" aria-hidden="true"></div>
       <h1>ATELIER PROJETS</h1>
-      <p id="status" role="status">Démarrage…</p>
-      <small id="hint"></small>
+      <div id="progress">
+        <p id="status" role="status">Démarrage…</p>
+        <small id="hint"></small>
+      </div>
+      <!-- Échec de la mise à jour (docs/SUITE.md §8.2) : chaque bouton pose l'ancre #choix=…, lue par desktop/main.cjs. -->
+      <section id="failure" role="alert" hidden>
+        <h2>La mise à jour n’a pas abouti</h2>
+        <p id="failure-message"></p>
+        <p id="failure-hint"></p>
+        <p>Journal : <code id="failure-log"></code></p>
+        <div class="actions">
+          <button type="button" data-choice="previous" class="atelier-btn-primary">Ouvrir quand même avec la version précédente</button>
+          <button type="button" data-choice="retry">Réessayer</button>
+          <button type="button" data-choice="log">Ouvrir le journal</button>
+          <button type="button" data-choice="quit">Quitter</button>
+        </div>
+        <small id="failure-next"></small>
+      </section>
     </main>
     <script>
+      const $ = (id) => document.getElementById(id)
       window.setStatus = (text, hint) => {
-        document.getElementById('status').textContent = text
-        document.getElementById('hint').textContent = hint || ''
+        $('failure').hidden = true
+        $('ring').hidden = false
+        $('progress').hidden = false
+        $('status').textContent = text
+        $('hint').textContent = hint || ''
+      }
+      window.showFailure = ({ message, hint, logFile, canUsePrevious }) => {
+        $('ring').hidden = true
+        $('progress').hidden = true
+        $('failure-message').textContent = message
+        $('failure-hint').textContent = hint || ''
+        $('failure-hint').hidden = !hint
+        $('failure-log').textContent = logFile
+        const previous = document.querySelector('[data-choice="previous"]')
+        const retry = document.querySelector('[data-choice="retry"]')
+        previous.hidden = !canUsePrevious
+        retry.classList.toggle('atelier-btn-primary', !canUsePrevious)
+        $('failure-next').textContent = canUsePrevious
+          ? 'La version précédente est intacte ; le prochain lancement réessaiera la mise à jour.'
+          : 'Aucune version compilée précédente n’est disponible : corriger la cause (voir le journal), puis réessayer.'
+        $('failure').hidden = false
+        ;(canUsePrevious ? previous : retry).focus()
+      }
+      for (const button of document.querySelectorAll('[data-choice]')) {
+        button.addEventListener('click', () => {
+          location.hash = `choix=${button.dataset.choice}-${Date.now()}`
+        })
       }
     </script>
   </body>
