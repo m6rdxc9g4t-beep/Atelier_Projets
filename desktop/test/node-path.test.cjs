@@ -46,10 +46,10 @@ before(() => {
 after(() => fs.rmSync(root, { recursive: true, force: true }))
 
 describe('recherche de Node.js', posixOnly, () => {
-  it('accepte les versions du dépôt (^22.12 ou >= 24)', () => {
+  it('accepte toute version ≥ 22.12 (§9.6)', () => {
     assert.deepEqual(
       ['v22.11.0', 'v22.12.0', 'v23.5.0', 'v24.0.0', 'v26.1.0', 'v20.0.0', 'n/a'].map(supportedNode),
-      [false, true, false, true, true, false, false],
+      [false, true, true, true, true, false, false],
     )
   })
 

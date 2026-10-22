@@ -10,7 +10,7 @@
 // peut avoir été ouverte par une autre app avec un environnement minimal, §9.4), %ProgramFiles%\nodejs, nvm-windows
 // (%NVM_SYMLINK%, puis les versions de %NVM_HOME%), Volta, fnm, %LOCALAPPDATA%\Programs\nodejs.
 //
-// Le premier dossier qui contient node et npm, avec un Node accepté par le dépôt (^22.12 ou >= 24), est placé en
+// Le premier dossier qui contient node et npm, avec un Node accepté (≥ 22.12, docs/SUITE.md §9.6), est placé en
 // tête du PATH donné à npm et à l'API.
 'use strict'
 
@@ -236,12 +236,12 @@ function candidateDirs({
   return dirs.filter((dir) => !seen.has(key(dir)) && seen.add(key(dir)))
 }
 
-/** Node accepté par le dépôt (package.json « engines » : ^22.12.0 || >=24.0.0). */
+/** Node accepté : toute version ≥ 22.12 (docs/SUITE.md §9.6). */
 function supportedNode(version) {
   const key = versionKey(version)
   if (!key) return false
   const [major, minor] = key
-  return (major === 22 && minor >= 12) || major >= 24
+  return major > 22 || (major === 22 && minor >= 12)
 }
 
 function isExecutable(file) {

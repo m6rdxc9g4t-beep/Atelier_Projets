@@ -91,6 +91,10 @@ mise à jour se fera à son prochain lancement). Utilisé par `install.ps1` pour
   fournit `curl` ; Windows 10+ a aussi `curl.exe`.
 - **Session Claude CLI** (`backend/src/ai-bridge/claude-cli.ts`) : pas d'ouverture automatique d'un terminal ; la commande
   (syntaxe sh) est à coller dans **Git Bash**, qui garde chaque argument intact.
+- **CLI Claude** (moteur `claude -p` et session, §9.6) : `claude.exe` (PATH, puis `%USERPROFILE%\.local\bin`) lancé tel quel ;
+  un `claude.cmd` installé par npm est résolu en `node.exe <…\@anthropic-ai\claude-code\cli.js>` (`resolveClaudeLaunch`),
+  refusé s'il ne se résout pas — jamais `cmd.exe`, qui réinterpréterait le prompt système et le schéma JSON. Environnement :
+  liste blanche §5.3 + variables Windows de §9.6, `Path` sous ce nom.
 - **Arrêt de l'API** : `SIGTERM` n'existe pas sous Windows ; le processus est arrêté directement (SQLite reste cohérent).
 
 ## Emplacements (§9.2)
@@ -101,7 +105,7 @@ mise à jour se fera à son prochain lancement). Utilisé par `install.ps1` pour
 | Journaux `app.log`, `mise-a-jour.log` | `~/Library/Logs/Atelier_Projets/` | `%LOCALAPPDATA%\Atelier_Projets\Logs\` |
 | Données propres à l'app (taille de la fenêtre) | `~/Library/Application Support/Atelier Projets/` | `%APPDATA%\Atelier_Projets\` |
 | Lanceur | `~/Applications/Atelier Projets.app` | `%LOCALAPPDATA%\Programs\Atelier_Projets\` |
-| Enregistrement (§9.4) | identifiant `local.atelier-projets.desktop` | `HKCU\Software\Atelier\Apps\projets` (`Lanceur`, `Nom`, `Depot`) |
+| Enregistrement (§9.4) | identifiant `local.atelier-projets.desktop` | `HKCU\Software\Atelier\Apps\projets` (`Lanceur` = raccourci `.lnk` du menu Démarrer, `Nom`, `Depot`) |
 
 `ATELIER_LOG_DIR` remplace le dossier des journaux (tests).
 
@@ -109,8 +113,9 @@ mise à jour se fera à son prochain lancement). Utilisé par `install.ps1` pour
 
 `setWindowOpenHandler` → `lib/suite-launch.cjs` reconnaît l'adresse d'une app de la suite (hôte de bouclage + port, ou
 Atelier Cuisine en https) et ouvre l'app installée : macOS `open -b <identifiant>` ; Windows, lanceur lu dans
-`HKCU\Software\Atelier\Apps\<viz|tab|projets>` par `reg.exe` (chemin absolu, sans shell) et démarré détaché (`.exe`
-directement, `.vbs` par `wscript.exe`, `.lnk` par l'Explorateur). Sinon, navigateur par défaut. L'app ouverte reçoit un
+`HKCU\Software\Atelier\Apps\<viz|tab|projets>` par `reg.exe` (chemin absolu, sans shell) et **toujours** ouvert par le
+shell Windows, `explorer.exe "<Lanceur>"` (execFile, quelle que soit l'extension ; §9.6) : l'Explorateur démarre l'app avec
+l'environnement de la session. Sinon, navigateur par défaut. L'app ouverte reçoit un
 environnement minimal (utilisateur, dossiers personnels et système, langue, fuseau, dossiers temporaires, PATH système
 — Windows : PATH de la session) : aucune variable d'Atelier Projets (`DATABASE_URL`, `PORT`, `ATELIER_*`, `ELECTRON_*`…).
 

@@ -309,7 +309,7 @@ async function useSystemNode() {
   }
   process.env.PATH = found.path
   nodeFound = found
-  log(`Node ${found.version} : ${found.dir}${found.supported ? '' : ' — version non prise en charge par le dépôt (Node 22.12+ ou 24+ attendu)'}`)
+  log(`Node ${found.version} : ${found.dir}${found.supported ? '' : ' — version non prise en charge par le dépôt (Node 22.12 ou plus récent attendu)'}`)
 }
 
 /** Mise à jour depuis le dépôt ; en cas d'échec, l'écran de démarrage propose la version précédente, un nouvel essai ou de quitter. */
