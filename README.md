@@ -46,6 +46,21 @@ Puis ouvrir **http://127.0.0.1:5174** (interface) — documentation de l'API : h
 - Liens externes (GitHub, documentation) : navigateur par défaut. Impression PDF du Gantt et téléchargements (CSV, sauvegardes) : boîtes de dialogue de macOS.
 - Journaux : `~/Library/Logs/Atelier_Projets/app.log` (menu Aide → Journal de l'application) et `mise-a-jour.log` (mises à jour). `npm run app:install` est à relancer seulement après un déplacement du dépôt ou une mise à jour d'Electron.
 - L'ancien lanceur qui ouvrait le navigateur reste disponible : `npm run app:install:browser`.
+- Ouverte depuis une autre app de la suite (Atelier Nexus…), elle **ignore les variables héritées** qui désigneraient d'autres données ou une autre configuration (`DATABASE_URL`, `PORT`, `HOST`…, liste dans `desktop/lib/environment.cjs`) : la configuration vient de `backend/.env` ou des valeurs par défaut. À l'inverse, une app de la suite ouverte depuis Atelier Projets ne reçoit qu'un environnement minimal (`docs/SUITE.md` §9.4).
+- Architecture détaillée (lanceur, mise à jour, Windows) : [`docs/app-de-bureau.md`](./docs/app-de-bureau.md).
+
+**Installer sur Windows** (Windows 10 21H2+ ou 11, sans droits d'administrateur) :
+- **Prérequis** : [Git for Windows](https://git-scm.com/download/win) (`winget install --id Git.Git -e`) et Node.js 22.12+ ou 24+ avec npm (`winget install --id OpenJS.NodeJS.LTS -e`) ; le script vérifie et indique la commande à lancer s'il manque quelque chose.
+- **Installation**, depuis le dossier du dépôt cloné, dans PowerShell :
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts\windows\install.ps1
+  ```
+  Première mise à jour (`npm ci`, base, compilation : quelques minutes), lanceur `%LOCALAPPDATA%\Programs\Atelier_Projets\Atelier Projets.exe` (aucune fenêtre de console), raccourcis **menu Démarrer › Atelier › Atelier Projets** et Bureau (`-SansBureau` pour ne pas en créer), enregistrement pour les autres apps de la suite (`HKCU\Software\Atelier\Apps\projets`).
+- **Mise à jour** : `git pull` dans le dépôt, puis relancer l'application : elle se met à jour toute seule (écran « Mise à jour… », même règle que sur macOS). Relancer le script n'est utile qu'après un déplacement du dépôt ou un changement de version d'Electron, ou pour réparer l'installation (les données ne sont pas touchées).
+- **Données** : la base reste dans le dépôt (`backend\prisma\dev.db`, sauvegardes dans `backend\prisma\backups\`) ; journaux dans `%LOCALAPPDATA%\Atelier_Projets\Logs\` (`app.log`, `mise-a-jour.log`) ; taille de la fenêtre dans `%APPDATA%\Atelier_Projets\`.
+- **Désinstaller** : `powershell -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -Desinstaller` retire le lanceur, les raccourcis et l'enregistrement, jamais les données.
+- **Hook Git post-commit** (analyse automatique après chaque commit) : exécuté par le `sh` de Git for Windows, qui fournit aussi `curl`. **Session Claude CLI** : la commande proposée est à coller dans **Git Bash**.
+- Au premier lancement, Windows peut afficher SmartScreen (« Windows a protégé votre ordinateur ») car le lanceur n'est pas signé : « Informations complémentaires » → « Exécuter quand même ».
 
 **IA (facultatif) :** installer [Ollama](https://ollama.com), puis `ollama pull qwen2.5-coder` (ou `gemma3`) ; le bouton `🤖 IA` de l'en-tête affiche l'état des moteurs et permet de choisir les modèles. **Claude (facultatif) :** installer Claude Code puis `claude auth login` ; passer l'en-tête sur « En ligne » pour que Claude puisse répondre (moteur « Auto » ou « Claude »). Le bouton « Claude CLI » de la fiche d'un élément ouvre en plus une session interactive dans le dépôt du projet.
 
@@ -57,6 +72,7 @@ Puis ouvrir **http://127.0.0.1:5174** (interface) — documentation de l'API : h
 | `npm run dev:frontend` | Interface seule (Vite, http://127.0.0.1:5174) ; `/api` est relayé vers le backend |
 | `npm run app` | Compile l'interface puis lance l'API et l'aperçu (http://127.0.0.1:4174), adresse de la Suite Atelier |
 | `npm run app:install` | macOS : crée l'application de bureau « Atelier Projets » (Electron) ; `-- ~/Desktop` pour la créer ailleurs |
+| `powershell -ExecutionPolicy Bypass -File scripts\windows\install.ps1` | Windows : crée l'application de bureau (lanceur, raccourcis menu Démarrer et Bureau) ; `-SansBureau`, `-Desinstaller` |
 | `npm run app:desktop` | Ouvre l'application de bureau depuis le terminal (sans l'installer) |
 | `npm run build` | Compilation du backend (`backend/dist/`) et de l'interface (`frontend/dist/`) |
 | `npm run openapi` | Après une modification de l'API : régénère `backend/openapi.json` puis les types du frontend |
@@ -103,8 +119,10 @@ Atelier_Projets/
 │   ├── src/git-engine/        # ✅ Lecture du dépôt (simple-git), regex #ID, hook post-commit, client GitHub (Octokit)
 │   └── src/ai-bridge/         # ✅ Client Ollama (Qwen / Gemma), prompts IA, lancement de Claude CLI
 │
-├── 📁 desktop/                # Emballage (hors piliers) : application de bureau Electron — fenêtre native qui
-│                              #   lance l'API compilée et sert l'interface compilée ; aucune logique métier ni style
+├── 📁 desktop/                # Emballage (hors piliers) : application de bureau Electron (macOS, Windows) — fenêtre
+│                              #   native qui lance l'API compilée et sert l'interface compilée ; aucune logique métier
+│                              #   ni style (docs/app-de-bureau.md)
+├── 📁 scripts/                # Installation de l'app de bureau : macos/ (install-desktop.sh), windows/ (install.ps1)
 ├── 📁 e2e/                    # Tests de navigateur (Playwright)
 ├── CLAUDE.md                  # Règles d'architecture et conventions de code pour Claude CLI
 └── README.md                  # Spécification fonctionnelle et visuelle d'Atelier_Projets
