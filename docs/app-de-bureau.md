@@ -49,8 +49,8 @@ déjà une application graphique sans console, avec sa fenêtre et son icône.
    `backend/.env` ou des valeurs par défaut. Cas réel : ouverte depuis Atelier Nexus, l'app héritait de
    `DATABASE_URL=sqlite+aiosqlite:///…/nexus.db`, refusée par `loadConfig` pendant `npm run db:deploy`.
 2. **Node.js et npm** (`lib/node-path.cjs`) : macOS — PATH du shell de connexion zsh, PATH du lanceur, Homebrew, nvm ;
-   Windows — PATH de la session lu dans le registre (machine puis utilisateur : celui du menu Démarrer, même si une autre
-   app a lancé celle-ci avec un environnement minimal), PATH reçu, `%ProgramFiles%\nodejs`, nvm-windows (`%NVM_SYMLINK%`,
+   Windows — PATH reçu (celui du menu Démarrer, complet), puis PATH de la session lu dans le registre (machine puis
+   utilisateur : utile quand une autre app a lancé celle-ci avec un environnement minimal), `%ProgramFiles%\nodejs`, nvm-windows (`%NVM_SYMLINK%`,
    versions de `%NVM_HOME%`), Volta, fnm, `%LOCALAPPDATA%\Programs\nodejs` ; Git for Windows ajouté en fin de PATH.
 3. **Mise à jour** (`lib/prepare.cjs`, §8) : état du dépôt (`git rev-parse HEAD` + contenu des fichiers listés par
    `git status --porcelain`, nouveaux fichiers non ignorés compris) et empreinte de `package-lock.json`, comparés au tampon

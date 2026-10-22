@@ -53,8 +53,11 @@ $Installation = Join-Path $Programmes 'Programs\Atelier_Projets'
 $Lanceur = Join-Path $Installation $Exe
 $Icone = Join-Path $Installation 'atelier-projets.ico'
 $Registre = "HKCU:\Software\Atelier\Apps\$Cle"
+# Dossiers de l'utilisateur (redirigés éventuellement par la stratégie de groupe) ; à défaut, emplacements standard.
 if (-not $DossierMenuDemarrer) { $DossierMenuDemarrer = [Environment]::GetFolderPath('Programs') }
+if (-not $DossierMenuDemarrer) { $DossierMenuDemarrer = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
 if (-not $DossierBureau) { $DossierBureau = [Environment]::GetFolderPath('Desktop') }
+if (-not $DossierBureau) { $DossierBureau = Join-Path $HOME 'Desktop' }
 $DossierAtelier = Join-Path $DossierMenuDemarrer 'Atelier'
 $RaccourciMenu = Join-Path $DossierAtelier "$Nom.lnk"
 $RaccourciBureau = Join-Path $DossierBureau "$Nom.lnk"

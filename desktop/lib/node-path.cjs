@@ -5,8 +5,9 @@
 // dépendances ont été installées), le PATH enregistré par le lanceur, Homebrew (~/.homebrew/bin, /opt/homebrew/bin,
 // /usr/local/bin), puis nvm (version par défaut, puis la plus récente).
 //
-// Windows : le PATH de la session (registre : machine puis utilisateur, comme l'Explorateur — l'app peut avoir été
-// ouverte par une autre app avec un environnement minimal, §9.4), le PATH reçu, %ProgramFiles%\nodejs, nvm-windows
+// Windows : le PATH reçu (l'Explorateur donne au menu Démarrer le PATH complet de l'utilisateur, et c'est celui du
+// terminal qui a lancé install.ps1), puis le PATH de la session lu dans le registre (machine puis utilisateur : l'app
+// peut avoir été ouverte par une autre app avec un environnement minimal, §9.4), %ProgramFiles%\nodejs, nvm-windows
 // (%NVM_SYMLINK%, puis les versions de %NVM_HOME%), Volta, fnm, %LOCALAPPDATA%\Programs\nodejs.
 //
 // Le premier dossier qui contient node et npm, avec un Node accepté par le dépôt (^22.12 ou >= 24), est placé en
@@ -220,7 +221,7 @@ function candidateDirs({
 } = {}) {
   const dirs =
     platform === 'win32'
-      ? [...splitPath(shellPath, platform), ...splitPath(currentPath, platform), ...windowsDirs({ env, home, readdir })]
+      ? [...splitPath(currentPath, platform), ...splitPath(shellPath, platform), ...windowsDirs({ env, home, readdir })]
       : [
           ...splitPath(shellPath, platform),
           ...splitPath(currentPath, platform),
@@ -325,7 +326,8 @@ async function findNode(options = {}) {
     fallback ??= result
   }
   if (!fallback) return null
-  const rest = [...splitPath(shellPath, platform), ...splitPath(currentPath, platform), ...(platform === 'win32' ? windowsTailDirs(env, home) : SYSTEM_DIRS)]
+  const paths = platform === 'win32' ? [currentPath, shellPath] : [shellPath, currentPath]
+  const rest = [...paths.flatMap((value) => splitPath(value, platform)), ...(platform === 'win32' ? windowsTailDirs(env, home) : SYSTEM_DIRS)]
   const key = platform === 'win32' ? (dir) => dir.replace(/[\\/]+$/, '').toLowerCase() : (dir) => dir
   const seen = new Set()
   const ordered = [fallback.dir, ...rest].filter((dir) => !seen.has(key(dir)) && seen.add(key(dir)))

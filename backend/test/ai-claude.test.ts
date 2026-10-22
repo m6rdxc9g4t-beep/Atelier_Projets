@@ -83,7 +83,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     assert.deepEqual(claudeArguments({ model: 'opus', system: 'S', maxTurns: 2, schema }).slice(-2), ['--json-schema', '{"type":"object"}'])
   })
 
-  it('environnement en liste blanche exacte (§5.3), dossier de l’exécutable en tête du PATH', () => {
+  it('environnement en liste blanche exacte (§5.3), dossier de l’exécutable en tête du PATH', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, () => {
     const env = claudeEnvironment(
       {
         HOME: '/home/moi',
@@ -213,7 +213,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     await assert.rejects(engine.chat({ model: 'sonnet', messages: [{ role: 'user', content: '?' }] }), (error) => error instanceof ClaudeError && error.kind === 'missing')
   })
 
-  it('cherche la CLI dans CLAUDE_CLI, le PATH puis ~/.local/bin, /opt/homebrew/bin, /usr/local/bin', async () => {
+  it('cherche la CLI dans CLAUDE_CLI, le PATH puis ~/.local/bin, /opt/homebrew/bin, /usr/local/bin', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     const home = path.join(dir, 'home')
     await mkdir(path.join(home, '.local', 'bin'), { recursive: true })
     await writeFile(path.join(home, '.local', 'bin', 'claude'), '#!/bin/sh\n')
@@ -224,7 +224,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     assert.equal(await findClaudeExecutable('/nonexistent/claude', '/nonexistent', fallback), null, 'chemin explicite : pas de repli')
   })
 
-  it('recherche : chemins absolus seulement, ni entrée relative ni node_modules/.bin, CLAUDE_CLI relatif refusé', async () => {
+  it('recherche : chemins absolus seulement, ni entrée relative ni node_modules/.bin, CLAUDE_CLI relatif refusé', { skip: process.platform === 'win32' && 'scripts shell et PATH POSIX : macOS / Linux' }, async () => {
     const root = path.join(dir, 'search')
     const make = async (relative: string) => {
       const file = path.join(root, relative)

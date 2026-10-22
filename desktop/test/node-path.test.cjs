@@ -145,7 +145,7 @@ describe('recherche de Node.js sous Windows (§9.3)', () => {
     throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
   }
 
-  it('ordre : PATH de la session (registre), PATH reçu, Program Files, nvm-windows, Volta, fnm, Programs\\nodejs', () => {
+  it('ordre : PATH reçu, PATH de la session (registre), Program Files, nvm-windows, Volta, fnm, Programs\\nodejs', () => {
     const dirs = candidateDirs({
       platform: 'win32',
       env,
@@ -155,9 +155,9 @@ describe('recherche de Node.js sous Windows (§9.3)', () => {
       currentPath: 'C:\\WINDOWS\\System32;C:\\Outils',
     })
     assert.deepEqual(dirs, [
-      'C:\\WINDOWS\\system32',
-      'C:\\Program Files\\nodejs\\',
+      'C:\\WINDOWS\\System32',
       'C:\\Outils',
+      'C:\\Program Files\\nodejs\\',
       'C:\\nvm4w\\nodejs',
       win.join(env.NVM_HOME, 'v24.10.2'),
       win.join(env.NVM_HOME, 'v22.12.0'),
@@ -184,6 +184,18 @@ describe('recherche de Node.js sous Windows (§9.3)', () => {
     assert.equal(found.dir, 'C:\\Program Files\\nodejs')
     const parts = found.path.split(';')
     assert.deepEqual(parts.slice(0, 3), ['C:\\Program Files\\nodejs', 'C:\\Outils', 'C:\\WINDOWS\\System32'])
+    // Le PATH reçu passe avant celui du registre (terminal d'installation, menu Démarrer).
+    const first = await findNode({
+      platform: 'win32',
+      env,
+      home,
+      readdir,
+      shellPath: 'C:\\Program Files\\nodejs',
+      currentPath: 'C:\\hostedtoolcache\\node\\24\\x64',
+      executable: (file) => /\\(node\.exe|npm\.cmd)$/.test(file),
+      version: async () => 'v24.11.0',
+    })
+    assert.equal(first.dir, 'C:\\hostedtoolcache\\node\\24\\x64')
     assert.ok(parts.includes('C:\\Program Files\\Git\\cmd'))
   })
 
