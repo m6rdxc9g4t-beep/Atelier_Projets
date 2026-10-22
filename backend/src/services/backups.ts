@@ -1,11 +1,14 @@
 // Sauvegardes de la base SQLite : copie cohérente à chaud (API « backup » de SQLite via better-sqlite3),
-// automatique au démarrage puis toutes les 24 h, manuelle depuis l'interface ; les plus anciennes sont
-// supprimées au-delà de BACKUP_KEEP (pour chaque sorte, automatique ou manuelle). Restauration : arrêter l'application et remplacer le fichier de la base.
+// automatique au démarrage puis toutes les 24 h, manuelle depuis l'interface, et avant l'application de migrations
+// (scripts/backup-before-migrate.ts, lancé par « npm run db:deploy ») ; les plus anciennes sont supprimées au-delà
+// de BACKUP_KEEP (pour chaque sorte : automatique, manuelle, avant migration). Restauration : arrêter l'application et remplacer le fichier de la base.
 import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 
-export type BackupReason = 'auto' | 'manual'
+export type BackupReason = 'auto' | 'manual' | 'migration'
+
+export const BACKUP_REASONS: readonly BackupReason[] = ['auto', 'manual', 'migration']
 
 export interface BackupInfo {
   name: string
@@ -14,7 +17,7 @@ export interface BackupInfo {
   reason: BackupReason
 }
 
-const NAME = /^atelier-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})(?:-(\d{3}))?-(auto|manual)\.db$/
+const NAME = /^atelier-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})(?:-(\d{3}))?-(auto|manual|migration)\.db$/
 const DAY_MS = 86_400_000
 
 export function isBackupName(name: string): boolean {
@@ -102,10 +105,13 @@ export class BackupManager {
     return info?.isFile() ? file : null
   }
 
-  /** Garde les `keep` plus récentes de chaque sorte : les copies manuelles ne sont pas chassées par les automatiques. */
+  /**
+   * Garde les `keep` plus récentes de chaque sorte : les copies manuelles et celles d'avant migration ne sont pas
+   * chassées par les automatiques.
+   */
   private async prune(): Promise<void> {
     const backups = await this.list()
-    for (const reason of ['auto', 'manual'] as const) {
+    for (const reason of BACKUP_REASONS) {
       for (const backup of backups.filter((candidate) => candidate.reason === reason).slice(this.keep)) {
         await rm(path.join(this.dir, backup.name), { force: true })
       }

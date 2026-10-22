@@ -7,7 +7,7 @@ import { dateTime, parseNumber } from '../lib/format.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
 import { backupService, gitService, projectService } from '../services/api.ts'
-import type { GitHubSyncResult, GitScanResult, Project, ProjectUpdate } from '../services/types.ts'
+import type { Backup, GitHubSyncResult, GitScanResult, Project, ProjectUpdate } from '../services/types.ts'
 import { useApp } from '../store/app.ts'
 
 interface Form {
@@ -284,6 +284,8 @@ function SuiteCard({ project }: { project: Project }) {
   )
 }
 
+const BACKUP_REASON: Record<Backup['reason'], string> = { auto: 'auto', manual: 'manuelle', migration: 'avant migration' }
+
 function fileSize(bytes: number): string {
   return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} Ko` : `${(bytes / 1024 / 1024).toFixed(1)} Mo`
 }
@@ -300,7 +302,8 @@ function BackupCard() {
       ) : (
         <>
           <p className="text-sm text-muted">
-            Copie de tous les projets au démarrage puis toutes les 24 h ; les {data?.keep ?? 14} plus récentes sont gardées dans{' '}
+            Copie de tous les projets au démarrage puis toutes les 24 h, et avant chaque mise à jour de la base (migrations) ; les{' '}
+            {data?.keep ?? 14} plus récentes de chaque sorte sont gardées dans{' '}
             <code className="break-all font-mono text-xs">{data?.dir ?? 'backend/prisma/backups'}</code>.
           </p>
           {data && data.backups.length > 0 && (
@@ -308,7 +311,7 @@ function BackupCard() {
               {data.backups.slice(0, 5).map((backup) => (
                 <li key={backup.name} className="flex items-center gap-3 px-3 py-2 text-sm">
                   <span className="min-w-0 flex-1">
-                    {dateTime(backup.createdAt)} <span className="text-muted">· {backup.reason === 'auto' ? 'auto' : 'manuelle'} · {fileSize(backup.size)}</span>
+                    {dateTime(backup.createdAt)} <span className="text-muted">· {BACKUP_REASON[backup.reason]} · {fileSize(backup.size)}</span>
                   </span>
                   <a className="ds-btn" data-variant="ghost" data-size="sm" href={backupService.downloadUrl(backup.name)} download aria-label={`Télécharger la sauvegarde du ${dateTime(backup.createdAt)}`}>
                     <Download className="size-3.5" aria-hidden />
