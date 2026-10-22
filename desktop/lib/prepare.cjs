@@ -116,7 +116,9 @@ function plan(repo) {
   const state = repoState(repo)
   const stamp = readStamp(repo)
   const steps = []
-  if (!depsInstalled(repo) || (stamp && stamp.lock !== state.lock)) steps.push('install')
+  // Sans tampon (premier lancement, ou mise à jour jamais réussie), rien ne garantit que node_modules suit le
+  // lockfile : installation complète (docs/SUITE.md §8.4).
+  if (!stamp || !depsInstalled(repo) || stamp.lock !== state.lock) steps.push('install')
   if (steps.length > 0 || !stamp || stamp.code !== state.code || !built(repo)) steps.push('generate', 'migrate', 'build')
   else steps.push('migrate') // nouvelle base ou base remplacée par une sauvegarde : migrations toujours vérifiées
   return { state, steps }

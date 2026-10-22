@@ -80,13 +80,14 @@ after(() => fs.rmSync(root, { recursive: true, force: true }))
 describe('mise à jour au lancement', () => {
   beforeEach(settle)
 
-  it('premier lancement : génère, sauvegarde/migre (db:deploy), compile à part puis remplace dist', async () => {
-    assert.deepEqual(plan(repo).steps, ['generate', 'migrate', 'build'])
+  it('premier lancement (sans tampon) : npm ci, génère, sauvegarde/migre (db:deploy), compile à part puis remplace dist', async () => {
+    assert.deepEqual(plan(repo).steps, ['install', 'generate', 'migrate', 'build'])
     const status = []
-    assert.deepEqual(await run(null, { onStatus: (text) => status.push(text) }), ['generate', 'migrate', 'build'])
+    assert.deepEqual(await run(null, { onStatus: (text) => status.push(text) }), ['install', 'generate', 'migrate', 'build'])
     assert.deepEqual(
       calls().map((call) => call.args.join(' ')),
       [
+        'ci --include=dev --no-audit --no-fund',
         'run db:generate --workspace=@atelier/backend',
         'run db:deploy --workspace=@atelier/backend',
         'run build --workspace=@atelier/backend -- --outDir dist.maj',
