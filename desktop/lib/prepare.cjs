@@ -8,12 +8,20 @@
 // l'interface sont compilées à part (dist.maj) puis échangées avec dist ; en cas d'échec, tout est remis en place et
 // l'erreur (UpdateError) dit si l'application peut s'ouvrir avec la version précédente. Le tampon n'est écrit
 // qu'après une mise à jour entièrement réussie.
+//
+// Windows (docs/SUITE.md §9.3) : npm lancé sans shell (node.exe + npm-cli.js, lib/node-path.cjs), aucune fenêtre de
+// console ; un dossier dont un fichier est ouvert par un autre programme (antivirus, indexation, « npm run dev ») ne
+// peut être ni renommé ni supprimé : les renommages sont réessayés quelques secondes, puis l'étape échoue en
+// remettant la version précédente en place ; les suppressions en échec sont reprises au lancement suivant.
+// Les variables héritées d'une autre app (DATABASE_URL…) ne passent jamais à npm (lib/environment.cjs, §9.4).
 'use strict'
 
 const { spawn, execFileSync } = require('node:child_process')
 const crypto = require('node:crypto')
 const fs = require('node:fs')
 const path = require('node:path')
+const { desktopEnvironment, ignoredMessage } = require('./environment.cjs')
+const { npmCommand } = require('./node-path.cjs')
 
 const STAMP = path.join('desktop', '.build-stamp.json')
 const LOCK = path.join('desktop', '.update.lock')
@@ -34,19 +42,34 @@ function hash(value) {
 
 function git(repo, args) {
   try {
-    return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true })
   } catch {
     return null
   }
 }
 
-/** État du dépôt : commit courant + modifications locales suivies + lockfile. */
+/**
+ * Chemins listés par « git status --porcelain=v1 -z » : fichiers suivis modifiés et fichiers nouveaux non ignorés
+ * (docs/SUITE.md §8.4) ; pour un renommage, le nouveau chemin seulement.
+ */
+function parsePorcelain(output) {
+  const entries = output.split('\0')
+  const files = []
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i]
+    if (entry.length < 4) continue
+    files.push(entry.slice(3))
+    if (entry[0] === 'R' || entry[0] === 'C') i += 1 // chemin d'origine du renommage
+  }
+  return files
+}
+
+/** État du dépôt : commit courant + modifications locales (suivies et nouveaux fichiers) + lockfile. */
 function repoState(repo) {
   const head = git(repo, ['rev-parse', 'HEAD'])?.trim() ?? 'sans-git'
-  // Fichiers suivis modifiés (hors dossiers générés) : leur contenu compte, pas seulement leur nom.
-  const changed = (git(repo, ['diff', '--name-only', 'HEAD']) ?? '')
-    .split('\n')
-    .filter((file) => file && !file.startsWith('desktop/.build-stamp'))
+  // Fichiers modifiés ou nouveaux (hors fichiers ignorés) : leur contenu compte, pas seulement leur nom.
+  const changed = [...new Set(parsePorcelain(git(repo, ['status', '--porcelain=v1', '-z', '--untracked-files=all']) ?? ''))]
+    .filter((file) => !file.startsWith('desktop/.build-stamp'))
     .sort()
   const contents = changed.map((file) => {
     try {
@@ -146,13 +169,23 @@ function rotateLog(logFile, maxBytes = LOG_MAX_BYTES) {
   }
 }
 
-function runNpm(repo, args, { npm = 'npm', env = process.env, logFile }) {
+/** Commande npm [exécutable, ...arguments] : `npm` donné (chaîne ou tableau), sinon cherchée dans le PATH de `env`. */
+function resolveNpm(npm, env) {
+  if (Array.isArray(npm)) return npm
+  if (typeof npm === 'string') return [npm]
+  return npmCommand({ env })
+}
+
+function runNpm(repo, args, { npm, env = process.env, logFile }) {
   return new Promise((resolve, reject) => {
     appendLog(logFile, `\n$ npm ${args.join(' ')}\n`)
+    const command = resolveNpm(npm, env)
+    if (!command) return reject(new Error('npm introuvable (Node.js est-il installé ?)'))
     const log = fs.openSync(logFile, 'a')
     let child
     try {
-      child = spawn(npm, args, { cwd: repo, env, stdio: ['ignore', log, log] })
+      // Sans shell : arguments passés tels quels (chemins avec espaces ou accents compris) ; aucune console sous Windows.
+      child = spawn(command[0], [...command.slice(1), ...args], { cwd: repo, env, stdio: ['ignore', log, log], windowsHide: true })
     } finally {
       fs.closeSync(log)
     }
@@ -225,6 +258,43 @@ async function acquireLock(repo, { onWait = () => {}, pollMs = 500, staleMs = 30
   }
 }
 
+// --- Renommages et suppressions sûrs (Windows : fichiers verrouillés) --------------------------------------------
+
+/** Codes d'un fichier momentanément verrouillé (antivirus, indexation) ou utilisé par un autre programme. */
+const BUSY = new Set(['EPERM', 'EACCES', 'EBUSY', 'ENOTEMPTY'])
+
+function pause(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * Renomme en réessayant tant que la cible est verrouillée (jusqu'à ~5 s sous Windows) ; l'erreur finale dit qu'un
+ * autre programme utilise le dossier (la mise à jour échoue alors proprement, version précédente remise en place).
+ */
+function renameRetry(from, to, { attempts = process.platform === 'win32' ? 12 : 1, delayMs = 100, rename = fs.renameSync, wait = pause } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return rename(from, to)
+    } catch (error) {
+      if (!BUSY.has(error.code) || attempt >= attempts) {
+        if (BUSY.has(error.code)) {
+          throw new Error(
+            `« ${from} » est utilisé par un autre programme (fenêtre d’Atelier Projets, « npm run dev », éditeur, antivirus) : le fermer puis réessayer.`,
+            { cause: error },
+          )
+        }
+        throw error
+      }
+      wait(Math.min(delayMs * attempt, 1000))
+    }
+  }
+}
+
+/** Suppression récursive, réessayée sur un fichier verrouillé (Windows). */
+function removeDir(dir) {
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: process.platform === 'win32' ? 5 : 0, retryDelay: 200 })
+}
+
 // --- Version précédente mise de côté ------------------------------------------------------------------
 
 /** Dossiers node_modules du dépôt (racine et workspaces) : npm ci les vide tous. */
@@ -245,25 +315,25 @@ function outputDirs(repo) {
 /** Met un dossier de côté (renommage, instantané) : il pourra être remis en place ou supprimé. */
 function setAside(dir) {
   if (!fs.existsSync(dir)) return
-  fs.rmSync(dir + PREVIOUS, { recursive: true, force: true })
-  fs.renameSync(dir, dir + PREVIOUS)
+  removeDir(dir + PREVIOUS)
+  renameRetry(dir, dir + PREVIOUS)
 }
 
 /** Remet en place un dossier mis de côté ; la version partielle éventuelle part à la suppression. */
 function restore(dir) {
   if (!fs.existsSync(dir + PREVIOUS)) return
   if (fs.existsSync(dir)) {
-    fs.rmSync(dir + DISCARD, { recursive: true, force: true })
-    fs.renameSync(dir, dir + DISCARD)
+    removeDir(dir + DISCARD)
+    renameRetry(dir, dir + DISCARD)
   }
-  fs.renameSync(dir + PREVIOUS, dir)
+  renameRetry(dir + PREVIOUS, dir)
 }
 
 /** Après réussite : la version précédente part à la suppression (renommage d'abord, pour ne jamais la restaurer à moitié). */
 function discardPrevious(dir) {
   if (!fs.existsSync(dir + PREVIOUS)) return
-  fs.rmSync(dir + DISCARD, { recursive: true, force: true })
-  fs.renameSync(dir + PREVIOUS, dir + DISCARD)
+  removeDir(dir + DISCARD)
+  renameRetry(dir + PREVIOUS, dir + DISCARD)
 }
 
 function purgeDiscarded(repo) {
@@ -284,15 +354,15 @@ function recover(repo) {
       restored.push(path.relative(repo, dir))
     }
   }
-  for (const output of OUTPUTS) fs.rmSync(path.join(repo, output.dir, STAGING), { recursive: true, force: true })
+  for (const output of OUTPUTS) removeDir(path.join(repo, output.dir, STAGING))
   return restored
 }
 
 // --- Mise à jour --------------------------------------------------------------------------------------
 
 async function install(repo, options) {
-  const dirs = moduleDirs(repo)
-  dirs.forEach(setAside)
+  // Sous Windows, un module natif chargé (better-sqlite3, moteur Prisma) verrouille node_modules : l'erreur le dit.
+  for (const dir of moduleDirs(repo)) setAside(dir)
   await runNpm(repo, INSTALL_ARGS, options)
 }
 
@@ -300,7 +370,7 @@ async function install(repo, options) {
 async function build(repo, options) {
   for (const output of OUTPUTS) {
     const staging = path.join(repo, output.dir, STAGING)
-    fs.rmSync(staging, { recursive: true, force: true })
+    removeDir(staging)
     await runNpm(repo, ['run', 'build', `--workspace=${output.workspace}`, '--', '--outDir', STAGING], options)
     if (!fs.existsSync(path.join(staging, output.check))) {
       throw new Error(`compilation incomplète : ${path.join(output.dir, STAGING, output.check)} absent.`)
@@ -309,7 +379,7 @@ async function build(repo, options) {
   for (const output of OUTPUTS) {
     const dist = path.join(repo, output.dir, 'dist')
     setAside(dist)
-    fs.renameSync(path.join(repo, output.dir, STAGING), dist)
+    renameRetry(path.join(repo, output.dir, STAGING), dist)
   }
 }
 
@@ -317,9 +387,11 @@ async function build(repo, options) {
  * Exécute les étapes nécessaires sous le verrou ; onStatus reçoit un message pour l'écran de démarrage.
  * Renvoie les étapes faites ; rejette avec une UpdateError (version précédente remise en place).
  */
-async function prepare(repo, { onStatus = () => {}, npm, env, logFile, lockOptions = {} }) {
+async function prepare(repo, { onStatus = () => {}, npm, env = process.env, logFile, lockOptions = {} }) {
   fs.mkdirSync(path.dirname(logFile), { recursive: true })
   rotateLog(logFile)
+  // Variables d'une autre app (DATABASE_URL de Nexus…) : jamais transmises à npm (sauvegarde, migrations, compilation).
+  const { env: npmEnv, ignored } = desktopEnvironment(env)
   const release = await acquireLock(repo, {
     ...lockOptions,
     onWait: () => onStatus('Une autre mise à jour d’Atelier Projets est en cours : attente de sa fin…'),
@@ -334,7 +406,8 @@ async function prepare(repo, { onStatus = () => {}, npm, env, logFile, lockOptio
       steps.length > 1 ? `\n===== Mise à jour du ${date} — dépôt ${repo} =====\nÉtapes : ${steps.join(', ')}\n` : `\n--- Lancement du ${date} : dépôt à jour, migrations vérifiées ---\n`,
     )
     if (restored.length > 0) appendLog(logFile, `Mise à jour précédente interrompue : remis en place ${restored.join(', ')}.\n`)
-    const options = { npm, env, logFile }
+    if (ignored.length > 0) appendLog(logFile, `${ignoredMessage(ignored)}\n`)
+    const options = { npm, env: npmEnv, logFile }
     for (const step of steps) {
       onStatus(STEPS[step].label)
       try {
@@ -342,7 +415,11 @@ async function prepare(repo, { onStatus = () => {}, npm, env, logFile, lockOptio
         else if (step === 'build') await build(repo, options)
         else await runNpm(repo, ['run', step === 'generate' ? 'db:generate' : 'db:deploy', '--workspace=@atelier/backend'], options)
       } catch (error) {
-        recover(repo)
+        try {
+          recover(repo)
+        } catch (recoverError) {
+          appendLog(logFile, `Remise en place incomplète (reprise au prochain lancement) : ${recoverError.message}\n`)
+        }
         const canUsePrevious = previousBuildUsable(repo)
         appendLog(logFile, `✘ Échec (${step}) : ${error.message}${canUsePrevious ? '\n  Version précédente remise en place.' : ''}\n`)
         throw new UpdateError({ step, detail: error.message, logFile, canUsePrevious, cause: error })
@@ -362,4 +439,19 @@ async function prepare(repo, { onStatus = () => {}, npm, env, logFile, lockOptio
   }
 }
 
-module.exports = { prepare, plan, repoState, acquireLock, recover, previousBuildUsable, rotateLog, UpdateError, STEPS, INSTALL_ARGS, LOCK, STAMP }
+module.exports = {
+  prepare,
+  plan,
+  repoState,
+  parsePorcelain,
+  acquireLock,
+  recover,
+  previousBuildUsable,
+  rotateLog,
+  renameRetry,
+  UpdateError,
+  STEPS,
+  INSTALL_ARGS,
+  LOCK,
+  STAMP,
+}

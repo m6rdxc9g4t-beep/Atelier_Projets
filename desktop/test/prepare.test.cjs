@@ -9,9 +9,10 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { after, before, beforeEach, describe, it } = require('node:test')
-const { acquireLock, plan, prepare, recover, rotateLog, UpdateError, LOCK, STAMP } = require('../lib/prepare.cjs')
+const { acquireLock, parsePorcelain, plan, prepare, recover, renameRetry, rotateLog, UpdateError, LOCK, STAMP } = require('../lib/prepare.cjs')
 
-const FAKE_NPM = path.join(__dirname, 'fixtures', 'fake-npm.cjs')
+// npm simulé lancé par Node, sans shell : même forme que node.exe + npm-cli.js sous Windows.
+const FAKE_NPM = [process.execPath, path.join(__dirname, 'fixtures', 'fake-npm.cjs')]
 
 let root
 let repo
@@ -42,9 +43,9 @@ function calls() {
     .map((line) => JSON.parse(line))
 }
 
-function run(fail, extra = {}) {
+function run(fail, extra = {}, env = {}) {
   fs.rmSync(callsFile, { force: true })
-  return prepare(repo, { npm: FAKE_NPM, logFile, env: { ...process.env, FAKE_NPM_CALLS: callsFile, FAKE_NPM_FAIL: fail ?? '' }, ...extra })
+  return prepare(repo, { npm: FAKE_NPM, logFile, env: { ...process.env, ...env, FAKE_NPM_CALLS: callsFile, FAKE_NPM_FAIL: fail ?? '' }, ...extra })
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
@@ -181,6 +182,36 @@ describe('mise à jour au lancement', () => {
     assert.equal(read('frontend/dist/index.html'), 'nouveau')
   })
 
+  it('fichier nouveau non ignoré : compte comme un changement (docs/SUITE.md §8.4), comme son contenu', async () => {
+    write('backend/src/nouveau.ts', 'export const a = 1')
+    assert.deepEqual(plan(repo).steps, ['generate', 'migrate', 'build'])
+    assert.deepEqual(await run(), ['generate', 'migrate', 'build'])
+    assert.deepEqual(plan(repo).steps, ['migrate'])
+    write('backend/src/nouveau.ts', 'export const a = 2')
+    assert.deepEqual(plan(repo).steps, ['generate', 'migrate', 'build'])
+    fs.rmSync(path.join(repo, 'backend', 'src', 'nouveau.ts'))
+    write('backend/dist/ignore.js', 'les fichiers ignorés ne comptent pas')
+    assert.deepEqual(await run(), ['generate', 'migrate', 'build'])
+    assert.deepEqual(plan(repo).steps, ['migrate'])
+  })
+
+  it('variables héritées d’une autre app (DATABASE_URL de Nexus…) : jamais transmises à npm, mise à jour réussie', async () => {
+    write('backend/src/server.ts', 'export const apresNexus = true')
+    const inherited = {
+      DATABASE_URL: 'sqlite+aiosqlite:////Users/camille/Library/Application Support/Atelier Nexus/nexus.db',
+      PORT: '8100',
+      HOST: '0.0.0.0',
+      NODE_ENV: 'development',
+    }
+    // Sans le filtre, db:deploy (sauvegarde avant migration → loadConfig) refuse l'URL : c'était l'échec constaté.
+    assert.deepEqual(await run(null, {}, inherited), ['generate', 'migrate', 'build'])
+    for (const call of calls()) assert.deepEqual(call.inherited, { DATABASE_URL: null, PORT: null, HOST: null, NODE_ENV: null }, call.args.join(' '))
+    const journal = fs.readFileSync(logFile, 'utf8')
+    assert.match(journal, /Variables héritées ignorées \(configuration de backend\/\.env ou valeurs par défaut\) : DATABASE_URL, PORT, HOST, NODE_ENV\./)
+    assert.equal(journal.includes('nexus.db'), false, 'valeur jamais journalisée')
+    assert.equal(journal.includes('8100'), false)
+  })
+
   it('reprend une mise à jour interrompue : version mise de côté remise en place, compilation partielle supprimée', () => {
     write('backend/dist.avant-maj/server.js', 'précédente')
     write('backend/dist/server.js', 'à moitié')
@@ -227,6 +258,39 @@ describe('verrou de mise à jour', () => {
     release()
     assert.equal(exists(LOCK), true)
     fs.rmSync(path.join(repo, LOCK))
+  })
+})
+
+describe('état du dépôt et renommages', () => {
+  it('lit git status --porcelain -z (renommages : nouveau chemin seulement)', () => {
+    assert.deepEqual(parsePorcelain(' M a.ts\0?? dossier/nouveau é.ts\0R  nouveau.ts\0ancien.ts\0 D supprime.ts\0'), [
+      'a.ts',
+      'dossier/nouveau é.ts',
+      'nouveau.ts',
+      'supprime.ts',
+    ])
+    assert.deepEqual(parsePorcelain(''), [])
+  })
+
+  it('renommage réessayé tant que le dossier est verrouillé (Windows), puis message clair', () => {
+    const busy = (code) => Object.assign(new Error(code), { code })
+    let tries = 0
+    const waits = []
+    renameRetry('a', 'b', {
+      attempts: 5,
+      rename: () => {
+        tries += 1
+        if (tries < 3) throw busy('EBUSY')
+      },
+      wait: (ms) => waits.push(ms),
+    })
+    assert.equal(tries, 3)
+    assert.deepEqual(waits, [100, 200])
+    assert.throws(
+      () => renameRetry('C:\\dépôt\\node_modules', 'x', { attempts: 2, rename: () => { throw busy('EPERM') }, wait: () => {} }),
+      /« C:\\dépôt\\node_modules » est utilisé par un autre programme/,
+    )
+    assert.throws(() => renameRetry('a', 'b', { attempts: 5, rename: () => { throw busy('ENOENT') }, wait: () => assert.fail('pas d’attente') }), /ENOENT/)
   })
 })
 

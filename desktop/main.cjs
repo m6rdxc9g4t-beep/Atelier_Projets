@@ -15,10 +15,15 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { apiStatus, isUp, readApiAddress, startBackend } = require('./lib/backend.cjs')
+const { ignoredMessage, sanitizeProcessEnv } = require('./lib/environment.cjs')
 const { findNode } = require('./lib/node-path.cjs')
 const { prepare, UpdateError } = require('./lib/prepare.cjs')
 const { openSuiteOrExternal } = require('./lib/suite-launch.cjs')
 const { startUiServer } = require('./lib/ui-server.cjs')
+
+// Variables héritées d'une autre app (ouverte depuis Atelier Nexus : DATABASE_URL de nexus.db, PORT…) : ignorées
+// avant tout, la configuration vient de backend/.env ou des valeurs par défaut (docs/SUITE.md §9.4, lib/environment.cjs).
+const IGNORED_ENV = sanitizeProcessEnv()
 
 const REPO = path.resolve(process.env.ATELIER_REPO || path.join(__dirname, '..'))
 const UI_PORT = Number(process.env.ATELIER_UI_PORT || 4174)
@@ -205,6 +210,7 @@ async function uiAlreadyServed() {
 
 async function start() {
   log(`===== Démarrage (dépôt ${REPO}) =====`)
+  if (IGNORED_ENV.length > 0) log(ignoredMessage(IGNORED_ENV))
   if (!fs.existsSync(path.join(REPO, 'backend', 'package.json'))) {
     throw new Error(`Dépôt introuvable : ${REPO}\nRelancer « npm run app:install » depuis le dépôt.`)
   }
