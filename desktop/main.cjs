@@ -15,6 +15,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { apiStatus, isUp, readApiAddress, startBackend } = require('./lib/backend.cjs')
+const { findNode } = require('./lib/node-path.cjs')
 const { prepare, UpdateError } = require('./lib/prepare.cjs')
 const { openSuiteOrExternal } = require('./lib/suite-launch.cjs')
 const { startUiServer } = require('./lib/ui-server.cjs')
@@ -219,6 +220,7 @@ async function start() {
   if (status === 'other') throw new Error(`Le port ${api.port} est occupé par une autre application que l’API d’Atelier Projets.`)
 
   // Après un « git pull » : dépendances, sauvegarde et migrations, compilation remises à jour (rien à faire sinon).
+  await useSystemNode()
   await update()
 
   if (status === 'down') {
@@ -248,6 +250,25 @@ async function start() {
 
 /** Choix « Quitter » après un échec de mise à jour : le démarrage s'arrête sans autre message. */
 const QUIT = Symbol('quit')
+
+/**
+ * Node et npm du système : une application ouverte depuis le Finder n'a pas le PATH du terminal (lib/node-path.cjs).
+ * Cherchés une fois par lancement de l'application.
+ */
+let nodeFound = null
+async function useSystemNode() {
+  if (nodeFound) return
+  setStatus('Recherche de Node.js…')
+  const found = await findNode()
+  if (!found) {
+    throw new Error(
+      'Node.js et npm introuvables (PATH du terminal zsh, ~/.homebrew/bin, /opt/homebrew/bin, /usr/local/bin, nvm).\nInstaller Node.js 24, puis relancer l’application.',
+    )
+  }
+  process.env.PATH = found.path
+  nodeFound = found
+  log(`Node ${found.version} : ${found.dir}${found.supported ? '' : ' — version non prise en charge par le dépôt (Node 22.12+ ou 24+ attendu)'}`)
+}
 
 /** Mise à jour depuis le dépôt ; en cas d'échec, l'écran de démarrage propose la version précédente, un nouvel essai ou de quitter. */
 async function update() {
