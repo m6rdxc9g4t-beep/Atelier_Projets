@@ -338,7 +338,7 @@ function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: 
         </h4>
         <p className="text-sm text-muted">
           Indépendante du moteur : un clic sur « Claude CLI » (ici, ou dans la fiche d’un élément pour lui donner la tâche en prompt) ouvre
-          Claude dans le dépôt du projet{claude.canOpenTerminal ? ` (application ${claude.terminalApp}).` : ' (commande copiée, à coller dans un terminal).'}
+          Claude dans le dépôt du projet{claude.canOpenTerminal ? ` (application ${claude.terminalApp}).` : ' (commande copiée, à coller dans un terminal ; sous Windows : Git Bash).'}
         </p>
         {project && claude.installed && <ClaudeLaunchButton project={project} workItemId={null} label={`Claude CLI sur « ${project.name} »`} />}
       </div>
@@ -708,7 +708,7 @@ export function ClaudeDialog({ request }: { request: Extract<DialogRequest, { ki
           {launched && (
             <div className="space-y-2 rounded-lg border border-line bg-sunken p-3">
               <p className="text-sm">
-                {launched.launched ? 'Session ouverte. Pour la relancer à la main :' : 'Coller cette commande dans un terminal :'}
+                {launched.launched ? 'Session ouverte. Pour la relancer à la main :' : 'Coller cette commande dans un terminal (sous Windows : Git Bash) :'}
               </p>
               <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-md bg-surface p-2 font-mono text-xs">{launched.command}</pre>
               <Button size="sm" icon={copied ? <Check className="size-3.5" /> : <ClipboardCopy className="size-3.5" />} onClick={() => copy(launched.command)}>

@@ -7,7 +7,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import {
+  claudeFallbackDirs,
   createClaudeLauncher,
+  executableNames,
   findExecutable,
   sessionPath,
   shellQuote,
@@ -282,6 +284,15 @@ describe('lanceur de Claude CLI', () => {
     const { execFileSync } = await import('node:child_process')
     const output = execFileSync('/bin/sh', ['-c', command], { encoding: 'utf8' })
     assert.equal(output, '[--permission-mode]\n[plan]\n[--]\n[- [ ] Ajouter le bouton\n--version]\n')
+  })
+
+  it('Windows : « claude » désigne claude.exe (jamais un .cmd lancé par un shell), repli %USERPROFILE%\\.local\\bin', () => {
+    assert.deepEqual(executableNames('claude', 'win32'), ['claude.exe'])
+    assert.deepEqual(executableNames('C:\\Outils\\Claude.EXE', 'win32'), ['C:\\Outils\\Claude.EXE'])
+    assert.deepEqual(executableNames('claude.cmd', 'win32'), [])
+    assert.deepEqual(executableNames('claude', 'darwin'), ['claude'])
+    assert.deepEqual(claudeFallbackDirs('C:\\Users\\François', 'win32'), ['C:\\Users\\François\\.local\\bin'])
+    assert.deepEqual(claudeFallbackDirs('/Users/moi', 'darwin'), ['/Users/moi/.local/bin', '/opt/homebrew/bin', '/usr/local/bin'])
   })
 
   it('transmet à la session un PATH sans les outils npm du projet', () => {

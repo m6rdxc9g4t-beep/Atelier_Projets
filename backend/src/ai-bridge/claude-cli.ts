@@ -1,6 +1,8 @@
 // Lancement de Claude CLI (Claude Code) dans le dépôt Git d'un projet, avec le prompt d'une tâche.
 // macOS : un script .command est ouvert dans le Terminal (session interactive : l'utilisateur garde la main
-// sur chaque action). Ailleurs : la commande est renvoyée pour être collée dans un terminal.
+// sur chaque action). Ailleurs : la commande (syntaxe sh) est renvoyée pour être collée dans un terminal — sous
+// Windows, dans Git Bash (fourni par Git for Windows, que Claude Code utilise aussi) : la syntaxe sh garde chaque
+// argument intact, ce que PowerShell 5.1 ne garantit pas pour un exécutable natif (guillemets du prompt).
 import { execFile } from 'node:child_process'
 import { constants } from 'node:fs'
 import { access, chmod, lstat, mkdir, stat, writeFile } from 'node:fs/promises'
@@ -88,12 +90,24 @@ export function relativeCommandMessage(command: string): string {
 }
 
 /**
+ * Noms essayés pour une commande : sous Windows, « claude » désigne claude.exe (installeur officiel) ; un .cmd ou un
+ * .bat n'est jamais retenu (il ne se lance qu'à travers cmd.exe, donc avec un shell).
+ */
+export function executableNames(command: string, platform: NodeJS.Platform = process.platform): string[] {
+  if (platform !== 'win32') return [command]
+  const extension = path.win32.extname(command).toLowerCase()
+  if (extension === '.exe') return [command]
+  return extension === '' ? [`${command}.exe`] : []
+}
+
+/**
  * Exécutable trouvé : chemin absolu donné tel quel, sinon nom cherché dans les dossiers retenus du PATH
  * (searchDirs). Un chemin relatif n'est jamais accepté. Renvoie toujours un chemin absolu, ou null.
  */
 export async function findExecutable(command: string, searchPath: string | undefined): Promise<string | null> {
   if (isRelativeCommand(command)) return null
-  const candidates = path.isAbsolute(command) ? [command] : searchDirs(searchPath).map((dir) => path.join(dir, command))
+  const names = executableNames(command)
+  const candidates = path.isAbsolute(command) ? names : searchDirs(searchPath).flatMap((dir) => names.map((name) => path.join(dir, name)))
   for (const candidate of candidates) {
     try {
       await access(candidate, constants.X_OK)
@@ -107,9 +121,11 @@ export async function findExecutable(command: string, searchPath: string | undef
 
 /**
  * Dossiers où chercher Claude CLI après le PATH (docs/SUITE.md §5.3) : une application lancée depuis le Finder
- * n'hérite pas du PATH du terminal, et l'installeur de Claude Code place la CLI dans ~/.local/bin.
+ * n'hérite pas du PATH du terminal, et l'installeur de Claude Code place la CLI dans ~/.local/bin
+ * (Windows : %USERPROFILE%\.local\bin\claude.exe).
  */
-export function claudeFallbackDirs(home: string = homedir()): string[] {
+export function claudeFallbackDirs(home: string = homedir(), platform: NodeJS.Platform = process.platform): string[] {
+  if (platform === 'win32') return [path.win32.join(home, '.local', 'bin')]
   return [path.join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin']
 }
 
