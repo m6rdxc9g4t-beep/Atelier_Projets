@@ -167,6 +167,9 @@ try {
 
 # --- Lanceur : copie d'Electron (survit à npm ci) qui lit le code dans le dépôt ---------------------------------------
 
+# Binaire d'Electron téléchargé à la demande s'il manque (comme scripts/macos/install-desktop.sh).
+Push-Location -LiteralPath $Depot
+try { & node -e "require('electron')" | Out-Null } finally { Pop-Location }
 $electron = Join-Path $Depot 'node_modules\electron\dist'
 if (-not (Test-Path -LiteralPath (Join-Path $electron 'electron.exe'))) {
   Echec "Electron introuvable ($electron). Essayer : Remove-Item -Recurse node_modules\electron, puis relancer ce script."

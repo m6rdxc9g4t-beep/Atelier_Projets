@@ -24,8 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -40,8 +40,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -51,12 +51,26 @@ jobs:
           git config --get core.autocrlf
           $etat = git status --porcelain
           if ($etat) { $etat; throw 'Le clone Windows paraît modifié : vérifier .gitattributes.' }
-      - run: npm ci --include=dev --no-audit --no-fund
+      # Sorties gardées dans $RUNNER_TEMP\journaux : recopiées en annotations en cas d'échec (dernière étape).
+      - name: npm ci
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\journaux" | Out-Null
+          npm ci --include=dev --no-audit --no-fund 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\npm-ci.log"
+          exit $LASTEXITCODE
       - name: Module natif better-sqlite3 (binaire précompilé Windows)
-        run: node -e "const D=require('./backend/node_modules/better-sqlite3/lib/index.js');const d=new D(':memory:');console.log('better-sqlite3', d.prepare('select sqlite_version() v').get().v)"
+        run: node -e "const D=require(require.resolve('better-sqlite3',{paths:[require('path').resolve('backend')]}));const d=new D(':memory:');console.log('better-sqlite3', d.prepare('select sqlite_version() v').get().v)"
       - run: npm run db:generate --workspace=@atelier/backend
-      - run: npm test
-      - run: npm run check
+      - name: npm test
+        shell: pwsh
+        run: |
+          npm test 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\npm-test.log"
+          exit $LASTEXITCODE
+      - name: npm run check
+        shell: pwsh
+        run: |
+          npm run check 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\npm-check.log"
+          exit $LASTEXITCODE
 
       # Étapes en PowerShell 7 ; install.ps1 lancé par powershell.exe (5.1), la commande documentée (§9.1).
       - name: Installation dans un profil temporaire
@@ -76,7 +90,7 @@ jobs:
           $env:APPDATA = "$profil\AppData\Roaming"
           $env:LOCALAPPDATA = "$profil\AppData\Local"
           $env:USERPROFILE = $profil
-          & powershell -NoProfile -ExecutionPolicy Bypass -File "$depot\scripts\windows\install.ps1" -SansBureau -DossierMenuDemarrer "$profil\Menu"
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$depot\scripts\windows\install.ps1" -SansBureau -DossierMenuDemarrer "$profil\Menu" 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\journaux\install.log"
           if ($LASTEXITCODE -ne 0) { throw "install.ps1 : code $LASTEXITCODE" }
           $lanceur = "$profil\AppData\Local\Programs\Atelier_Projets\Atelier Projets.exe"
           if (-not (Test-Path -LiteralPath $lanceur)) { throw 'Lanceur absent' }
@@ -141,3 +155,4 @@ jobs:
             Write-Host "===== $($_.FullName)"
             if (-not $_.PSIsContainer) { Get-Content -LiteralPath $_.FullName -Tail 200 }
           }
+          & .github/scripts/annoter-journaux.ps1 -Fichiers @("$env:RUNNER_TEMP\journaux\*.log", "$env:PROFIL\AppData\Local\Atelier_Projets\Logs\*.log")
