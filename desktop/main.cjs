@@ -1,5 +1,6 @@
 // Atelier Projets — application de bureau (Electron).
-// Une fenêtre native : au lancement, met à jour la compilation si le dépôt a changé, démarre l'API (backend
+// Une fenêtre native : au lancement, se met à jour si le dépôt a changé (docs/SUITE.md §8 : dépendances depuis
+// le lockfile, sauvegarde puis migrations de la base, compilation ; lib/prepare.cjs), démarre l'API (backend
 // compilé, Node du système) et sert l'interface compilée sur l'adresse « app » de la Suite Atelier
 // (http://127.0.0.1:4174) ; Cmd+Q arrête tout. Si l'application tourne déjà dans un terminal
 // (npm run app / npm run dev), la fenêtre l'utilise sans rien relancer.
@@ -14,7 +15,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { apiStatus, isUp, readApiAddress, startBackend } = require('./lib/backend.cjs')
-const { prepare } = require('./lib/prepare.cjs')
+const { prepare, UpdateError } = require('./lib/prepare.cjs')
 const { openSuiteOrExternal } = require('./lib/suite-launch.cjs')
 const { startUiServer } = require('./lib/ui-server.cjs')
 
@@ -28,7 +29,15 @@ const LOG_DIR =
   process.env.ATELIER_LOG_DIR ||
   (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Logs', 'Atelier_Projets') : path.join(app.getPath('userData'), 'logs'))
 const LOG_FILE = path.join(LOG_DIR, 'app.log')
+/** Journal des mises à jour (npm ci, sauvegarde et migrations, compilation) : docs/SUITE.md §8.2. */
+const UPDATE_LOG = path.join(LOG_DIR, 'mise-a-jour.log')
 fs.mkdirSync(LOG_DIR, { recursive: true })
+
+/** Chemin lisible (~ pour le dossier personnel), pour les messages. */
+function displayPath(file) {
+  const home = os.homedir()
+  return file.startsWith(`${home}${path.sep}`) ? `~${file.slice(home.length)}` : file
+}
 
 function log(message) {
   fs.appendFileSync(LOG_FILE, `[${new Date().toLocaleString('fr-FR')}] ${message}\n`)
@@ -170,6 +179,7 @@ function buildMenu() {
       label: 'Aide',
       submenu: [
         { label: 'Journal de l’application', click: () => void shell.openPath(LOG_FILE) },
+        { label: 'Journal des mises à jour', click: () => void shell.openPath(UPDATE_LOG) },
         { label: 'Documentation de l’API', click: () => void shell.openExternal(`${UI_URL}/api/docs`) },
         { label: 'Ouvrir dans le navigateur', click: () => void shell.openExternal(UI_URL) },
         { label: 'Afficher le dépôt dans le Finder', click: () => void shell.openPath(REPO) },
@@ -208,8 +218,8 @@ async function start() {
   const status = await apiStatus(apiUrl)
   if (status === 'other') throw new Error(`Le port ${api.port} est occupé par une autre application que l’API d’Atelier Projets.`)
 
-  // Après un « git pull » : dépendances, migrations et compilation remises à jour (rien à faire sinon).
-  await prepare(REPO, { logFile: LOG_FILE, onStatus: (text) => setStatus(text, 'Première ouverture ou mise à jour : cela peut prendre une minute.') })
+  // Après un « git pull » : dépendances, sauvegarde et migrations, compilation remises à jour (rien à faire sinon).
+  await update()
 
   if (status === 'down') {
     setStatus('Démarrage de l’API…')
@@ -234,6 +244,56 @@ async function start() {
     throw error
   }
   log(`Interface servie sur ${UI_URL}.`)
+}
+
+/** Choix « Quitter » après un échec de mise à jour : le démarrage s'arrête sans autre message. */
+const QUIT = Symbol('quit')
+
+/** Mise à jour depuis le dépôt ; en cas d'échec, l'écran de démarrage propose la version précédente, un nouvel essai ou de quitter. */
+async function update() {
+  for (;;) {
+    try {
+      const steps = await prepare(REPO, {
+        logFile: UPDATE_LOG,
+        onStatus: (text) => setStatus(text, 'Première ouverture ou mise à jour : cela peut prendre une minute.'),
+      })
+      if (steps.length > 1) log(`Mise à jour faite (${steps.join(', ')}) : détail dans ${UPDATE_LOG}`)
+      return
+    } catch (error) {
+      if (!(error instanceof UpdateError)) throw error
+      log(`Mise à jour échouée : ${error.message} (détail : ${UPDATE_LOG})`)
+      const choice = await askAfterFailure(error)
+      if (choice === 'previous') {
+        log('Ouverture avec la version précédente ; la mise à jour sera retentée au prochain lancement.')
+        return
+      }
+      if (choice === 'quit') {
+        app.quit()
+        throw QUIT
+      }
+    }
+  }
+}
+
+/** Affiche l'échec dans l'écran de démarrage et attend le choix (bouton → ancre #choix=… de la page). */
+function askAfterFailure(error) {
+  const contents = mainWindow?.webContents
+  if (!contents || contents.isDestroyed()) return Promise.resolve('quit')
+  const failure = { message: error.message, hint: error.hint, logFile: displayPath(error.logFile), canUsePrevious: error.canUsePrevious }
+  return new Promise((resolve) => {
+    const onNavigate = (_event, url) => {
+      const match = /#choix=(previous|retry|log|quit)-\d+$/.exec(url)
+      if (!match || (match[1] === 'previous' && !error.canUsePrevious)) return
+      if (match[1] === 'log') return void shell.openPath(error.logFile)
+      contents.off('did-navigate-in-page', onNavigate)
+      resolve(match[1])
+    }
+    contents.on('did-navigate-in-page', onNavigate)
+    contents.executeJavaScript(`window.showFailure(${JSON.stringify(failure)})`).catch(() => {
+      contents.off('did-navigate-in-page', onNavigate)
+      resolve('quit')
+    })
+  })
 }
 
 async function showFatal(error) {
@@ -267,7 +327,7 @@ async function launch() {
     await start()
     await mainWindow.loadURL(`${UI_URL}/`)
   } catch (error) {
-    await showFatal(error)
+    if (error !== QUIT) await showFatal(error)
   }
 }
 

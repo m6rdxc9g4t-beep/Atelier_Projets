@@ -1,6 +1,13 @@
-// Mise à jour de l'application de bureau à partir du dépôt : après un « git pull » (ou une modification locale),
-// le prochain lancement réinstalle les dépendances si le lockfile a changé, applique les migrations de la base
-// et recompile l'API et l'interface. Rien n'est refait si le dépôt n'a pas bougé depuis la dernière compilation.
+// Mise à jour de l'application de bureau à partir du dépôt (docs/SUITE.md §8) : après un « git pull » (ou une
+// modification locale), le prochain lancement réinstalle les dépendances depuis le lockfile si elles ont changé
+// (npm ci), applique les migrations de la base (copie de sauvegarde d'abord s'il y en a en attente : script npm
+// predb:deploy du backend) et recompile l'API et l'interface. Rien n'est refait si le dépôt n'a pas bougé.
+//
+// Garde-fous : une seule mise à jour à la fois (verrou desktop/.update.lock) ; la version précédente (dépendances et
+// compilation) reste utilisable jusqu'à la réussite complète : node_modules est mis de côté pendant npm ci, l'API et
+// l'interface sont compilées à part (dist.maj) puis échangées avec dist ; en cas d'échec, tout est remis en place et
+// l'erreur (UpdateError) dit si l'application peut s'ouvrir avec la version précédente. Le tampon n'est écrit
+// qu'après une mise à jour entièrement réussie.
 'use strict'
 
 const { spawn, execFileSync } = require('node:child_process')
@@ -9,6 +16,17 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const STAMP = path.join('desktop', '.build-stamp.json')
+const LOCK = path.join('desktop', '.update.lock')
+/** Suffixes des dossiers mis de côté pendant une mise à jour (ignorés par git). */
+const PREVIOUS = '.avant-maj'
+const DISCARD = '.a-supprimer'
+const STAGING = 'dist.maj'
+/** Compilations produites, dans l'ordre : chaque dossier est compilé à part puis échangé avec dist. */
+const OUTPUTS = [
+  { workspace: '@atelier/backend', dir: 'backend', check: 'server.js' },
+  { workspace: '@atelier/frontend', dir: 'frontend', check: 'index.html' },
+]
+const LOG_MAX_BYTES = 2 * 1024 * 1024
 
 function hash(value) {
   return crypto.createHash('sha256').update(value).digest('hex').slice(0, 16)
@@ -54,57 +72,294 @@ function readStamp(repo) {
   }
 }
 
+function depsInstalled(repo) {
+  return fs.existsSync(path.join(repo, 'node_modules', '.package-lock.json'))
+}
+
 function built(repo) {
   return (
-    fs.existsSync(path.join(repo, 'frontend', 'dist', 'index.html')) &&
-    fs.existsSync(path.join(repo, 'backend', 'dist', 'server.js')) &&
+    OUTPUTS.every((output) => fs.existsSync(path.join(repo, output.dir, 'dist', output.check))) &&
     fs.existsSync(path.join(repo, 'backend', 'src', 'generated'))
   )
 }
 
-/** Étapes à faire avant de lancer l'application (vide : tout est à jour). */
+/** Une version compilée précédente peut-elle s'ouvrir (compilation et dépendances présentes) ? */
+function previousBuildUsable(repo) {
+  return depsInstalled(repo) && OUTPUTS.every((output) => fs.existsSync(path.join(repo, output.dir, 'dist', output.check)))
+}
+
+/** Étapes à faire avant de lancer l'application (« migrate » seule : tout est à jour). */
 function plan(repo) {
   const state = repoState(repo)
   const stamp = readStamp(repo)
   const steps = []
-  const depsMissing = !fs.existsSync(path.join(repo, 'node_modules', '.package-lock.json'))
-  if (depsMissing || (stamp && stamp.lock !== state.lock)) steps.push('install')
+  if (!depsInstalled(repo) || (stamp && stamp.lock !== state.lock)) steps.push('install')
   if (steps.length > 0 || !stamp || stamp.code !== state.code || !built(repo)) steps.push('generate', 'migrate', 'build')
   else steps.push('migrate') // nouvelle base ou base remplacée par une sauvegarde : migrations toujours vérifiées
   return { state, steps }
 }
 
-const COMMANDS = {
-  install: { label: 'Installation des dépendances (npm install)…', args: ['install', '--no-audit', '--no-fund'] },
-  generate: { label: 'Préparation de la base (Prisma)…', args: ['run', 'db:generate', '--workspace=@atelier/backend'] },
-  migrate: { label: 'Mise à jour de la base (migrations)…', args: ['run', 'db:deploy', '--workspace=@atelier/backend'] },
-  build: { label: 'Compilation de l’API et de l’interface…', args: ['run', 'build'] },
+const STEPS = {
+  install: {
+    label: 'Installation des dépendances (npm ci)…',
+    name: 'Installation des dépendances',
+    hint: 'Vérifiez la connexion au registre npm et que package-lock.json correspond aux package.json (npm ci ne le réécrit jamais).',
+  },
+  generate: { label: 'Préparation de la base (Prisma)…', name: 'Préparation du client Prisma', hint: '' },
+  migrate: {
+    label: 'Mise à jour de la base (migrations)…',
+    name: 'Mise à jour de la base',
+    hint: 'Si des migrations étaient en attente, une copie de la base a été faite juste avant (sauvegarde « avant migration », par défaut dans backend/prisma/backups ; chemin exact dans le journal).',
+  },
+  build: { label: 'Compilation de l’API et de l’interface…', name: 'Compilation', hint: '' },
+}
+
+const INSTALL_ARGS = ['ci', '--include=dev', '--no-audit', '--no-fund']
+
+/** Échec d'une mise à jour : message en français, journal, et possibilité d'ouvrir la version précédente. */
+class UpdateError extends Error {
+  constructor({ step, detail, logFile, canUsePrevious, cause }) {
+    const what = STEPS[step]?.name ?? 'Mise à jour'
+    super(`La mise à jour a échoué à l’étape « ${what} » : ${detail}`, cause ? { cause } : undefined)
+    this.name = 'UpdateError'
+    this.step = step
+    this.hint = STEPS[step]?.hint ?? ''
+    this.logFile = logFile
+    this.canUsePrevious = canUsePrevious
+  }
+}
+
+function appendLog(logFile, text) {
+  try {
+    fs.appendFileSync(logFile, text)
+  } catch {
+    /* journal facultatif */
+  }
+}
+
+/** Le journal ne grossit pas sans fin : au-delà de 2 Mo, il devient mise-a-jour.1.log (une génération gardée). */
+function rotateLog(logFile, maxBytes = LOG_MAX_BYTES) {
+  try {
+    if (fs.statSync(logFile).size > maxBytes) fs.renameSync(logFile, logFile.replace(/(\.log)?$/, '.1.log'))
+  } catch {
+    /* pas encore de journal */
+  }
 }
 
 function runNpm(repo, args, { npm = 'npm', env = process.env, logFile }) {
   return new Promise((resolve, reject) => {
+    appendLog(logFile, `\n$ npm ${args.join(' ')}\n`)
     const log = fs.openSync(logFile, 'a')
-    fs.writeSync(log, `\n$ npm ${args.join(' ')}\n`)
-    const child = spawn(npm, args, { cwd: repo, env, stdio: ['ignore', log, log] })
-    fs.closeSync(log)
-    child.once('error', reject)
-    child.once('exit', (code) => (code === 0 ? resolve() : reject(new Error(`« npm ${args.join(' ')} » a échoué (code ${code}).`))))
+    let child
+    try {
+      child = spawn(npm, args, { cwd: repo, env, stdio: ['ignore', log, log] })
+    } finally {
+      fs.closeSync(log)
+    }
+    child.once('error', (error) =>
+      reject(error.code === 'ENOENT' ? new Error('npm introuvable (Node.js est-il installé ?)', { cause: error }) : error),
+    )
+    child.once('exit', (code, signal) =>
+      code === 0 ? resolve() : reject(new Error(`« npm ${args.join(' ')} » s’est arrêté (${code === null ? signal : `code ${code}`}).`)),
+    )
   })
 }
 
-/** Exécute les étapes nécessaires ; onStatus reçoit un message pour l'écran de démarrage. */
-async function prepare(repo, { onStatus = () => {}, npm, env, logFile }) {
-  const { steps } = plan(repo)
-  for (const step of steps) {
-    onStatus(COMMANDS[step].label)
-    await runNpm(repo, COMMANDS[step].args, { npm, env, logFile })
+// --- Verrou -------------------------------------------------------------------------------------------
+
+function pidAlive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return error.code === 'EPERM'
   }
-  if (steps.includes('build')) {
-    // État relu après coup : npm install peut réécrire le lockfile, qui ne doit pas déclencher une nouvelle compilation.
-    const after = repoState(repo)
-    fs.writeFileSync(path.join(repo, STAMP), `${JSON.stringify({ ...after, builtAt: new Date().toISOString() }, null, 2)}\n`)
-  }
-  return steps
 }
 
-module.exports = { prepare, plan, repoState }
+/**
+ * Prend le verrou de mise à jour du dépôt (fichier créé de façon exclusive). Tant qu'une autre mise à jour vivante
+ * le tient, attend (onWait) ; un verrou abandonné (processus arrêté, ou plus vieux que staleMs) est repris.
+ * Renvoie la fonction qui le relâche.
+ */
+async function acquireLock(repo, { onWait = () => {}, pollMs = 500, staleMs = 30 * 60_000, timeoutMs = 60 * 60_000, now = Date.now } = {}) {
+  const file = path.join(repo, LOCK)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const owner = JSON.stringify({ pid: process.pid, since: new Date(now()).toISOString() })
+  const started = now()
+  let waiting = false
+  for (;;) {
+    try {
+      fs.writeFileSync(file, owner, { flag: 'wx' })
+      return () => {
+        try {
+          if (fs.readFileSync(file, 'utf8') === owner) fs.unlinkSync(file)
+        } catch {
+          /* déjà relâché */
+        }
+      }
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error
+    }
+    let holder = null
+    let age = 0
+    try {
+      holder = JSON.parse(fs.readFileSync(file, 'utf8'))
+      age = now() - Date.parse(holder.since)
+    } catch {
+      // Verrou illisible : en cours d'écriture par son propriétaire, ou laissé vide par un arrêt brutal.
+      try {
+        age = now() - fs.statSync(file).mtimeMs
+      } catch {
+        continue // relâché entre-temps
+      }
+      holder = age > 10_000 ? null : { pid: process.pid }
+    }
+    if (!holder || !Number.isInteger(holder.pid) || !pidAlive(holder.pid) || age > staleMs) {
+      fs.rmSync(file, { force: true })
+      continue
+    }
+    if (now() - started > timeoutMs) throw new Error('Une autre mise à jour d’Atelier Projets ne se termine pas (verrou desktop/.update.lock).')
+    if (!waiting) onWait()
+    waiting = true
+    await new Promise((resolve) => setTimeout(resolve, pollMs))
+  }
+}
+
+// --- Version précédente mise de côté ------------------------------------------------------------------
+
+/** Dossiers node_modules du dépôt (racine et workspaces) : npm ci les vide tous. */
+function moduleDirs(repo) {
+  let workspaces = []
+  try {
+    workspaces = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8')).workspaces ?? []
+  } catch {
+    /* pas de workspaces */
+  }
+  return ['.', ...workspaces].map((dir) => path.join(repo, dir, 'node_modules'))
+}
+
+function outputDirs(repo) {
+  return OUTPUTS.map((output) => path.join(repo, output.dir, 'dist'))
+}
+
+/** Met un dossier de côté (renommage, instantané) : il pourra être remis en place ou supprimé. */
+function setAside(dir) {
+  if (!fs.existsSync(dir)) return
+  fs.rmSync(dir + PREVIOUS, { recursive: true, force: true })
+  fs.renameSync(dir, dir + PREVIOUS)
+}
+
+/** Remet en place un dossier mis de côté ; la version partielle éventuelle part à la suppression. */
+function restore(dir) {
+  if (!fs.existsSync(dir + PREVIOUS)) return
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir + DISCARD, { recursive: true, force: true })
+    fs.renameSync(dir, dir + DISCARD)
+  }
+  fs.renameSync(dir + PREVIOUS, dir)
+}
+
+/** Après réussite : la version précédente part à la suppression (renommage d'abord, pour ne jamais la restaurer à moitié). */
+function discardPrevious(dir) {
+  if (!fs.existsSync(dir + PREVIOUS)) return
+  fs.rmSync(dir + DISCARD, { recursive: true, force: true })
+  fs.renameSync(dir + PREVIOUS, dir + DISCARD)
+}
+
+function purgeDiscarded(repo) {
+  return Promise.all(
+    [...moduleDirs(repo), ...outputDirs(repo)].map((dir) => fs.promises.rm(dir + DISCARD, { recursive: true, force: true })),
+  )
+}
+
+/**
+ * Mise à jour interrompue (application quittée, panne) : la version précédente encore de côté est remise en place,
+ * les compilations partielles sont supprimées. Le tampon n'ayant pas été écrit, la mise à jour sera refaite.
+ */
+function recover(repo) {
+  const restored = []
+  for (const dir of [...moduleDirs(repo), ...outputDirs(repo)]) {
+    if (fs.existsSync(dir + PREVIOUS)) {
+      restore(dir)
+      restored.push(path.relative(repo, dir))
+    }
+  }
+  for (const output of OUTPUTS) fs.rmSync(path.join(repo, output.dir, STAGING), { recursive: true, force: true })
+  return restored
+}
+
+// --- Mise à jour --------------------------------------------------------------------------------------
+
+async function install(repo, options) {
+  const dirs = moduleDirs(repo)
+  dirs.forEach(setAside)
+  await runNpm(repo, INSTALL_ARGS, options)
+}
+
+/** Compile l'API et l'interface à part (dist.maj), puis les échange avec dist une fois les deux réussies. */
+async function build(repo, options) {
+  for (const output of OUTPUTS) {
+    const staging = path.join(repo, output.dir, STAGING)
+    fs.rmSync(staging, { recursive: true, force: true })
+    await runNpm(repo, ['run', 'build', `--workspace=${output.workspace}`, '--', '--outDir', STAGING], options)
+    if (!fs.existsSync(path.join(staging, output.check))) {
+      throw new Error(`compilation incomplète : ${path.join(output.dir, STAGING, output.check)} absent.`)
+    }
+  }
+  for (const output of OUTPUTS) {
+    const dist = path.join(repo, output.dir, 'dist')
+    setAside(dist)
+    fs.renameSync(path.join(repo, output.dir, STAGING), dist)
+  }
+}
+
+/**
+ * Exécute les étapes nécessaires sous le verrou ; onStatus reçoit un message pour l'écran de démarrage.
+ * Renvoie les étapes faites ; rejette avec une UpdateError (version précédente remise en place).
+ */
+async function prepare(repo, { onStatus = () => {}, npm, env, logFile, lockOptions = {} }) {
+  fs.mkdirSync(path.dirname(logFile), { recursive: true })
+  rotateLog(logFile)
+  const release = await acquireLock(repo, {
+    ...lockOptions,
+    onWait: () => onStatus('Une autre mise à jour d’Atelier Projets est en cours : attente de sa fin…'),
+  })
+  try {
+    const restored = recover(repo)
+    // Plan établi sous le verrou : une mise à jour concurrente a pu tout faire entre-temps.
+    const { state, steps } = plan(repo)
+    const date = new Date().toLocaleString('fr-FR')
+    appendLog(
+      logFile,
+      steps.length > 1 ? `\n===== Mise à jour du ${date} — dépôt ${repo} =====\nÉtapes : ${steps.join(', ')}\n` : `\n--- Lancement du ${date} : dépôt à jour, migrations vérifiées ---\n`,
+    )
+    if (restored.length > 0) appendLog(logFile, `Mise à jour précédente interrompue : remis en place ${restored.join(', ')}.\n`)
+    const options = { npm, env, logFile }
+    for (const step of steps) {
+      onStatus(STEPS[step].label)
+      try {
+        if (step === 'install') await install(repo, options)
+        else if (step === 'build') await build(repo, options)
+        else await runNpm(repo, ['run', step === 'generate' ? 'db:generate' : 'db:deploy', '--workspace=@atelier/backend'], options)
+      } catch (error) {
+        recover(repo)
+        const canUsePrevious = previousBuildUsable(repo)
+        appendLog(logFile, `✘ Échec (${step}) : ${error.message}${canUsePrevious ? '\n  Version précédente remise en place.' : ''}\n`)
+        throw new UpdateError({ step, detail: error.message, logFile, canUsePrevious, cause: error })
+      }
+    }
+    if (steps.includes('build')) {
+      for (const dir of [...moduleDirs(repo), ...outputDirs(repo)]) discardPrevious(dir)
+      // État d'avant la mise à jour : un fichier modifié pendant la compilation déclenchera la suivante.
+      fs.writeFileSync(path.join(repo, STAMP), `${JSON.stringify({ ...state, builtAt: new Date().toISOString() }, null, 2)}\n`)
+      appendLog(logFile, '✔ Mise à jour terminée.\n')
+    }
+    return steps
+  } finally {
+    release()
+    // Anciennes versions supprimées en arrière-plan : le lancement n'attend pas (reprise au suivant sinon).
+    void purgeDiscarded(repo).catch(() => undefined)
+  }
+}
+
+module.exports = { prepare, plan, repoState, acquireLock, recover, previousBuildUsable, rotateLog, UpdateError, STEPS, INSTALL_ARGS, LOCK, STAMP }
