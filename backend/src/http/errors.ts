@@ -3,6 +3,7 @@
 import { STATUS_CODES } from 'node:http'
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify'
 import { Prisma } from '../generated/prisma/client.ts'
+import { validationMessage } from './validation-messages.ts'
 
 export class HttpError extends Error {
   readonly statusCode: number
@@ -49,7 +50,7 @@ export function errorHandler(error: FastifyError, request: FastifyRequest, reply
     return reply.status(error.statusCode).send(errorBody(error.statusCode, error.code, error.message))
   }
   if (error.validation) {
-    return reply.status(400).send(errorBody(400, 'VALIDATION_ERROR', error.message))
+    return reply.status(400).send(errorBody(400, 'VALIDATION_ERROR', validationMessage(error.validation, error.message)))
   }
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     const known = PRISMA_ERRORS[error.code]
