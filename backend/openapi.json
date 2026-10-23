@@ -16876,7 +16876,9 @@
                                 "quantity",
                                 "description",
                                 "flag",
-                                "custom"
+                                "custom",
+                                "item_type",
+                                "time_spent"
                               ],
                               "type": "string",
                               "description": "Rôle de la colonne côté Atelier Projets"
@@ -17677,7 +17679,9 @@
                                 "quantity",
                                 "description",
                                 "flag",
-                                "custom"
+                                "custom",
+                                "item_type",
+                                "time_spent"
                               ],
                               "type": "string",
                               "description": "Rôle de la colonne côté Atelier Projets"

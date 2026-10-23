@@ -554,3 +554,66 @@ describe('réimport après renommage (projet, story ou table)', () => {
     assert.equal(await ctx.prisma.phase.count({ where: { projectId: target.id } }), 0)
   })
 })
+
+describe('rôles item_type et time_spent (export OpenProject passé par Tab)', () => {
+  let ctx: TestContext
+  before(async () => {
+    ctx = await createTestContext({ now: () => NOW })
+  })
+  after(() => ctx.close())
+
+  const post = (payload: unknown) => ctx.app.inject({ method: 'POST', url: '/api/imports/atelier-tab', payload: payload as object })
+  const lots = (spent: (number | null)[], types = ['Feature', 'Bug', 'Story']) =>
+    envelope((p) => {
+      p.project.source_table = { id: 'tbl_lots', name: 'Lots de travaux' }
+      p.project.columns_schema = [
+        { col_letter: 'A', id: 'sujet', label: 'Sujet', type: 'text', atelier_mapping: 'entity_title' },
+        { col_letter: 'B', id: 'type', label: 'Type', type: 'select', atelier_mapping: 'item_type' },
+        { col_letter: 'C', id: 'temps', label: 'Temps passé', type: 'number', atelier_mapping: 'time_spent' },
+        { col_letter: 'D', id: 'fin', label: 'Date de fin', type: 'date', atelier_mapping: 'due_date' },
+      ]
+      p.project.records = ['Colonne calculée', 'Sélecteur cassé', 'Afficher les trigrammes'].map((title, i) => ({
+        row_index: i + 1,
+        record_id: `r${i + 1}`,
+        values: { A: cell(title), B: cell(types[i]!), C: cell(spent[i]!), D: cell(i === 2 ? null : '2026-02-10') },
+      }))
+    })
+  const imported = () =>
+    ctx.prisma.workItem.findMany({
+      where: { externalRef: { startsWith: 'atelier-tab:tbl_lots:' } },
+      orderBy: { externalRef: 'asc' },
+      select: { type: true, timeEntries: { select: { hours: true, spentOn: true, comment: true } } },
+    })
+
+  it('crée les éléments avec leur type et une saisie de temps datée de l’échéance (sinon du jour)', async () => {
+    const response = await post(lots([3.37, 0.25, 79]))
+    assert.equal(response.statusCode, 200, response.body)
+    assert.equal(response.json().created, 3)
+    const items = await imported()
+    assert.deepEqual(
+      items.map((item) => [item.type, item.timeEntries.map((t) => [t.hours, t.spentOn.toISOString().slice(0, 10), t.comment])]),
+      [
+        ['FEATURE', [[3.37, '2026-02-10', 'Import Atelier Tab']]],
+        ['BUG', [[0.25, '2026-02-10', 'Import Atelier Tab']]],
+        ['TASK', [[79, '2026-10-19', 'Import Atelier Tab']]],
+      ],
+    )
+  })
+
+  it('réimport identique : rien ne change, aucune saisie en double', async () => {
+    const body = (await post(lots([3.37, 0.25, 79]))).json()
+    assert.deepEqual([body.created, body.updated, body.unchanged], [0, 0, 3])
+    assert.equal(await ctx.prisma.timeEntry.count(), 3)
+  })
+
+  it('réimport modifié : la saisie importée suit le fichier, les temps saisis à la main restent', async () => {
+    const [first] = await ctx.prisma.workItem.findMany({ where: { externalRef: 'atelier-tab:tbl_lots:r1' } })
+    await ctx.prisma.timeEntry.create({ data: { workItemId: first!.id, spentOn: new Date('2026-02-11'), hours: 1, comment: 'à la main' } })
+    const body = (await post(lots([4, null, 79], ['Task', 'Bug', 'Story']))).json()
+    assert.deepEqual([body.updated, body.unchanged], [2, 1])
+    const items = await imported()
+    assert.equal(items[0]!.type, 'TASK')
+    assert.deepEqual(items[0]!.timeEntries.map((t) => [t.hours, t.comment]).sort(), [[1, 'à la main'], [4, 'Import Atelier Tab']])
+    assert.deepEqual(items[1]!.timeEntries, [], 'temps retiré du fichier : saisie importée retirée')
+  })
+})

@@ -17,7 +17,7 @@ import {
   type ImportPlan,
   type PlannedItem,
 } from '../domain/atelier-tab.ts'
-import { formatDateOnlyOrNull, parseDateOnlyOrNull } from '../domain/dates.ts'
+import { formatDateOnly, formatDateOnlyOrNull, parseDateOnly, parseDateOnlyOrNull, todayDateOnly } from '../domain/dates.ts'
 import { slugify, slugSearchPrefix, uniqueSlug } from '../domain/slug.ts'
 import { isDone, type WorkItemType } from '../domain/workflow.ts'
 import type { Db } from '../db/client.ts'
@@ -86,9 +86,28 @@ interface ExistingItem {
   projectId: number
   title: string
   status: string
+  type: string
   description: string
   startDate: Date | null
   dueDate: Date | null
+  /** Saisie de temps créée par un import précédent (commentaire IMPORT_TIME_COMMENT), s'il y en a une. */
+  importedTime: { id: number; hours: number; spentOn: Date } | null
+}
+
+/**
+ * Commentaire des saisies de temps créées par l'import (rôle time_spent) : un réimport retrouve la sienne et la
+ * met à jour (ou la retire) au lieu d'en ajouter une autre ; les temps saisis à la main ne sont jamais touchés.
+ */
+export const IMPORT_TIME_COMMENT = 'Import Atelier Tab'
+
+/** Aujourd'hui (AAAA-MM-JJ) dans le fuseau du serveur, ou en UTC s'il n'est pas connu. */
+function todayOf(timeZone: string | undefined, now: Date): string {
+  return timeZone ? todayDateOnly(timeZone, now) : now.toISOString().slice(0, 10)
+}
+
+/** Jour de la saisie de temps importée : échéance, sinon début, sinon aujourd'hui (fuseau du serveur). */
+function spentOnFor(item: PlannedItem, today: string): string {
+  return item.dueDate ?? item.startDate ?? today
 }
 
 type Action = 'created' | 'updated' | 'unchanged'
@@ -166,22 +185,60 @@ async function findExisting(tx: Tx, plan: ImportPlan): Promise<Map<string, Exist
   for (let start = 0; start < refs.length; start += 500) {
     const rows = await tx.workItem.findMany({
       where: { externalRef: { in: refs.slice(start, start + 500) } },
-      select: { id: true, projectId: true, externalRef: true, title: true, status: true, description: true, startDate: true, dueDate: true },
+      select: {
+        id: true,
+        projectId: true,
+        externalRef: true,
+        title: true,
+        status: true,
+        type: true,
+        description: true,
+        startDate: true,
+        dueDate: true,
+        timeEntries: {
+          where: { comment: IMPORT_TIME_COMMENT },
+          select: { id: true, hours: true, spentOn: true },
+          orderBy: { id: 'asc' },
+          take: 1,
+        },
+      },
     })
-    for (const { externalRef, ...row } of rows) if (externalRef) found.set(externalRef, row)
+    for (const { externalRef, timeEntries, ...row } of rows) {
+      if (externalRef) found.set(externalRef, { ...row, importedTime: timeEntries[0] ?? null })
+    }
   }
   return found
 }
 
-function actionFor(item: PlannedItem, existing: ExistingItem | undefined): Action {
+/** La saisie de temps importée doit-elle changer (création, mise à jour ou retrait) ? */
+function timeChanges(item: PlannedItem, existing: ExistingItem, today: string): boolean {
+  const current = existing.importedTime
+  if (item.spentHours === null) return current !== null
+  return !current || current.hours !== item.spentHours || formatDateOnly(current.spentOn) !== spentOnFor(item, today)
+}
+
+function actionFor(item: PlannedItem, existing: ExistingItem | undefined, today: string): Action {
   if (!existing) return 'created'
   const same =
     existing.title === item.title &&
     existing.status === item.status &&
     existing.description === item.description &&
     formatDateOnlyOrNull(existing.startDate) === item.startDate &&
-    formatDateOnlyOrNull(existing.dueDate) === item.dueDate
+    formatDateOnlyOrNull(existing.dueDate) === item.dueDate &&
+    (item.type === null || existing.type === item.type) &&
+    !timeChanges(item, existing, today)
   return same ? 'unchanged' : 'updated'
+}
+
+/** Aligne la saisie de temps importée sur le fichier : création, mise à jour ou retrait. */
+async function syncImportedTime(tx: Tx, workItemId: number, item: PlannedItem, current: ExistingItem['importedTime'], today: string) {
+  if (item.spentHours === null) {
+    if (current) await tx.timeEntry.delete({ where: { id: current.id } })
+    return
+  }
+  const data = { hours: item.spentHours, spentOn: parseDateOnly(spentOnFor(item, today)) }
+  if (current) await tx.timeEntry.update({ where: { id: current.id }, data })
+  else await tx.timeEntry.create({ data: { ...data, workItemId, comment: IMPORT_TIME_COMMENT } })
 }
 
 /** Éléments existants rangés hors du projet de destination (calculé après résolution de la destination). */
@@ -242,8 +299,13 @@ function count(rows: { action: string }[], action: string): number {
 
 // --- Aperçu --------------------------------------------------------------------------------------------
 
-export async function previewAtelierTabImport(prisma: Db, request: ImportRequest): Promise<ImportPreviewDto> {
+export async function previewAtelierTabImport(
+  prisma: Db,
+  request: ImportRequest,
+  clock: { timeZone?: string; now?: Date } = {},
+): Promise<ImportPreviewDto> {
   const { envelope, options } = request
+  const today = todayOf(clock.timeZone, clock.now ?? new Date())
   assertSchemaVersion(request.headers.schemaVersion, envelope)
   const plan = planAtelierTabImport(envelope, { maxDescriptionLength: MARKDOWN_MAX_LENGTH })
   const target = await findTarget(prisma, plan, options)
@@ -252,7 +314,7 @@ export async function previewAtelierTabImport(prisma: Db, request: ImportRequest
   const items = sortedByRow([
     ...plan.items.map((item) => {
       const current = existing.get(item.externalRef)
-      return itemRow(item, current?.id ?? null, actionFor(item, current))
+      return itemRow(item, current?.id ?? null, actionFor(item, current, today))
     }),
     ...skippedRows(plan),
   ])
@@ -328,10 +390,12 @@ export const IMPORT_TRANSACTION_TIMEOUT_MS = TRANSACTION_TIMEOUT_MS
 
 /**
  * Import dans la transaction de l'appelant (http/idempotency.ts l'ouvre, avec l'enregistrement de la clé) :
- * crée ou met à jour les éléments, puis émet un seul événement projets.import.completed (docs/SUITE.md §7.3).
+ * crée ou met à jour les éléments (et leur saisie de temps importée, rôle time_spent), puis émet un seul
+ * événement projets.import.completed (docs/SUITE.md §7.3) : ni un par élément, ni un par saisie de temps.
  */
-export async function importAtelierTabIn(tx: Tx, request: ImportRequest, now: Date): Promise<ImportResultDto> {
+export async function importAtelierTabIn(tx: Tx, request: ImportRequest, now: Date, timeZone?: string): Promise<ImportResultDto> {
   const { envelope, options } = request
+  const today = todayOf(timeZone, now)
   assertSchemaVersion(request.headers.schemaVersion, envelope)
   const plan = planAtelierTabImport(envelope, { maxDescriptionLength: MARKDOWN_MAX_LENGTH })
   const type: WorkItemType = options.type ?? 'TASK'
@@ -355,7 +419,7 @@ export async function importAtelierTabIn(tx: Tx, request: ImportRequest, now: Da
 
     for (const item of plan.items) {
       const current = existing.get(item.externalRef)
-      const action = actionFor(item, current)
+      const action = actionFor(item, current, today)
       const fields = {
         title: item.title,
         status: item.status,
@@ -369,20 +433,22 @@ export async function importAtelierTabIn(tx: Tx, request: ImportRequest, now: Da
             ...fields,
             projectId: projectId!,
             storyId: storyId!,
-            type,
+            type: item.type ?? type,
             externalRef: item.externalRef,
             progress: isDone(item.status) ? 100 : 0,
             position: position++,
           },
         })
+        await syncImportedTime(tx, created.id, item, null, today)
         rows.push(itemRow(item, created.id, action))
       } else {
         if (action === 'updated') {
           // Résolu / terminé ⇒ 100 % ; rouvert : l'avancement est conservé (règle de l'API).
           await tx.workItem.update({
             where: { id: current.id },
-            data: { ...fields, ...(isDone(item.status) && { progress: 100 }) },
+            data: { ...fields, ...(item.type !== null && { type: item.type }), ...(isDone(item.status) && { progress: 100 }) },
           })
+          if (timeChanges(item, current, today)) await syncImportedTime(tx, current.id, item, current.importedTime, today)
         }
         rows.push(itemRow(item, current.id, action))
       }
