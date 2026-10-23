@@ -451,6 +451,13 @@ describe('robustesse des saisies', () => {
     assert.equal((await api('GET', `/api/work-items/${item.id}`)).body.progress, 30)
   })
 
+  it('dépôt GitHub au mauvais format : message en français qui dit quoi corriger', async () => {
+    const res = await api('POST', '/api/projects', { name: 'Dépôt collé', githubOwner: 'octocat', githubRepo: 'https://github.com/octocat/hello' })
+    assert.equal(res.status, 400)
+    assert.equal(res.body.code, 'VALIDATION_ERROR')
+    assert.match(res.body.message, /^Dépôt GitHub : indiquez seulement le nom du dépôt/)
+  })
+
   it('refuse les titres vides ou faits d’espaces', async () => {
     const { projectId } = await scaffold('Titres')
     assert.equal((await api('POST', '/api/projects', { name: '   ' })).status, 400)

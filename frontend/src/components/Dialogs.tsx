@@ -11,6 +11,7 @@ import { useApp, type DialogRequest } from '../store/app.ts'
 import { AiPanel, BreakdownDialog, ClaudeDialog, LinkRepoDialog } from './AiDialogs.tsx'
 import { ImportTabDialog } from './ImportTabDialog.tsx'
 import { Button, Field, Modal, TypeChip } from './ui.tsx'
+import { withGithubInput } from '../lib/github.ts'
 
 export function Dialogs({ project, projects }: { project: Project | undefined; projects: Project[] }) {
   const dialog = useApp((state) => state.dialog)
@@ -75,6 +76,9 @@ function ProjectDialog() {
   const [form, setForm] = useState({ name: '', hoursPerDay: '8', budgetDays: '', localRepoPath: '', githubOwner: '', githubRepo: '' })
   const { busy, run } = useAction()
   const set = (field: keyof typeof form) => (event: { target: { value: string } }) => setForm({ ...form, [field]: event.target.value })
+  // Une adresse GitHub collée dans l'un des deux champs remplit le propriétaire et le dépôt.
+  const setGithub = (field: 'githubOwner' | 'githubRepo') => (event: { target: { value: string } }) =>
+    setForm(withGithubInput(form, field, event.target.value))
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -122,10 +126,10 @@ function ProjectDialog() {
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Propriétaire GitHub">
-            <input className="ds-input font-mono" value={form.githubOwner} onChange={set('githubOwner')} spellCheck={false} />
+            <input className="ds-input font-mono" value={form.githubOwner} onChange={setGithub('githubOwner')} placeholder="octocat" spellCheck={false} />
           </Field>
-          <Field label="Dépôt GitHub">
-            <input className="ds-input font-mono" value={form.githubRepo} onChange={set('githubRepo')} spellCheck={false} />
+          <Field label="Dépôt GitHub" hint="Nom seul, ou collez l’adresse du dépôt">
+            <input className="ds-input font-mono" value={form.githubRepo} onChange={setGithub('githubRepo')} placeholder="atelier-tab" spellCheck={false} />
           </Field>
         </div>
       </form>

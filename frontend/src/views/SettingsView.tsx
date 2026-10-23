@@ -4,6 +4,7 @@ import { DatabaseBackup, Download, FileUp, FolderGit2, GitPullRequest, LayoutGri
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Card, Eyebrow, Field } from '../components/ui.tsx'
 import { dateTime, parseNumber } from '../lib/format.ts'
+import { withGithubInput } from '../lib/github.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
 import { backupService, gitService, projectService } from '../services/api.ts'
@@ -70,6 +71,9 @@ export function SettingsView({ project }: { project: Project }) {
   // Le brouillon n'est réinitialisé qu'au changement de projet (la vue est remontée) ou après son propre
   // enregistrement : une autre modification (fiche élément, analyse Git…) ne l'efface pas.
   const set = (field: keyof Form) => (event: { target: { value: string } }) => setForm((current) => ({ ...current, [field]: event.target.value }))
+  // Une adresse GitHub collée dans l'un des deux champs remplit le propriétaire et le dépôt.
+  const setGithub = (field: 'githubOwner' | 'githubRepo') => (event: { target: { value: string } }) =>
+    setForm((current) => withGithubInput(current, field, event.target.value))
   const pending = changes(project, form)
   const dirty = typeof pending === 'string' || Object.keys(pending).length > 0
 
@@ -118,10 +122,10 @@ export function SettingsView({ project }: { project: Project }) {
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Propriétaire GitHub">
-              <input className="ds-input font-mono" value={form.githubOwner} onChange={set('githubOwner')} placeholder="user" spellCheck={false} />
+              <input className="ds-input font-mono" value={form.githubOwner} onChange={setGithub('githubOwner')} placeholder="user" spellCheck={false} />
             </Field>
-            <Field label="Dépôt GitHub">
-              <input className="ds-input font-mono" value={form.githubRepo} onChange={set('githubRepo')} placeholder="ecom" spellCheck={false} />
+            <Field label="Dépôt GitHub" hint="Nom seul, ou collez l’adresse du dépôt">
+              <input className="ds-input font-mono" value={form.githubRepo} onChange={setGithub('githubRepo')} placeholder="ecom" spellCheck={false} />
             </Field>
           </div>
         </Card>
