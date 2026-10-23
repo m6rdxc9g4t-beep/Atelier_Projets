@@ -3,7 +3,7 @@
 // Le contrat de l'enveloppe est décrit dans docs/DATAFLOW_SPEC.md d'Atelier Tab ; il est reproduit ici
 // (aucun import entre dépôts) et validé par le schéma TypeBox de src/schemas/atelier-tab.ts.
 import { parseDateOnly } from './dates.ts'
-import { WORK_ITEM_STATUSES, type WorkItemStatus } from './workflow.ts'
+import { WORK_ITEM_STATUSES, type WorkItemStatus, type WorkItemType } from './workflow.ts'
 
 export const ATELIER_TAB_SCHEMA_VERSION = '2.1.0'
 /** Phase qui range les éléments importés (retrouvée par son titre, créée au besoin). */
@@ -26,6 +26,8 @@ export const ATELIER_MAPPINGS = [
   'description',
   'flag',
   'custom',
+  'item_type',
+  'time_spent',
 ] as const
 export type AtelierMapping = (typeof ATELIER_MAPPINGS)[number]
 
@@ -110,6 +112,24 @@ export function matchStatus(text: string): WorkItemStatus | null {
   return STATUS_BY_TEXT.get(normalizeLabel(text)) ?? null
 }
 
+// --- Types d'éléments (rôle item_type) -----------------------------------------------------------------
+
+/** Libellés reconnus pour les trois types d'éléments (codes, français, anglais, exports OpenProject / Jira). */
+const TYPE_BY_TEXT: ReadonlyMap<string, WorkItemType> = new Map(
+  (
+    [
+      ['FEATURE', ['feature', 'fonctionnalite', 'evolution', 'user feature']],
+      ['TASK', ['task', 'tache', 'sous tache', 'subtask', 'sub task', 'todo']],
+      ['BUG', ['bug', 'anomalie', 'defaut', 'defect', 'incident']],
+    ] as const
+  ).flatMap(([type, words]) => words.map((word) => [normalizeLabel(word), type] as const)),
+)
+
+/** Type d'élément d'un libellé (insensible à la casse et aux accents) ; null si ce n'est ni Feature, ni Task, ni Bug. */
+export function matchWorkItemType(text: string): WorkItemType | null {
+  return TYPE_BY_TEXT.get(normalizeLabel(text)) ?? null
+}
+
 // --- Cellules ----------------------------------------------------------------------------------------
 
 /**
@@ -161,6 +181,19 @@ function cellDate(text: string): string | null {
   }
 }
 
+/** Plafond d'une durée importée (heures) : au-delà, la valeur est ignorée avec un avertissement. */
+export const MAX_IMPORTED_HOURS = 100_000
+
+/** Nombre d'une cellule : valeur calculée, ou texte « 1 234,5 » / « 3.25 ». */
+function cellNumber(cell: DataflowCell | undefined): number | null {
+  if (!cell) return null
+  const { computed, raw } = cell
+  if (typeof computed === 'number') return Number.isFinite(computed) ? computed : null
+  const text = (typeof computed === 'string' ? computed : raw).replace(/[\s\u00a0\u202f]/g, '').replace(',', '.')
+  if (text === '' || !/^[+-]?(\d+\.?\d*|\.\d+)$/.test(text)) return null
+  return Number(text)
+}
+
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`
 }
@@ -181,6 +214,10 @@ export interface PlannedItem {
   startDate: string | null
   dueDate: string | null
   description: string
+  /** Type lu dans la colonne de rôle item_type ; null : type choisi à l'import (paramètre `type`). */
+  type: WorkItemType | null
+  /** Temps passé (heures) de la colonne de rôle time_spent ; null : aucune saisie de temps. */
+  spentHours: number | null
 }
 
 export interface SkippedRecord {
@@ -211,7 +248,7 @@ export function sourceRefOf(envelope: DataflowEnvelope): string {
   return `${EXTERNAL_REF_PREFIX}:${envelope.project.source_table?.id ?? envelope.project.id}:`
 }
 
-const SINGLE_ROLES = ['entity_title', 'workflow_state', 'start_date', 'due_date', 'description'] as const
+const SINGLE_ROLES = ['entity_title', 'workflow_state', 'start_date', 'due_date', 'description', 'item_type', 'time_spent'] as const
 type SingleRole = (typeof SINGLE_ROLES)[number]
 
 const ROLE_LABEL: Record<SingleRole, string> = {
@@ -220,6 +257,8 @@ const ROLE_LABEL: Record<SingleRole, string> = {
   start_date: 'date de début',
   due_date: 'échéance',
   description: 'description',
+  item_type: 'type d’élément',
+  time_spent: 'temps passé',
 }
 
 export function planAtelierTabImport(
@@ -258,6 +297,9 @@ export function planAtelierTabImport(
   const items: PlannedItem[] = []
   const skipped: SkippedRecord[] = []
   const seen = new Set<string>()
+
+  // Types qui ne sont ni Feature, ni Task, ni Bug (Epic, Story… : conteneurs côté Projets) : un seul avertissement.
+  const otherTypes = new Map<string, number>()
 
   for (const record of project.records) {
     const line = `Ligne ${record.row_index}`
@@ -308,6 +350,25 @@ export function planAtelierTabImport(
       startDate = null
     }
 
+    let type: WorkItemType | null = null
+    const typeText = read(roleColumn.get('item_type'))
+    if (typeText !== null) {
+      type = matchWorkItemType(typeText)
+      if (type === null) otherTypes.set(typeText, (otherTypes.get(typeText) ?? 0) + 1)
+    }
+
+    let spentHours: number | null = null
+    const timeColumn = roleColumn.get('time_spent')
+    if (timeColumn) {
+      const cell = record.values[timeColumn.col_letter]
+      const hours = cellNumber(cell)
+      if (hours !== null && hours > 0 && hours <= MAX_IMPORTED_HOURS) spentHours = Math.round(hours * 100) / 100
+      else if (hours !== null && hours !== 0) warnings.push(`${line} : temps passé « ${hours} » hors limites (0 à ${MAX_IMPORTED_HOURS} h), ignoré.`)
+      else if (hours === null && cellText(cell).text !== null) {
+        warnings.push(`${line} : temps passé « ${cellText(cell).text} » illisible (nombre d’heures attendu), ignoré.`)
+      }
+    }
+
     const rows = dataColumns.flatMap((column) => {
       const text = read(column)
       return text === null ? [] : [`| ${tableCell(column.label || column.col_letter)} | ${tableCell(text)} |`]
@@ -326,7 +387,14 @@ export function planAtelierTabImport(
       startDate,
       dueDate,
       description,
+      type,
+      spentHours,
     })
+  }
+
+  if (otherTypes.size > 0) {
+    const list = [...otherTypes].map(([text, n]) => `« ${text} » (${n})`).join(', ')
+    warnings.push(`Types importés selon le paramètre d’import (Task par défaut) : ${list} ; seuls Feature, Task et Bug sont des éléments dans Projets.`)
   }
 
   return { projectName, epicTitle, storyTitle, sourceRef: sourceRefOf(envelope), items, skipped, warnings }

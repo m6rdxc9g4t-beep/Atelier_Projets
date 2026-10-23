@@ -71,7 +71,8 @@ export const suiteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 200: ImportPreviewSchema, ...errorResponses(400, 401, 403, 404, 413, 422) },
       },
     },
-    async (request) => previewAtelierTabImport(app.prisma, toRequest(request)),
+    async (request) =>
+      previewAtelierTabImport(app.prisma, toRequest(request), { timeZone: app.settings.timeZone, now: app.settings.now() }),
   )
 
   app.post(
@@ -96,7 +97,7 @@ export const suiteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         request,
         reply,
         { scope: IMPORT_SCOPE, statusCode: 200, hashSource: importHashSource(importRequest), now, timeoutMs: IMPORT_TRANSACTION_TIMEOUT_MS },
-        (tx) => importAtelierTabIn(tx, importRequest, now),
+        (tx) => importAtelierTabIn(tx, importRequest, now, app.settings.timeZone),
       )
     },
   )
