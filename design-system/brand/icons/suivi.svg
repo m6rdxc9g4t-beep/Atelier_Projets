@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs>
+  <filter id="halo" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="14"/></filter>
+  <filter id="glyphglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="0.9"/></filter>
+  <filter id="spark" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="0.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<g transform="translate(0 0) scale(1.0)">
+  <defs>
+    <linearGradient id="bodysuivi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14405e"/><stop offset=".55" stop-color="#0a1f33"/><stop offset="1" stop-color="#050e19"/></linearGradient>
+    <radialGradient id="hazesuivi" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#15AABF" stop-opacity=".28"/><stop offset="1" stop-color="#15AABF" stop-opacity="0"/></radialGradient>
+    <linearGradient id="rimsuivi" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e6f8fb"/><stop offset="0.22" stop-color="#5cc9d8"/><stop offset="0.5" stop-color="#0b4f59"/><stop offset="0.72" stop-color="#7fd6e2"/><stop offset="1" stop-color="#e6f8fb"/></linearGradient>
+    <linearGradient id="glosssuivi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="#15AABF" stroke-width="22" opacity=".6" filter="url(#halo)"/>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="url(#bodysuivi)"/>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="url(#hazesuivi)"/>
+  <path d="M148 58 H364 a90 90 0 0 1 90 90 V200 Q256 236 58 196 V148 a90 90 0 0 1 90-90Z" fill="url(#glosssuivi)"/>
+  <rect x="44" y="44" width="424" height="424" rx="104" fill="none" stroke="url(#rimsuivi)" stroke-width="15"/>
+  <rect x="62" y="62" width="388" height="388" rx="88" fill="none" stroke="#15AABF" stroke-opacity=".45" stroke-width="2.5"/>
+  <g transform="translate(256 256) scale(12) translate(-12 -12)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" stroke="#15AABF" stroke-width="2.6" filter="url(#glyphglow)" opacity=".95"/>
+    <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" stroke="#15AABF" stroke-width="2.3"/>
+    <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" stroke="#a8eaf2" stroke-width="0.9"/>
+  </g>
+  <g transform="translate(118 54) scale(2.0)" opacity="1" filter="url(#spark)"><path d="M0-10 C1-2 2-1 10 0 C2 1 1 2 0 10 C-1 2 -2 1 -10 0 C-2 -1 -1 -2 0-10Z" fill="#fff"/></g><g transform="translate(456 392) scale(1.4)" opacity="0.85" filter="url(#spark)"><path d="M0-10 C1-2 2-1 10 0 C2 1 1 2 0 10 C-1 2 -2 1 -10 0 C-2 -1 -1 -2 0-10Z" fill="#fff"/></g>
+</g></svg>

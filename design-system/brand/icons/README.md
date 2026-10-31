@@ -13,6 +13,7 @@ carré arrondi en verre bleu nuit ; bord chromé, halo et pictogramme néon dans
 | atelier_Projets | `projets.svg` | `#94D82D` | calendrier coché |
 | atelier_Dates | `dates.svg` | `#E03131` | cœur dans deux cercles |
 | atelier_Nexus | `nexus.svg` | `#E8590C` | N en réseau |
+| atelier_Suivi | `suivi.svg` | `#15AABF` | onde (activité) |
 
 Ces SVG sont les sources ; chaque app embarque les rendus PNG : `favicon-64.png` (transparent) et
 `apple-touch-icon.png` (180 px, opaque, plein cadre). Pictogrammes : Lucide (licence ISC), sauf Dates et Nexus.
