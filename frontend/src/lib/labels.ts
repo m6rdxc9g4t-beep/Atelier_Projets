@@ -60,7 +60,7 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
 }
 
 export const TREND_LABEL: Record<Trend, string> = {
-  AHEAD: 'En avance ✨',
+  AHEAD: 'En avance',
   ON_TRACK: 'Dans les temps',
   BEHIND: 'En retard',
 }

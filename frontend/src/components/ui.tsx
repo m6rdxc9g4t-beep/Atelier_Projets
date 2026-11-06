@@ -1,6 +1,6 @@
 // Briques d'interface React au-dessus des composants CSS du design system (classes ds-*).
 // Elles ne portent aucune couleur : la teinte vient des attributs data-type / data-status / data-priority.
-import { Loader2, X } from 'lucide-react'
+import { Flame, Loader2, X } from 'lucide-react'
 import {
   useEffect,
   useId,
@@ -64,7 +64,7 @@ export function StatusBadge({ status, code }: { status: WorkItemStatus; code?: b
 export function PriorityBadge({ priority }: { priority: Priority }) {
   return (
     <span className="ds-badge" data-priority={priority}>
-      {priority === 'HIGH' || priority === 'IMMEDIATE' ? '🔥 ' : ''}
+      {(priority === 'HIGH' || priority === 'IMMEDIATE') && <Flame aria-hidden />}
       {PRIORITY_LABEL[priority]}
     </span>
   )
@@ -73,7 +73,7 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
 /** « FEATURE » coloré selon le type. */
 export function TypeLabel({ type, className }: { type: WorkItemType; className?: string }) {
   return (
-    <span className={`ds-ink font-semibold uppercase tracking-wide ${className ?? ''}`} data-type={type}>
+    <span className={`ds-ink font-semibold ${className ?? ''}`} data-type={type}>
       {TYPE_LABEL[type]}
     </span>
   )
@@ -117,9 +117,9 @@ export function Spinner({ label = 'Chargement…' }: { label?: string }) {
 
 export function EmptyState({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-      {icon && <div className="text-muted">{icon}</div>}
-      <p className="text-base font-semibold">{title}</p>
+    <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+      {icon && <div className="mb-1 text-faint">{icon}</div>}
+      <p className="text-lg font-semibold">{title}</p>
       {children && <div className="max-w-md text-muted">{children}</div>}
     </div>
   )
@@ -127,8 +127,11 @@ export function EmptyState({ icon, title, children }: { icon?: ReactNode; title:
 
 export function ErrorNotice({ error, onRetry }: { error: Error; onRetry?: () => void }) {
   return (
-    <div className="ds-card flex flex-wrap items-center justify-between gap-3 p-4" role="alert" data-status="REJECTED">
-      <p className="ds-ink">{error.message}</p>
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-down/30 bg-down/[0.08] px-3 py-2.5 text-down"
+      role="alert"
+    >
+      <p>{error.message}</p>
       {onRetry && (
         <Button size="sm" onClick={onRetry}>
           Réessayer
@@ -254,7 +257,7 @@ export function Modal({
   }, [onClose])
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-backdrop p-4 pt-[10vh] backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-backdrop p-4 pt-[10vh]">
       <div className="fixed inset-0" onClick={() => !guardRef.current && onClose()} aria-hidden />
       <div
         ref={panel}
@@ -263,14 +266,14 @@ export function Modal({
         aria-labelledby={titleId}
         className={`ds-card relative w-full ${width} shadow-overlay`}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-line py-2.5 pl-4 pr-2.5">
           <h2 id={titleId} className="text-base font-semibold">
             {title}
           </h2>
           <Button variant="ghost" size="sm" icon={<X className="size-4" />} onClick={onClose} aria-label="Fermer" data-close="" />
         </div>
-        <div className="px-5 py-4">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
+        <div className="px-4 py-4">{children}</div>
+        {footer && <div className="flex justify-end gap-2 border-t border-line px-4 py-3">{footer}</div>}
       </div>
     </div>,
     document.body,

@@ -9,7 +9,7 @@
 //    ni variable --type-* / --status-*), donc copiables tels quels dans une autre application ;
 //  - les jetons dérivés (tokens/ui.css) et les composants (components/*.css) n'introduisent aucune couleur
 //    littérale (#hex, rgb(), hsl()…) et ne redéfinissent ni les tokens officiels ni les variables de thème ;
-//  - ils n'emploient plus les jetons de marque supprimés par la charte « néon monochrome » (cyan, bleu nuit, verre).
+//  - ils n'emploient que des jetons --atelier-* définis par le fichier de marque commun (charte v2).
 //
 // Les valeurs --atelier-* elles-mêmes viennent de brand/atelier-brand.css, source du fichier de marque commun
 // (docs/SUITE.md §1.7) : seule la présence des signatures des apps du sélecteur « Suite Atelier » (§3) est contrôlée.
@@ -142,7 +142,7 @@ for (const file of derivedFiles) {
   // Seuls les jetons --atelier-* que définit le fichier de marque commun sont permis : les jetons de la
   // première version de la charte (cyan / bleu nuit, verre) n'y figurent plus et sont donc refusés.
   for (const [, name] of code.matchAll(/var\(\s*(--atelier-[\w-]+)/g)) {
-    if (!BRAND_TOKENS.has(name)) errors.push(`${file} : ${name} n'est pas défini par brand/atelier-brand.css (charte néon monochrome)`)
+    if (!BRAND_TOKENS.has(name)) errors.push(`${file} : ${name} n'est pas défini par brand/atelier-brand.css (charte v2)`)
   }
 }
 

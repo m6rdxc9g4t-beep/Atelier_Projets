@@ -67,8 +67,8 @@ export function TaskSlideOver({ workItemId, project }: { workItemId: number; pro
         aria-label={`Fiche de l’élément #${workItemId}`}
         className="ds-card fixed inset-y-0 right-0 z-40 flex w-[min(30rem,100vw)] flex-col rounded-none border-y-0 border-r-0 shadow-overlay xl:static xl:z-auto xl:w-[28rem] xl:shadow-card 2xl:w-[32rem]"
       >
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
-          <span className="text-sm text-muted">Fiche élément</span>
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-line pl-4 pr-2">
+          <span className="text-xs font-medium text-muted">Fiche élément</span>
           <div className="flex items-center gap-1">
             <ClaudeLaunchButton project={project} workItemId={workItemId} />
             <Button
@@ -117,7 +117,7 @@ function TaskContent({ item }: { item: WorkItemDetail }) {
 
   return (
     <div className="divide-y divide-line">
-      <section className="space-y-4 p-5">
+      <section className="space-y-4 p-4">
         <TitleBlock item={item} onRename={(title) => update('title', { title }, 'Titre modifié')} busy={busy === 'title'} />
         <nav aria-label="Parents" className="flex flex-wrap items-center gap-1 text-xs text-muted">
           {[
@@ -270,8 +270,8 @@ function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: 
       <span className="mt-1.5" data-type={item.type}>
         <TypeChip type={item.type} size="lg" />
       </span>
-      <h2 className="min-w-0 flex-1 text-lg font-semibold leading-snug">
-        <span className="ds-ink uppercase" data-type={item.type}>
+      <h2 className="min-w-0 flex-1 text-lg font-semibold leading-snug [text-wrap:balance]">
+        <span className="ds-ink" data-type={item.type}>
           {TYPE_LABEL[item.type]} #{item.id}
         </span>{' '}
         — {item.title}
@@ -383,7 +383,7 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
   }
 
   return (
-    <section className="space-y-4 p-5">
+    <section className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">Budget &amp; Temps</h3>
         <div className="flex items-center gap-2">
@@ -447,7 +447,7 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
       </dl>
 
       {adding && (
-        <form onSubmit={submitTime} className="grid grid-cols-[6rem_1fr] gap-3 rounded-lg border border-line bg-sunken p-3">
+        <form onSubmit={submitTime} className="grid grid-cols-[6rem_1fr] gap-3 rounded-md border border-line bg-sunken p-3">
           <Field label="Heures">
             <input className="ds-input" inputMode="decimal" placeholder="4.5" value={entry.hours} onChange={(event) => setEntry({ ...entry, hours: event.target.value })} autoFocus required />
           </Field>
@@ -476,7 +476,7 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
             {showEntries ? 'Masquer' : 'Afficher'} les saisies ({item.timeEntries.length})
           </button>
           {showEntries && (
-            <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
+            <ul className="mt-2 divide-y divide-line rounded-md border border-line">
               {item.timeEntries.map((timeEntry) => (
                 <li key={timeEntry.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                   <span className="w-24 shrink-0 text-muted">{longDate(timeEntry.spentOn)}</span>
@@ -622,7 +622,7 @@ function LogTab({ item }: { item: WorkItemDetail }) {
   return (
     <div className="space-y-4">
       {item.commits.length > 0 && (
-        <details className="rounded-lg border border-line p-3" open={engine.choice !== 'auto' || undefined}>
+        <details className="rounded-md border border-line p-3" open={engine.choice !== 'auto' || undefined}>
           <summary className="cursor-pointer text-sm text-muted">
             Résumé des commits · moteur{' '}
             <span className="font-medium text-fg">
@@ -641,7 +641,7 @@ function LogTab({ item }: { item: WorkItemDetail }) {
         />
       )}
       {adding && summary && (
-        <div className="space-y-1 rounded-lg border border-line p-3 text-xs text-muted">
+        <div className="space-y-1 rounded-md border border-line p-3 text-xs text-muted">
           <p className="flex items-center gap-1.5 font-medium text-fg">
             <Bot className="size-3.5 text-accent-ink" aria-hidden /> Proposition · {engineResultLabel(summary.engine, summary.model)} · à partir de{' '}
             {summary.commits.length} commit(s) — à relire
@@ -657,7 +657,7 @@ function LogTab({ item }: { item: WorkItemDetail }) {
         </div>
       )}
       {adding && (
-        <form onSubmit={submit} className="space-y-3 rounded-lg border border-line bg-sunken p-3">
+        <form onSubmit={submit} className="space-y-3 rounded-md border border-line bg-sunken p-3">
           <Field label="Nouvelle entrée (horodatée automatiquement)">
             <textarea
               className="ds-textarea"
@@ -731,7 +731,7 @@ function GitSection({ item }: { item: WorkItemDetail }) {
   const empty = item.commits.length === 0 && item.pullRequests.length === 0
 
   return (
-    <section className="space-y-3 p-5">
+    <section className="space-y-3 p-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 font-semibold">
           <GitBranch className="size-4 text-st-closed" aria-hidden /> Commits Git &amp; GitHub associés
@@ -760,7 +760,7 @@ function GitSection({ item }: { item: WorkItemDetail }) {
       )}
       <ul className="space-y-1">
         {item.commits.map((commit) => (
-          <li key={commit.hash} className="flex gap-3 rounded-lg px-2 py-2 hover:bg-hover">
+          <li key={commit.hash} className="flex gap-3 rounded-md px-2 py-2 hover:bg-hover">
             <GitCommitHorizontal className="mt-0.5 size-4 shrink-0 text-accent-ink" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="flex items-baseline justify-between gap-2">
@@ -787,7 +787,7 @@ function GitSection({ item }: { item: WorkItemDetail }) {
           </li>
         ))}
         {item.pullRequests.map((pull) => (
-          <li key={pull.number} className="flex gap-3 rounded-lg px-2 py-2 hover:bg-hover">
+          <li key={pull.number} className="flex gap-3 rounded-md px-2 py-2 hover:bg-hover">
             <GitPullRequest className="mt-0.5 size-4 shrink-0 text-st-review" aria-hidden />
             <div className="min-w-0 flex-1 space-y-1">
               <p className="flex items-start justify-between gap-2">
@@ -813,7 +813,7 @@ function DangerZone({ item }: { item: WorkItemDetail }) {
   const [confirming, setConfirming] = useState(false)
   const { busy, run } = useAction()
   return (
-    <section className="flex flex-wrap items-center justify-between gap-3 p-5">
+    <section className="flex flex-wrap items-center justify-between gap-3 p-4">
       <span className="text-xs text-muted">
         Créé le {dateTime(item.createdAt)} · modifié {fromNow(item.updatedAt)}
       </span>

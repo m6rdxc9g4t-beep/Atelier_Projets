@@ -86,9 +86,9 @@ export function SettingsView({ project }: { project: Project }) {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)]">
       <form onSubmit={submit} className="space-y-5">
-        <Card className="space-y-4 p-5">
+        <Card className="space-y-4 p-4">
           <Eyebrow>Projet</Eyebrow>
           <Field label="Nom">
             <input className="ds-input" value={form.name} onChange={set('name')} required maxLength={200} />
@@ -112,7 +112,7 @@ export function SettingsView({ project }: { project: Project }) {
           </div>
         </Card>
 
-        <Card className="space-y-4 p-5">
+        <Card className="space-y-4 p-4">
           <Eyebrow>Dépôts</Eyebrow>
           <Field label="Dépôt Git local (chemin absolu)" hint="Racine du dépôt, par exemple /Users/moi/dev/mon-projet">
             <input className="ds-input font-mono" value={form.localRepoPath} onChange={set('localRepoPath')} placeholder="/Users/…/mon-projet" spellCheck={false} />
@@ -153,7 +153,7 @@ export function SettingsView({ project }: { project: Project }) {
 
 function ActionCard({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <Card className="space-y-3 p-5">
+    <Card className="space-y-3 p-4">
       <h3 className="flex items-center gap-2 font-semibold">
         {icon}
         {title}
@@ -191,7 +191,7 @@ function GitCard({ project }: { project: Project }) {
             Analyser le dépôt
           </Button>
           {result && (
-            <ul className="rounded-lg bg-sunken p-3 text-sm">
+            <ul className="rounded-md bg-sunken p-3 text-sm">
               <li>{result.commitsRead} commit(s) lu(s) sur {result.branches.length} branche(s)</li>
               <li>{result.commitsCreated} nouveau(x) commit(s), {result.linksCreated} nouveau(x) lien(s)</li>
               {result.commitsRemoved > 0 && <li>{result.commitsRemoved} commit(s) disparu(s) retiré(s)</li>}
@@ -311,7 +311,7 @@ function BackupCard() {
             <code className="break-all font-mono text-xs">{data?.dir ?? 'backend/prisma/backups'}</code>.
           </p>
           {data && data.backups.length > 0 && (
-            <ul className="divide-y divide-line rounded-lg border border-line" aria-label="Sauvegardes disponibles">
+            <ul className="divide-y divide-line rounded-md border border-line" aria-label="Sauvegardes disponibles">
               {data.backups.slice(0, 5).map((backup) => (
                 <li key={backup.name} className="flex items-center gap-3 px-3 py-2 text-sm">
                   <span className="min-w-0 flex-1">
@@ -344,7 +344,7 @@ function BackupCard() {
 
 function SyncSummary({ result }: { result: GitHubSyncResult }) {
   return (
-    <ul className="rounded-lg bg-sunken p-3 text-sm">
+    <ul className="rounded-md bg-sunken p-3 text-sm">
       <li>{result.pullRequests} Pull Request(s) reçue(s) de GitHub</li>
       <li>
         {result.created} nouvelle(s), {result.updated} mise(s) à jour

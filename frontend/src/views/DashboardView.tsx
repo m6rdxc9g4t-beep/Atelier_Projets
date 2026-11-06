@@ -23,7 +23,7 @@ export function DashboardView({ project }: { project: Project }) {
     <>
       <HealthCard dashboard={data} />
       <KpiRow dashboard={data} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
         <StatusHistogram dashboard={data} />
         <div className="space-y-5">
           {tree.data && <PhaseProgress tree={tree.data} />}
@@ -47,11 +47,11 @@ function KpiRow({ dashboard }: { dashboard: Dashboard }) {
     { label: 'Valeur acquise', value: days(dashboard.progress.earned), detail: 'Estimations × avancement' },
   ]
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {tiles.map((tile) => (
         <Card key={tile.label} className="p-4">
-          <p className="text-sm text-muted">{tile.label}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{tile.value}</p>
+          <p className="text-muted">{tile.label}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{tile.value}</p>
           <p className="mt-1 text-xs text-muted">{tile.detail}</p>
         </Card>
       ))}
@@ -77,14 +77,14 @@ function StatusHistogram({ dashboard }: { dashboard: Dashboard }) {
   const top = ticks[ticks.length - 1] ?? 1
 
   return (
-    <Card className="p-5">
+    <Card className="p-4">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Eyebrow>
           <span className="inline-flex items-center gap-2">
-            <BarChart3 className="size-4" aria-hidden /> Histogramme des éléments par statut
+            <BarChart3 className="size-4 text-faint" aria-hidden /> Histogramme des éléments par statut
           </span>
         </Eyebrow>
-        <ul className="flex flex-wrap items-center gap-4 text-sm" aria-label="Légende">
+        <ul className="flex flex-wrap items-center gap-3 text-xs text-muted" aria-label="Légende">
           {WORK_ITEM_TYPES.map((type) => (
             <li key={type} className="flex items-center gap-2">
               <TypeChip type={type} />
@@ -154,7 +154,7 @@ function StatusHistogram({ dashboard }: { dashboard: Dashboard }) {
               {dashboard.histogram.map((column) => (
                 <div key={column.status} className="flex min-w-0 flex-col items-center gap-1 px-0.5 text-center" data-status={column.status}>
                   <span className="ds-dot" />
-                  <span className="truncate text-[11px] font-semibold tracking-wide">{STATUS_CODE[column.status]}</span>
+                  <span className="truncate text-[11px] font-medium">{STATUS_CODE[column.status]}</span>
                   <span className="truncate text-[11px] text-muted">{STATUS_LABEL[column.status]}</span>
                 </div>
               ))}
@@ -192,7 +192,7 @@ function StatusHistogram({ dashboard }: { dashboard: Dashboard }) {
 
 function PhaseProgress({ tree }: { tree: ProjectTree }) {
   return (
-    <Card className="p-5">
+    <Card className="p-4">
       <Eyebrow className="mb-4">Avancement par phase</Eyebrow>
       {tree.phases.length === 0 ? (
         <p className="text-muted">Aucune phase.</p>
@@ -233,10 +233,10 @@ function Milestones({ tree }: { tree: ProjectTree }) {
   )
   const openDialog = useApp((state) => state.openDialog)
   return (
-    <Card className="p-5">
+    <Card className="p-4">
       <Eyebrow className="mb-4">
         <span className="inline-flex items-center gap-2">
-          <Flag className="size-4" aria-hidden /> Jalons
+          <Flag className="size-4 text-faint" aria-hidden /> Jalons
         </span>
       </Eyebrow>
       {milestones.length === 0 ? (
@@ -247,14 +247,14 @@ function Milestones({ tree }: { tree: ProjectTree }) {
             <li key={milestone.id}>
               <button
                 type="button"
-                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-hover"
+                className="flex h-8 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-hover"
                 onClick={() => openDialog({ kind: 'editMilestone', id: milestone.id })}
               >
                 <span className="ds-diamond" data-reached={milestone.reached} aria-hidden />
                 <span className="min-w-0 flex-1 truncate">{milestone.title}</span>
                 <span className="shrink-0 text-xs text-muted">{longDate(milestone.date)}</span>
                 <span className="w-16 shrink-0 text-right text-xs" data-status={milestone.reached ? 'CLOSED' : 'OPEN'}>
-                  <span className="ds-ink">{milestone.reached ? 'Atteint ✅' : 'À venir'}</span>
+                  <span className="ds-ink">{milestone.reached ? 'Atteint' : 'À venir'}</span>
                 </span>
               </button>
             </li>

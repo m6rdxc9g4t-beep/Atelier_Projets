@@ -44,10 +44,10 @@ export function TimeSheetView({ project }: { project: Project }) {
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <Eyebrow>
           <span className="inline-flex items-center gap-2">
-            <Clock3 className="size-4" aria-hidden /> Tableau des temps (timesheet)
+            <Clock3 className="size-4 text-faint" aria-hidden /> Tableau des temps (timesheet)
           </span>
         </Eyebrow>
         <div className="flex flex-wrap items-center gap-2">
@@ -77,7 +77,7 @@ export function TimeSheetView({ project }: { project: Project }) {
               </option>
             ))}
           </select>
-          <div className="flex items-center gap-1 rounded-lg border border-line bg-sunken p-0.5" role="group" aria-label="Filtrer par type">
+          <div className="ds-seg" role="group" aria-label="Filtrer par type">
             {WORK_ITEM_TYPES.map((type) => {
               const active = types.includes(type)
               return (
@@ -85,7 +85,6 @@ export function TimeSheetView({ project }: { project: Project }) {
                   key={type}
                   type="button"
                   aria-pressed={active}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm ${active ? 'bg-elevated text-fg' : 'text-muted hover:text-fg'}`}
                   onClick={() => setTypes((current) => (active ? current.filter((value) => value !== type) : [...current, type]))}
                 >
                   <TypeChip type={type} />
@@ -203,7 +202,7 @@ function TimesheetLine({ row, selected, onOpen }: { row: TimesheetRow; selected:
       tabIndex={0}
       aria-selected={selected}
     >
-      <td className="font-mono text-sm">
+      <td className="tabular-nums">
         <span className="ds-ink font-semibold" data-type={row.type}>
           #{row.id}
         </span>

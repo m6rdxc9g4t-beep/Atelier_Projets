@@ -61,7 +61,7 @@
   --backdrop: color-mix(in oklab, var(--app-bg) 60%, transparent);
 
   /* --- Barres d'indicateurs ----------------------------------------------------
-     Budget (une seule mesure, sans sens par couleur) : la signature en paliers de transparence.
+     Budget (une seule mesure, sans sens par couleur) : la signature (plein dans .ds-progress).
      Avancement : gamme des statuts « Résolue » → « Terminée » (porte un sens, inchangée). */
   --gradient-budget: linear-gradient(90deg, var(--atelier-chart-2, color-mix(in oklab, var(--accent) 60%, transparent)), var(--accent));
   --gradient-progress: linear-gradient(90deg, var(--status-resolved), var(--status-closed));
@@ -71,8 +71,10 @@
   --ds-radius-md: 7px;
   --ds-radius-lg: 10px;
   --ds-radius-pill: 999px;
+  /* Tailles de texte de l'interface (charte v2) : base 13 px sur ordinateur ; l'app peut les monter sur téléphone. */
+  --ds-text-sm: 0.75rem;
+  --ds-text-base: 0.8125rem;
   --ds-font-sans: var(--atelier-font, ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   --ds-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-/* Charte v2 : le bouton principal reste plein en sombre comme en clair (plus de contour néon). */

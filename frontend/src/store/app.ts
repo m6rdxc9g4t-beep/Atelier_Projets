@@ -5,10 +5,10 @@ import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { restoreAiPreferences } from '../lib/engine.ts'
-import type { ThemePreference } from '../lib/theme.ts'
+import { getThemePreference, setThemePreference, type ThemePreference } from '../lib/theme.ts'
 import type { ClaudeModel, EngineChoice, WorkItemType } from '../services/types.ts'
 
-/** Préférence de thème : Clair, Sombre ou Système (voir lib/theme.ts). */
+/** Préférence de thème : Système, Clair ou Sombre, commune à la suite (voir lib/theme.ts). */
 export type Theme = ThemePreference
 export type ViewId = 'dashboard' | 'gantt' | 'timesheet' | 'settings'
 
@@ -38,7 +38,7 @@ interface AppState {
   theme: Theme
   projectId: number | null
   view: ViewId
-  /** Rail de navigation déplié (libellés visibles). */
+  /** Barre latérale dépliée (libellés visibles, 232 px) ; repliée : icônes seules. */
   railExpanded: boolean
   /** Surcharge de « 1 jour = X heures » pour l'affichage (null = paramètre du projet). */
   hoursPerDay: number | null
@@ -53,7 +53,10 @@ interface AppState {
   revision: number
   toasts: Toast[]
 
+  /** Enregistre la préférence pour toute la suite (atelier-theme.js) et l'applique. */
   setTheme: (theme: Theme) => void
+  /** Reflète une préférence changée ailleurs (autre app de la suite, autre onglet). */
+  syncTheme: (theme: Theme) => void
   setProject: (projectId: number | null) => void
   setView: (view: ViewId) => void
   toggleRail: () => void
@@ -94,21 +97,15 @@ const safeStorage: StateStorage = {
   },
 }
 
-/** Avant la relecture du stockage : la préférence appliquée par index.html (Système par défaut). */
-function initialTheme(): Theme {
-  const preference = document.documentElement.dataset.themePreference
-  return preference === 'light' || preference === 'dark' ? preference : 'system'
-}
-
 let toastSequence = 0
 
 export const useApp = create<AppState>()(
   persist(
     (set) => ({
-      theme: initialTheme(),
+      theme: getThemePreference(),
       projectId: null,
       view: 'gantt',
-      railExpanded: false,
+      railExpanded: true,
       hoursPerDay: null,
       selectedWorkItemId: null,
       aiModel: null,
@@ -118,7 +115,11 @@ export const useApp = create<AppState>()(
       revision: 0,
       toasts: [],
 
-      setTheme: (theme) => set({ theme }),
+      setTheme: (theme) => {
+        setThemePreference(theme)
+        set({ theme })
+      },
+      syncTheme: (theme) => set({ theme }),
       setProject: (projectId) => set({ projectId, selectedWorkItemId: null, hoursPerDay: null }),
       setView: (view) => set({ view }),
       toggleRail: () => set((state) => ({ railExpanded: !state.railExpanded })),
@@ -142,10 +143,12 @@ export const useApp = create<AppState>()(
       // Le stockage local peut contenir n'importe quoi (modifié à la main, ancienne version) : préférences IA validées.
       merge: (persisted, current) => {
         const saved = typeof persisted === 'object' && persisted !== null ? (persisted as Partial<AppState>) : {}
-        return { ...current, ...saved, ...restoreAiPreferences(saved) }
+        // Le thème n'est plus enregistré ici : la préférence commune de la suite fait foi (l'ancienne valeur est
+        // reprise une fois par index.html dans « atelier:theme »).
+        const { theme: _legacyTheme, ...rest } = saved
+        return { ...current, ...rest, ...restoreAiPreferences(saved) }
       },
       partialize: (state) => ({
-        theme: state.theme,
         projectId: state.projectId,
         view: state.view,
         railExpanded: state.railExpanded,

@@ -1,24 +1,27 @@
-// Cadre de l'application (maquette du README §4) : en-tête, rail de navigation, onglets, notifications.
+// Cadre de l'application, à la forme du portail de la suite (charte v2 « Linear », Atelier_Deploy/DESIGN.md) :
+// barre latérale (marque, sélecteur de la suite, projet, vues, thème), barre haute de 44 px (titre de la vue,
+// chronomètre, IA), notifications. Sous 768 px, la barre latérale devient un bandeau et les vues une rangée de pastilles.
 import {
   Bot,
   CalendarRange,
   Check,
-  ChevronDown,
+  ChevronsUpDown,
   CircleHelp,
   Clock3,
   FolderPlus,
   LayoutDashboard,
   Link2,
   FileUp,
-  Menu,
   Monitor,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Settings,
   Sun,
   X,
 } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { githubLabel } from '../lib/format.ts'
 import { useShallow } from 'zustand/react/shallow'
 import { CLAUDE_MODEL_LABEL, ollamaReady, safeClaudeModel } from '../lib/engine.ts'
@@ -29,13 +32,13 @@ import { OnlineSwitch } from './AiDialogs.tsx'
 import { AtelierBrand } from './AtelierBrand.tsx'
 import { SuiteSwitcher } from './SuiteSwitcher.tsx'
 import { TimerPill } from './Timer.tsx'
-import { Button, Tabs } from './ui.tsx'
+import { Button } from './ui.tsx'
 
 export const VIEWS: { id: ViewId; label: string; short: string; icon: ReactNode }[] = [
-  { id: 'dashboard', label: 'Tableau de bord', short: 'Tableau de bord', icon: <LayoutDashboard className="size-5" /> },
-  { id: 'gantt', label: 'Gantt & Avancement du projet', short: 'Gantt', icon: <CalendarRange className="size-5" /> },
-  { id: 'timesheet', label: 'Tableau des temps', short: 'Temps', icon: <Clock3 className="size-5" /> },
-  { id: 'settings', label: 'Paramètres du projet', short: 'Paramètres', icon: <Settings className="size-5" /> },
+  { id: 'dashboard', label: 'Tableau de bord', short: 'Tableau de bord', icon: <LayoutDashboard /> },
+  { id: 'gantt', label: 'Gantt & Avancement du projet', short: 'Gantt', icon: <CalendarRange /> },
+  { id: 'timesheet', label: 'Tableau des temps', short: 'Temps', icon: <Clock3 /> },
+  { id: 'settings', label: 'Paramètres du projet', short: 'Paramètres', icon: <Settings /> },
 ]
 
 /**
@@ -76,7 +79,7 @@ function AiControls() {
   return (
     <>
       <OnlineSwitch />
-      <div className="hidden items-center gap-1.5 lg:flex" role="group" aria-label="État des moteurs d’IA">
+      <div className="hidden items-center gap-1 lg:flex" role="group" aria-label="État des moteurs d’IA">
         <EnginePill label="Ollama" ok={ollamaOk} title={ollamaTitle} onClick={() => openDialog({ kind: 'ai' })} />
         <EnginePill label="Claude" ok={claudeOk} title={claudeTitle} onClick={() => openDialog({ kind: 'ai' })} />
       </div>
@@ -92,7 +95,7 @@ function EnginePill({ label, ok, title, onClick }: { label: string; ok: boolean;
       title={title}
       aria-label={`${label} : ${ok ? 'disponible' : 'indisponible'} — ${title}`}
       onClick={onClick}
-      className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-xs text-fg hover:bg-hover"
+      className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-fg"
     >
       <span className="ds-dot" data-status={ok ? 'CLOSED' : 'OPEN'} aria-hidden />
       {label}
@@ -104,48 +107,151 @@ function EnginePill({ label, ok, title, onClick }: { label: string; ok: boolean;
 function AiButton() {
   const openDialog = useApp((state) => state.openDialog)
   return (
-    <Button variant="primary" icon={<Bot className="size-4" />} title="Intelligence artificielle : moteurs, modèles, session Claude CLI" className="hidden sm:inline-flex" onClick={() => openDialog({ kind: 'ai' })}>
+    <Button variant="primary" size="sm" icon={<Bot />} title="Intelligence artificielle : moteurs, modèles, session Claude CLI" className="hidden sm:inline-flex" onClick={() => openDialog({ kind: 'ai' })}>
       IA
     </Button>
   )
 }
 
-export function Header({ projects, project }: { projects: Project[]; project: Project | undefined }) {
-  const { theme, setTheme, toggleRail } = useAppState((state) => ({ theme: state.theme, setTheme: state.setTheme, toggleRail: state.toggleRail }))
-  const github = githubLabel(project?.github)
+/**
+ * Barre latérale (≥ 768 px : colonne de 232 px, ou 52 px repliée ; en dessous : bandeau en haut).
+ * Haut : marque (« À propos »), sélecteur de la suite, projet courant ; milieu : vues du projet ; pied : thème.
+ */
+export function Sidebar({ projects, project }: { projects: Project[]; project: Project | undefined }) {
+  const { railExpanded, openDialog } = useAppState((state) => ({ railExpanded: state.railExpanded, openDialog: state.openDialog }))
+  const collapsed = !railExpanded
 
   return (
-    <header className="ds-chrome flex h-16 shrink-0 items-center gap-2 sm:gap-3 border-b border-line-soft px-3 sm:px-4">
-      <Button variant="ghost" icon={<Menu className="size-5" />} aria-label="Afficher ou masquer les libellés du menu" onClick={toggleRail} />
-      <SuiteSwitcher />
-      <div className="pr-1">
-        <AtelierBrand nameClassName="hidden sm:inline" />
+    <div
+      className={`ds-chrome flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3.5 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] md:h-full md:flex-col md:flex-nowrap md:items-stretch md:gap-0 md:border-b-0 md:border-r md:px-2 md:pb-2 md:pt-3 ${
+        collapsed ? 'md:w-[52px]' : 'md:w-[var(--side-w)]'
+      }`}
+    >
+      {/* En-tête de la barre latérale (rôle « groupe » : la bannière de la page est la barre haute). Sur téléphone,
+          display: contents laisse la marque et le projet se ranger dans le bandeau. */}
+      <header role="group" aria-label="Application et projet" className="contents md:flex md:flex-col">
+        <div className={`flex min-w-0 flex-1 items-center gap-1 md:flex-none ${collapsed ? 'md:flex-col md:gap-2' : 'md:px-1'}`}>
+          <AtelierBrand nameClassName={collapsed ? 'md:hidden' : ''} />
+          <div className={`ml-auto ${collapsed ? 'md:ml-0' : ''}`}>
+            <SuiteSwitcher />
+          </div>
+        </div>
+
+        <div className={`order-3 w-full md:order-none md:mt-3 ${collapsed ? 'md:flex md:justify-center' : ''}`}>
+          <ProjectSwitcher projects={projects} project={project} compact={collapsed} />
+        </div>
+      </header>
+
+      <nav
+        aria-label="Navigation principale"
+        className="order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-1 md:flex-col md:gap-px md:overflow-x-visible md:overflow-y-auto md:px-0"
+      >
+        <ViewTabs collapsed={collapsed} />
+        <button
+          type="button"
+          className={`${NAV_ITEM} hidden md:flex`}
+          title={collapsed ? 'Ajouter une phase' : undefined}
+          onClick={() => openDialog({ kind: 'phase' })}
+        >
+          <Plus aria-hidden />
+          {collapsed ? <span className="sr-only">Ajouter une phase</span> : <span className="truncate">Nouvelle phase</span>}
+        </button>
+      </nav>
+
+      <div className={`order-2 flex items-center gap-1 md:order-none md:mt-2 md:flex-col md:items-stretch md:gap-1.5 md:pt-2 ${collapsed ? 'md:items-center' : ''}`}>
+        <a
+          className={`${NAV_ITEM} hidden md:flex`}
+          href="/api/docs"
+          target="_blank"
+          rel="noreferrer"
+          title={collapsed ? 'Documentation de l’API' : undefined}
+        >
+          <CircleHelp aria-hidden />
+          {collapsed ? <span className="sr-only">Documentation de l’API</span> : <span className="truncate">Documentation API</span>}
+        </a>
+        <ThemeSwitch vertical={collapsed} />
       </div>
-      <ProjectSwitcher projects={projects} project={project} />
+    </div>
+  )
+}
+
+/** Entrée de navigation : 30 px, icône 16 px discrète, libellé 13 px en 500 ; pastille bordée sur téléphone. */
+const NAV_ITEM =
+  'flex h-[30px] shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full border border-line px-2.5 text-left text-sm font-medium text-fg transition-colors hover:bg-hover md:rounded-md md:border-0 md:px-2 [&>svg]:hidden [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-faint md:[&>svg]:block'
+
+/**
+ * Vues du projet : onglets (tablist) disposés en colonne dans la barre latérale, en rangée sur téléphone.
+ * Nom accessible = libellé complet de la vue (« Tableau des temps ») ; libellé court affiché.
+ */
+export function ViewTabs({ collapsed }: { collapsed: boolean }) {
+  const { view, setView } = useAppState((state) => ({ view: state.view, setView: state.setView }))
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key]
+    if (step === undefined) return
+    event.preventDefault()
+    const index = VIEWS.findIndex((entry) => entry.id === view)
+    const next = VIEWS[(index + step + VIEWS.length) % VIEWS.length]
+    if (!next) return
+    setView(next.id)
+    event.currentTarget.querySelector<HTMLElement>(`[data-view="${next.id}"]`)?.focus()
+  }
+  return (
+    <div role="tablist" aria-label="Vues du projet" aria-orientation="vertical" className="flex gap-1 md:flex-col md:gap-px" onKeyDown={onKeyDown}>
+      {VIEWS.map((entry) => {
+        const active = entry.id === view
+        return (
+          <button
+            key={entry.id}
+            type="button"
+            role="tab"
+            data-view={entry.id}
+            aria-selected={active}
+            aria-label={entry.label}
+            tabIndex={active ? 0 : -1}
+            title={collapsed ? entry.label : undefined}
+            className={`${NAV_ITEM} ${active ? 'border-transparent bg-selected md:[&>svg]:text-fg' : ''}`}
+            onClick={() => setView(entry.id)}
+          >
+            {entry.icon}
+            <span className={collapsed ? 'md:sr-only' : 'truncate'}>{entry.short}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Barre haute (44 px) : repli de la barre latérale, titre de la vue, dépôt GitHub, chronomètre et IA. */
+export function TopBar({ project }: { project: Project | undefined }) {
+  const { view, railExpanded, toggleRail } = useAppState((state) => ({ view: state.view, railExpanded: state.railExpanded, toggleRail: state.toggleRail }))
+  const github = githubLabel(project?.github)
+  const title = VIEWS.find((entry) => entry.id === view)?.label
+
+  return (
+    <header className="flex min-h-[var(--top-h)] shrink-0 items-center gap-2 border-b border-line bg-main px-3.5 md:gap-3 md:px-4">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="hidden md:inline-flex"
+        icon={railExpanded ? <PanelLeftClose /> : <PanelLeftOpen />}
+        aria-label="Afficher ou masquer les libellés du menu"
+        title={railExpanded ? 'Replier la barre latérale' : 'Déplier la barre latérale'}
+        onClick={toggleRail}
+      />
+      {project && title && <h1 className="hidden truncate text-sm font-semibold md:block">{title}</h1>}
       {github && project?.github && (
         <a
           href={project.github.url}
           target="_blank"
           rel="noreferrer"
-          className="hidden items-center gap-1.5 truncate rounded-md px-2 py-1 text-accent-ink hover:bg-hover md:flex"
+          className="hidden min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted hover:bg-hover hover:text-fg lg:flex"
         >
-          <Link2 className="size-4 shrink-0" aria-hidden />
+          <Link2 className="size-3.5 shrink-0" aria-hidden />
           <span className="truncate">{github}</span>
         </a>
       )}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1.5 md:gap-2">
         <TimerPill />
-        <div className="flex items-center gap-0.5 rounded-lg border border-line bg-sunken p-0.5" role="group" aria-label="Thème">
-          {THEMES.map((option) => (
-            <ThemeButton
-              key={option.id}
-              active={theme === option.id}
-              onClick={() => setTheme(option.id)}
-              label={option.label}
-              icon={option.icon}
-            />
-          ))}
-        </div>
         <AiControls />
       </div>
     </header>
@@ -153,27 +259,26 @@ export function Header({ projects, project }: { projects: Project[]; project: Pr
 }
 
 const THEMES: { id: Theme; label: string; icon: ReactNode }[] = [
-  { id: 'light', label: 'Thème clair', icon: <Sun className="size-4" /> },
-  { id: 'dark', label: 'Thème sombre', icon: <Moon className="size-4" /> },
-  { id: 'system', label: 'Thème du système', icon: <Monitor className="size-4" /> },
+  { id: 'system', label: 'Thème du système', icon: <Monitor /> },
+  { id: 'light', label: 'Thème clair', icon: <Sun /> },
+  { id: 'dark', label: 'Thème sombre', icon: <Moon /> },
 ]
 
-function ThemeButton({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: ReactNode }) {
+/** Choix du thème (Système / Clair / Sombre), commun à toute la suite. */
+function ThemeSwitch({ vertical }: { vertical: boolean }) {
+  const { theme, setTheme } = useAppState((state) => ({ theme: state.theme, setTheme: state.setTheme }))
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      aria-pressed={active}
-      className={`grid size-7 place-items-center rounded-md transition-colors ${active ? 'bg-accent-soft text-accent-ink' : 'text-muted hover:text-fg'}`}
-    >
-      {icon}
-    </button>
+    <div className={`ds-seg md:self-start ${vertical ? 'md:flex-col md:self-center' : 'md:ml-1'}`} role="group" aria-label="Thème">
+      {THEMES.map((option) => (
+        <button key={option.id} type="button" aria-label={option.label} title={option.label} aria-pressed={theme === option.id} onClick={() => setTheme(option.id)}>
+          {option.icon}
+        </button>
+      ))}
+    </div>
   )
 }
 
-function ProjectSwitcher({ projects, project }: { projects: Project[]; project: Project | undefined }) {
+function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; project: Project | undefined; compact: boolean }) {
   const [open, setOpen] = useState(false)
   const { setProject, openDialog } = useAppState((state) => ({ setProject: state.setProject, openDialog: state.openDialog }))
   const root = useRef<HTMLDivElement>(null)
@@ -184,7 +289,7 @@ function ProjectSwitcher({ projects, project }: { projects: Project[]; project: 
       if (!root.current?.contains(event.target as Node)) setOpen(false)
     }
     // Phase de capture + preventDefault : Échap ferme le menu seul, pas la fiche élément ouverte derrière.
-    const onKey = (event: KeyboardEvent) => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.preventDefault()
       setOpen(false)
@@ -197,20 +302,28 @@ function ProjectSwitcher({ projects, project }: { projects: Project[]; project: 
     }
   }, [open])
 
+  const name = project?.name ?? 'Choisir un projet'
   return (
-    <div className="relative min-w-0" ref={root}>
+    <div className={`relative min-w-0 ${compact ? '' : 'w-full'}`} ref={root}>
       <button
         type="button"
-        className="ds-btn max-w-[min(16rem,40vw)] bg-sunken"
+        className={`flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-line bg-surface pl-2 pr-1.5 text-left text-sm font-medium transition-colors hover:bg-hover ${
+          compact ? 'md:size-8 md:justify-center md:p-0' : ''
+        }`}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={compact ? name : undefined}
+        title={compact ? name : undefined}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="truncate">{project?.name ?? 'Choisir un projet'}</span>
-        <ChevronDown className="size-4 shrink-0 text-muted" aria-hidden />
+        <span className="grid size-5 shrink-0 place-items-center rounded bg-selected text-[11px] font-semibold text-fg" aria-hidden>
+          {name.trim().charAt(0).toUpperCase()}
+        </span>
+        <span className={`min-w-0 flex-1 truncate ${compact ? 'md:hidden' : ''}`}>{name}</span>
+        <ChevronsUpDown className={`size-3.5 shrink-0 text-faint ${compact ? 'md:hidden' : ''}`} aria-hidden />
       </button>
       {open && (
-        <div className="ds-card absolute left-0 top-full z-40 mt-2 w-72 overflow-hidden p-1 shadow-overlay">
+        <div className="ds-card absolute left-0 top-full z-50 mt-1 w-72 max-w-[calc(100vw-1.75rem)] overflow-hidden p-1 shadow-overlay">
           <ul role="listbox" aria-label="Projets" className="max-h-80 overflow-y-auto">
             {projects.map((candidate) => (
               <li key={candidate.id}>
@@ -218,7 +331,7 @@ function ProjectSwitcher({ projects, project }: { projects: Project[]; project: 
                   type="button"
                   role="option"
                   aria-selected={candidate.id === project?.id}
-                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-hover"
+                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover"
                   onClick={() => {
                     setProject(candidate.id)
                     setOpen(false)
@@ -235,91 +348,30 @@ function ProjectSwitcher({ projects, project }: { projects: Project[]; project: 
           <div className="mt-1 border-t border-line pt-1">
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-accent-ink hover:bg-hover"
+              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover"
               onClick={() => {
                 setOpen(false)
                 openDialog({ kind: 'project' })
               }}
             >
-              <FolderPlus className="size-4" aria-hidden />
+              <FolderPlus className="size-4 text-faint" aria-hidden />
               Nouveau projet
             </button>
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-accent-ink hover:bg-hover"
+              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover"
               onClick={() => {
                 setOpen(false)
                 openDialog({ kind: 'importTab' })
               }}
             >
-              <FileUp className="size-4" aria-hidden />
+              <FileUp className="size-4 text-faint" aria-hidden />
               Importer depuis Atelier Tab…
             </button>
           </div>
         </div>
       )}
     </div>
-  )
-}
-
-export function Rail() {
-  const { view, setView, railExpanded, openDialog } = useAppState((state) => ({
-    view: state.view,
-    setView: state.setView,
-    railExpanded: state.railExpanded,
-    openDialog: state.openDialog,
-  }))
-  const item = (active: boolean) =>
-    `flex h-10 items-center gap-3 rounded-lg px-2.5 transition-colors ${
-      active ? 'ds-nav-active' : 'text-muted hover:bg-accent-faint hover:text-fg'
-    }`
-
-  return (
-    <nav
-      aria-label="Navigation principale"
-      className={`ds-chrome hidden shrink-0 flex-col gap-1 border-r border-line-soft p-2 md:flex ${railExpanded ? 'w-56' : 'w-[60px]'}`}
-    >
-      {VIEWS.map((entry) => (
-        <button
-          key={entry.id}
-          type="button"
-          className={item(entry.id === view)}
-          aria-current={entry.id === view ? 'page' : undefined}
-          title={railExpanded ? undefined : entry.label}
-          onClick={() => setView(entry.id)}
-        >
-          {entry.icon}
-          {railExpanded && <span className="truncate">{entry.short}</span>}
-        </button>
-      ))}
-      <button type="button" className={item(false)} title={railExpanded ? undefined : 'Ajouter une phase'} onClick={() => openDialog({ kind: 'phase' })}>
-        <Plus className="size-5" aria-hidden />
-        {railExpanded ? <span>Nouvelle phase</span> : <span className="sr-only">Ajouter une phase</span>}
-      </button>
-      <a
-        className={`${item(false)} mt-auto`}
-        href="/api/docs"
-        target="_blank"
-        rel="noreferrer"
-        title={railExpanded ? undefined : 'Documentation de l’API'}
-      >
-        <CircleHelp className="size-5" aria-hidden />
-        {railExpanded ? <span>Documentation API</span> : <span className="sr-only">Documentation de l’API</span>}
-      </a>
-    </nav>
-  )
-}
-
-export function ViewTabs() {
-  const { view, setView } = useAppState((state) => ({ view: state.view, setView: state.setView }))
-  return (
-    <Tabs
-      label="Vues du projet"
-      value={view}
-      onChange={setView}
-      tabs={VIEWS.map((entry) => ({ id: entry.id, label: entry.label }))}
-      className="overflow-x-auto px-4 sm:px-6"
-    />
   )
 }
 
@@ -332,12 +384,12 @@ export function Toasts() {
           key={toast.id}
           role={toast.tone === 'error' ? 'alert' : 'status'}
           data-status={toast.tone === 'error' ? 'REJECTED' : toast.tone === 'success' ? 'CLOSED' : 'IN_PROGRESS'}
-          className="ds-card pointer-events-auto flex items-start gap-3 border-l-4 border-l-kind p-3 shadow-overlay"
+          className="ds-card pointer-events-auto flex items-start gap-2.5 px-3 py-2.5 shadow-overlay"
         >
-          <span className="ds-dot mt-1.5" aria-hidden />
+          <span className="ds-dot mt-[0.3rem]" aria-hidden />
           <p className="flex-1 leading-snug">{toast.message}</p>
-          <button type="button" className="text-muted hover:text-fg" aria-label="Fermer la notification" onClick={() => dismiss(toast.id)}>
-            <X className="size-4" />
+          <button type="button" className="grid size-5 place-items-center rounded text-muted hover:bg-hover hover:text-fg" aria-label="Fermer la notification" onClick={() => dismiss(toast.id)}>
+            <X className="size-3.5" />
           </button>
         </div>
       ))}

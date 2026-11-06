@@ -27,7 +27,7 @@ import { useApp, useAppState, type DialogRequest } from '../store/app.ts'
 type Zoom = 'day' | 'week' | 'month'
 const PX_PER_DAY: Record<Zoom, number> = { day: 34, week: 18, month: 6 }
 const ZOOM_LABEL: Record<Zoom, string> = { day: 'Jour', week: 'Semaine', month: 'Mois' }
-const ROW_HEIGHT = 44
+const ROW_HEIGHT = 36
 /** Hauteur d'une ligne, bordure comprise (tracé des flèches de dépendance). */
 const ROW_PITCH = ROW_HEIGHT + 1
 const DAY_MS = 86_400_000
@@ -575,7 +575,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
 
   return (
     <Card className="gantt-card overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-2.5">
         <Eyebrow>
           Diagramme de Gantt &amp; jalons <span className="hidden print:inline">· {project.name} · {shortDate(today())}</span>
         </Eyebrow>
@@ -607,9 +607,9 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
           >
             Chemin critique
           </Button>
-          <label className="flex items-center gap-2 text-sm text-muted">
+          <label className="flex items-center gap-2 text-xs text-muted">
             Zoom
-            <select className="ds-select w-auto min-w-28" value={zoom} onChange={(event) => setZoom(event.target.value as Zoom)}>
+            <select className="ds-select h-7 min-h-0 w-auto min-w-24 py-0 text-xs" value={zoom} onChange={(event) => setZoom(event.target.value as Zoom)}>
               {(Object.keys(ZOOM_LABEL) as Zoom[]).map((value) => (
                 <option key={value} value={value}>
                   {ZOOM_LABEL[value]}
@@ -659,17 +659,17 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
             {/* En-tête : mois puis semaines (ou jours) */}
             <div className="sticky top-0 z-20 flex border-b border-line bg-surface" role="row">
               <div
-                className="sticky left-0 z-10 flex w-[var(--gantt-left)] shrink-0 items-end justify-between border-r border-line bg-surface px-4 pb-2 text-sm font-semibold text-muted"
+                className="sticky left-0 z-10 flex w-[var(--gantt-left)] shrink-0 items-end justify-between border-r border-line bg-surface px-3 pb-2 text-xs font-medium text-muted"
                 role="columnheader"
               >
                 <span>Hiérarchie</span>
-                <span className="text-xs font-semibold uppercase tracking-wide">Budget</span>
+                <span>Budget</span>
               </div>
-              <div className="relative h-16 shrink-0" style={{ width }} role="columnheader" aria-label="Calendrier">
+              <div className="relative h-14 shrink-0" style={{ width }} role="columnheader" aria-label="Calendrier">
                 {calendar.months.map((month) => (
                   <div
                     key={month.offset}
-                    className="absolute top-0 flex h-8 items-center justify-center truncate border-l border-line px-2 text-xs font-semibold uppercase tracking-wide text-muted"
+                    className="absolute top-0 flex h-7 items-center justify-center truncate border-l border-line px-2 text-xs font-medium text-fg"
                     style={{ left: month.offset, width: month.width }}
                   >
                     {month.width > 60 ? month.label : ''}
@@ -678,7 +678,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
                 {calendar.ticks.map((tick) => (
                   <div
                     key={tick.offset}
-                    className="absolute top-8 flex h-8 items-center justify-center border-l border-t border-line text-xs tabular-nums text-muted"
+                    className="absolute top-7 flex h-7 items-center justify-center border-l border-t border-line text-xs tabular-nums text-muted"
                     style={{ left: tick.offset, width: tick.width }}
                   >
                     {tick.label}
@@ -696,7 +696,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
 
             {calendar.todayOffset !== null && (
               <div
-                className="pointer-events-none absolute bottom-0 top-16 z-0 w-0.5 bg-accent opacity-70"
+                className="pointer-events-none absolute bottom-0 top-14 z-0 w-px bg-accent"
                 style={{ left: `calc(var(--gantt-left) + ${calendar.todayOffset - 1}px)` }}
                 aria-hidden
               />
@@ -815,7 +815,7 @@ function GanttRow(props: GanttRowProps) {
       <div
         role="gridcell"
         className={`sticky left-0 z-10 flex w-[var(--gantt-left)] shrink-0 items-center gap-2 border-r border-line pr-3 ${
-          isSelected ? 'bg-elevated' : container ? 'bg-sunken group-hover:bg-hover' : 'bg-surface group-hover:bg-hover'
+          isSelected ? 'bg-accent-row' : container ? 'bg-sunken group-hover:bg-hover' : 'bg-surface group-hover:bg-hover'
         }`}
         style={{ paddingLeft: 12 + row.level * 18 }}
       >
@@ -848,14 +848,14 @@ function GanttRow(props: GanttRowProps) {
             </>
           ) : (
             <>
-              <span className="ds-ink font-semibold uppercase" data-type={row.kind}>
+              <span className="ds-ink font-semibold" data-type={row.kind}>
                 {row.code}
               </span>{' '}
               : {row.title}
             </>
           )}
         </button>
-        <span className="absolute right-16 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-line bg-surface p-0.5 shadow-card group-focus-within:flex group-hover:flex print:hidden!">
+        <span className="absolute right-16 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-line bg-surface p-0.5 shadow-overlay group-focus-within:flex group-hover:flex print:hidden!">
           {row.breakdown && (
             <RowAction label="Générer les sous-tâches (IA)" onClick={() => row.breakdown && openDialog(row.breakdown)}>
               <Sparkles className="size-3.5" />
@@ -872,7 +872,7 @@ function GanttRow(props: GanttRowProps) {
             </RowAction>
           )}
         </span>
-        <span className="w-14 shrink-0 text-right text-sm tabular-nums text-muted">
+        <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">
           {row.kind === 'MILESTONE' ? '0.0 j' : estimate ? days(estimate) : '—'}
         </span>
       </div>
@@ -918,7 +918,7 @@ function Bar({ row, calendar, geometry, dragging, critical, faded, conflict, onO
         <span className="ds-diamond size-4!" data-reached={row.milestone.reached} aria-hidden />
         <span className="font-medium">{shortDate(date)}</span>
         <span className="ds-ink" data-status={row.milestone.reached ? 'CLOSED' : 'OPEN'}>
-          {row.milestone.reached ? '· Atteint ✅' : '· À venir'}
+          {row.milestone.reached ? '· Atteint' : '· À venir'}
         </span>
       </button>
     )
@@ -981,10 +981,10 @@ function Bar({ row, calendar, geometry, dragging, critical, faded, conflict, onO
           )}
         </span>
         {dragging ? (
-          <span className="rounded-md bg-elevated px-1.5 py-0.5 text-xs font-semibold shadow-card">{dates}</span>
+          <span className="rounded-md border border-line bg-surface px-1.5 py-0.5 text-xs font-medium tabular-nums shadow-overlay">{dates}</span>
         ) : (
           label && (
-            <span className="ds-ink text-sm font-medium" data-status={row.kind === 'ITEM' || row.kind === 'STORY' ? status : 'CLOSED'}>
+            <span className="ds-ink text-xs font-medium tabular-nums" data-status={row.kind === 'ITEM' || row.kind === 'STORY' ? status : 'CLOSED'}>
               {label}
             </span>
           )
