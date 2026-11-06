@@ -1,14 +1,17 @@
 <!doctype html>
-<html lang="fr" data-theme="dark" class="dark" data-atelier-app="projets">
+<html lang="fr" data-atelier-app="projets">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" />
     <title>Atelier Projets</title>
     <link rel="stylesheet" href="../design-system/tokens/colors.css" />
     <link rel="stylesheet" href="../design-system/themes/light.css" />
     <link rel="stylesheet" href="../design-system/themes/dark.css" />
     <link rel="stylesheet" href="../design-system/brand/atelier-brand.css" />
+    <!-- Même préférence de thème que l'app et toute la suite (Système par défaut). -->
+    <script src="../design-system/brand/atelier-theme.js"></script>
     <style>
+      /* Charte v2 « Linear » (docs/SUITE.md §1.7) : fond neutre uni, police Inter de la marque, icône de l'app. */
       html,
       body {
         height: 100%;
@@ -17,56 +20,61 @@
       body {
         display: grid;
         place-items: center;
-        background: var(--atelier-backdrop), var(--atelier-bg);
-        background-attachment: fixed;
+        background: var(--atelier-bg);
         color: var(--atelier-text, var(--text-primary));
-        font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+        font: 13px/1.45 var(--atelier-font, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
+        font-feature-settings: "cv11", "ss03";
+        -webkit-font-smoothing: antialiased;
         -webkit-user-select: none;
         user-select: none;
       }
       main {
         text-align: center;
       }
+      .atelier-about__icon {
+        margin-bottom: 14px;
+      }
       h1 {
-        margin: 18px 0 6px;
-        font-size: 20px;
-        font-weight: 800;
-        letter-spacing: 0.04em;
+        margin: 0 0 4px;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.005em;
       }
       p {
         margin: 0;
         color: var(--atelier-muted, var(--text-muted));
-        min-height: 1.5em;
+        min-height: 1.45em;
       }
       .ring {
-        width: 34px;
-        height: 34px;
-        margin: 0 auto;
+        width: 16px;
+        height: 16px;
+        margin: 16px auto 0;
         border-radius: 50%;
-        border: 3px solid var(--atelier-line, var(--border-color));
+        border: 2px solid var(--atelier-border-soft, var(--border-color));
         border-top-color: var(--atelier-signature, var(--type-epic));
-        box-shadow: var(--atelier-signature-glow, none);
-        animation: spin 0.9s linear infinite;
+        animation: spin 0.8s linear infinite;
       }
       small {
         display: block;
-        margin-top: 14px;
-        color: var(--atelier-muted, var(--text-muted));
-        opacity: 0.8;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--atelier-faint, var(--text-muted));
       }
       [hidden] {
         display: none !important;
       }
       #failure {
-        max-width: 560px;
+        max-width: 520px;
         padding: 0 24px;
       }
       #failure h2 {
-        margin: 0 0 10px;
-        font-size: 16px;
+        margin: 0 0 8px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--atelier-down);
       }
       #failure p {
-        margin: 0 0 8px;
+        margin: 0 0 6px;
         min-height: 0;
       }
       #failure-message {
@@ -75,7 +83,7 @@
         user-select: text;
       }
       #failure code {
-        font: 12px ui-monospace, "SF Mono", Menlo, monospace;
+        font: 12px var(--atelier-font-mono, ui-monospace, monospace);
         -webkit-user-select: text;
         user-select: text;
         word-break: break-all;
@@ -85,41 +93,53 @@
         flex-wrap: wrap;
         justify-content: center;
         gap: 8px;
-        margin-top: 18px;
+        margin-top: 16px;
       }
       button {
-        font: inherit;
-        padding: 7px 14px;
-        border-radius: 8px;
+        height: 30px;
+        padding: 0 12px;
+        font: 500 13px/1 var(--atelier-font, ui-sans-serif, system-ui, sans-serif);
+        border-radius: var(--atelier-radius-md, 7px);
         border: 1px solid var(--atelier-border-soft, var(--border-color));
         background: var(--atelier-surface, transparent);
         color: var(--atelier-text, var(--text-primary));
         cursor: pointer;
       }
       button:hover {
-        background: var(--atelier-signature-faint, transparent);
+        background: var(--atelier-surface-2, transparent);
       }
       button:focus-visible {
-        outline: none;
-        box-shadow: var(--atelier-focus);
+        outline: 2px solid var(--atelier-signature);
+        outline-offset: 2px;
       }
       button.atelier-btn-primary {
-        font-weight: 600;
+        border-color: transparent;
+      }
+      button.atelier-btn-primary:hover {
+        background: var(--atelier-signature-hover);
       }
       @keyframes spin {
         to {
           transform: rotate(360deg);
         }
       }
+      @media (prefers-reduced-motion: reduce) {
+        .ring {
+          animation-duration: 2.4s;
+        }
+      }
     </style>
   </head>
   <body>
     <main>
-      <div class="ring" id="ring" aria-hidden="true"></div>
-      <h1>ATELIER PROJETS</h1>
+      <span class="atelier-about__icon atelier-brand__tile" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v14" /><path d="M12 3v8" /><path d="M19 3v18" /></svg>
+      </span>
+      <h1><span class="atelier-brand__prefix">Atelier </span>Projets</h1>
       <div id="progress">
         <p id="status" role="status">Démarrage…</p>
         <small id="hint"></small>
+        <div class="ring" id="ring" aria-hidden="true"></div>
       </div>
       <!-- Échec de la mise à jour (docs/SUITE.md §8.2) : chaque bouton pose l'ancre #choix=…, lue par desktop/main.cjs. -->
       <section id="failure" role="alert" hidden>
