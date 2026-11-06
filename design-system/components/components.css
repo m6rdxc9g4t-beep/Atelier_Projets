@@ -28,11 +28,10 @@
   /* --- Titre de page : halo néon de la couleur ------------------------------------- */
   .ds-title-glow { text-shadow: var(--text-glow); }
 
-  /* --- Entrée de navigation active : barre de couleur à gauche, fond en transparence, halo -- */
+  /* --- Entrée de navigation active : fond neutre, texte plein (charte v2, sans barre ni halo) -- */
   .ds-nav-active {
     color: var(--app-text);
-    background: var(--accent-soft);
-    box-shadow: inset 3px 0 0 var(--accent), 0 0 14px -4px var(--accent);
+    background: var(--app-surface-3);
   }
 
   .ds-eyebrow {
@@ -79,7 +78,7 @@
     background: var(--btn-primary-bg-hover);
     border-color: var(--accent);
   }
-  .ds-btn[data-variant="primary"]:focus-visible { box-shadow: var(--focus-ring), var(--accent-glow); }
+  .ds-btn[data-variant="primary"]:focus-visible { box-shadow: var(--focus-ring); }
   .ds-btn[data-variant="ghost"] { background: transparent; border-color: transparent; color: var(--app-muted); }
   .ds-btn[data-variant="ghost"]:hover:not(:disabled) { background: var(--accent-faint); color: var(--app-text); }
   .ds-btn[data-variant="danger"] {
