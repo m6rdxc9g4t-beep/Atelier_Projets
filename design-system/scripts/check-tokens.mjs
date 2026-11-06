@@ -69,7 +69,7 @@ const BRAND_TOKENS = new Set(
 )
 
 // Chaque tuile du sélecteur « Suite Atelier » porte le data-atelier-app de son application (docs/SUITE.md §1.7, §3).
-const SUITE_SIGNATURES = { viz: '#996c00', tab: '#1c8742', projets: '#568100', cuisine: '#3a6c97' }
+const SUITE_SIGNATURES = { viz: '#996c00', tab: '#1c8742', projets: '#568100', cuisine: '#9b84dc' }
 const brandCss = await readFile(path.join(ROOT, 'brand/atelier-brand.css'), 'utf8')
 for (const [app, hex] of Object.entries(SUITE_SIGNATURES)) {
   if (!brandCss.toLowerCase().includes(`--atelier-sig-${app}: ${hex};`)) {
