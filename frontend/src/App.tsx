@@ -2,9 +2,9 @@
 import { FileUp, FolderPlus, PlugZap } from 'lucide-react'
 import { useEffect } from 'react'
 import { Dialogs } from './components/Dialogs.tsx'
-import { Header, Rail, Toasts, ViewTabs } from './components/shell.tsx'
+import { Sidebar, Toasts, TopBar } from './components/shell.tsx'
 import { Button, EmptyState, ErrorNotice, Spinner } from './components/ui.tsx'
-import { applyTheme, onSystemThemeChange, resolveTheme } from './lib/theme.ts'
+import { onThemePreferenceChange } from './lib/theme.ts'
 import { useApi } from './lib/use-api.ts'
 import { ApiError } from './services/client.ts'
 import { projectService } from './services/api.ts'
@@ -17,8 +17,8 @@ import { TaskSlideOver } from './views/TaskSlideOver.tsx'
 import { TimeSheetView } from './views/TimeSheetView.tsx'
 
 export function App() {
-  const { theme, projectId, setProject, view, selectedWorkItemId } = useAppState((state) => ({
-    theme: state.theme,
+  const { syncTheme, projectId, setProject, view, selectedWorkItemId } = useAppState((state) => ({
+    syncTheme: state.syncTheme,
     projectId: state.projectId,
     setProject: state.setProject,
     view: state.view,
@@ -26,12 +26,9 @@ export function App() {
   }))
   const projects = useApi(() => projectService.list(), [])
 
-  // Thème (SUITE.md §1.5) : data-theme + classe « dark » ; en mode Système, suit les changements de l'OS.
-  useEffect(() => {
-    applyTheme(resolveTheme(theme))
-    document.documentElement.dataset.themePreference = theme
-    return theme === 'system' ? onSystemThemeChange(applyTheme) : undefined
-  }, [theme])
+  // Thème (SUITE.md §1.5) : atelier-theme.js pose data-theme + classe « dark » et suit l'OS en mode Système ;
+  // le sélecteur reflète une préférence changée ailleurs dans la suite.
+  useEffect(() => onThemePreferenceChange(syncTheme), [syncTheme])
 
   // Aucun choix, ou projet absent de la liste : s'il vient d'être créé, la liste est relue ; s'il a été
   // supprimé (404), le premier projet de la liste est choisi.
@@ -58,22 +55,21 @@ export function App() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <Header projects={list ?? []} project={project} />
-      <div className="flex min-h-0 flex-1">
-        <Rail />
-        <main className="flex min-w-0 flex-1 flex-col">
-          <ViewTabs />
-          <div className="min-h-0 flex-1 overflow-auto">
-            <div className="mx-auto w-full max-w-[1600px] space-y-5 p-4 sm:p-6">
+    <div className="flex h-full flex-col md:flex-row">
+      <Sidebar projects={list ?? []} project={project} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <TopBar project={project} />
+        <div className="flex min-h-0 flex-1">
+          <main className="min-h-0 min-w-0 flex-1 overflow-auto">
+            <div className="mx-auto w-full max-w-[1600px] space-y-4 p-3.5 md:p-5">
               {projects.error && <ErrorNotice error={projects.error} onRetry={projects.reload} />}
               {!list && !projects.error && <Spinner />}
               {list && list.length === 0 && <NoProject />}
               {project && <CurrentView key={project.id} project={project} view={view} />}
             </div>
-          </div>
-        </main>
-        {project && selectedWorkItemId !== null && <TaskSlideOver key={selectedWorkItemId} workItemId={selectedWorkItemId} project={project} />}
+          </main>
+          {project && selectedWorkItemId !== null && <TaskSlideOver key={selectedWorkItemId} workItemId={selectedWorkItemId} project={project} />}
+        </div>
       </div>
       <Dialogs project={project} projects={list ?? []} />
       <Toasts />
@@ -97,7 +93,7 @@ function CurrentView({ project, view }: { project: Project; view: ReturnType<typ
 function NoProject() {
   const openDialog = useApp((state) => state.openDialog)
   return (
-    <EmptyState icon={<FolderPlus className="size-10" />} title="Aucun projet pour l’instant">
+    <EmptyState icon={<FolderPlus className="size-6" />} title="Aucun projet pour l’instant">
       <p className="mb-4">Créez un projet, importez une table d’Atelier Tab, ou insérez la démo « App E-Commerce v2 » avec npm run db:seed.</p>
       <div className="flex flex-wrap justify-center gap-2">
         <Button variant="primary" icon={<FolderPlus className="size-4" />} onClick={() => openDialog({ kind: 'project' })}>
@@ -114,11 +110,11 @@ function NoProject() {
 function BackendDown({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="grid h-full place-items-center p-6">
-      <div className="ds-card max-w-lg p-8 text-center">
-        <PlugZap className="mx-auto mb-4 size-10 text-muted" aria-hidden />
-        <h1 className="ds-title-glow mb-2 text-lg font-semibold">Le backend ne répond pas</h1>
+      <div className="ds-card max-w-md p-7 text-center">
+        <PlugZap className="mx-auto mb-3 size-6 text-faint" aria-hidden />
+        <h1 className="mb-1.5 text-lg font-semibold">Le backend ne répond pas</h1>
         <p className="mb-4 text-muted">L’interface a besoin de l’API locale. À la racine du projet, lancer :</p>
-        <pre className="mb-5 rounded-md bg-sunken px-4 py-3 text-left font-mono text-sm">npm run dev</pre>
+        <pre className="mb-5 rounded-md border border-line bg-sunken px-3 py-2.5 text-left font-mono text-xs">npm run dev</pre>
         <Button variant="primary" onClick={onRetry}>
           Réessayer
         </Button>

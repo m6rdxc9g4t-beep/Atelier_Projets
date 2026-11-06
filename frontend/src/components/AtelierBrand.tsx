@@ -1,11 +1,10 @@
 import { useId, useRef } from 'react'
-import { CalendarCheck } from 'lucide-react'
-
-import logo from '../assets/logo-atelier-projets.webp'
+import { Kanban, X } from 'lucide-react'
 
 /**
- * Marque commune de la Suite Atelier (styles/atelier-brand, docs/SUITE.md §1.6) :
- * tuile + « atelier_Projets » ; un clic ouvre la fenêtre « À propos » avec le logo en grand.
+ * Marque commune de la Suite Atelier (design-system/brand/atelier-brand.css, docs/SUITE.md §1.6) :
+ * icône carrée en dégradé de la signature (glyphe Lucide « kanban » blanc) + « Atelier Projets » ;
+ * un clic ouvre la fenêtre « À propos » avec la grande icône de l'app.
  */
 export function AtelierBrand({ showName = true, nameClassName = '' }: { showName?: boolean; nameClassName?: string }) {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -22,11 +21,11 @@ export function AtelierBrand({ showName = true, nameClassName = '' }: { showName
         onClick={() => dialog.current?.showModal()}
       >
         <span className="atelier-brand__tile" aria-hidden="true">
-          <CalendarCheck />
+          <Kanban />
         </span>
         {showName && (
           <span className={`atelier-brand__name ${nameClassName}`}>
-            <span className="atelier-brand__prefix">atelier_</span>Projets
+            <span className="atelier-brand__prefix">Atelier </span>Projets
           </span>
         )}
       </button>
@@ -41,11 +40,13 @@ export function AtelierBrand({ showName = true, nameClassName = '' }: { showName
       >
         <div className="atelier-about__panel">
           <button type="button" className="atelier-about__close" aria-label="Fermer" onClick={() => dialog.current?.close()}>
-            ×
+            <X className="size-4" aria-hidden />
           </button>
-          <img className="atelier-about__logo" src={logo} alt="Logo Atelier Projets" width={576} height={528} />
+          <span className="atelier-about__icon atelier-brand__tile" aria-hidden="true">
+            <Kanban />
+          </span>
           <h2 id={titleId} className="atelier-about__name">
-            <span className="atelier-brand__prefix">atelier_</span>Projets
+            <span className="atelier-brand__prefix">Atelier </span>Projets
           </h2>
           <p className="atelier-about__tagline">Gestion de projet agile : Gantt, budgets, suivi Git et IA locale.</p>
           <p className="atelier-about__suite">Suite Atelier · 100 % local</p>

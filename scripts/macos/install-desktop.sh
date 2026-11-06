@@ -100,7 +100,7 @@ if (fs.existsSync(entry)) {
 )
 NODE
 
-# Icône : fusée en PNG convertie en .icns avec les outils de macOS (sips, iconutil).
+# Icône : carré arrondi de la Suite Atelier (signature de Projets, glyphe « kanban ») en PNG, converti en .icns avec les outils de macOS (sips, iconutil).
 ICON_SRC="$REPO/scripts/macos/AppIcon.png"
 if [[ -f "$ICON_SRC" ]] && command -v iconutil >/dev/null 2>&1; then
   ICONSET="$(mktemp -d)/AppIcon.iconset"

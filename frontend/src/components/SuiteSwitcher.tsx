@@ -4,17 +4,17 @@
 // app en ligne sans API locale, n'est jamais sondée : mention « En ligne ».
 // Clavier : Entrée / Espace / ↓ ouvrent le menu, ↑ ↓ Début Fin naviguent, Échap ferme et rend le focus,
 // Tab ou un clic à l'extérieur ferment. Les vérifications de santé ne bloquent jamais le menu.
-import { BarChart3, CalendarCheck, Check, CookingPot, LayoutGrid, Table2 } from 'lucide-react'
+import { ChartColumn, Check, Kanban, LayoutGrid, Table, Utensils } from 'lucide-react'
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { checkAnyHealth, CURRENT_APP, SUITE_APPS, type SuiteAppId, type SuiteStatus } from '../lib/suite.ts'
 
-/** Icônes de la marque commune (docs/SUITE.md §1.6 et §3), dans la tuile néon ; chaque tuile porte le
- * data-atelier-app de son application, donc sa couleur signature (§1.7). */
+/** Icônes Lucide de la marque commune (docs/SUITE.md §1.6), dans l'icône carrée de chaque app ; chaque icône porte
+ * le data-atelier-app de son application, donc sa couleur signature (§1.7). */
 const ICONS: Record<SuiteAppId, ReactNode> = {
-  viz: <BarChart3 />,
-  tab: <Table2 />,
-  projets: <CalendarCheck />,
-  cuisine: <CookingPot />,
+  viz: <ChartColumn />,
+  tab: <Table />,
+  projets: <Kanban />,
+  cuisine: <Utensils />,
 }
 
 type Health = SuiteStatus | 'checking'
@@ -22,8 +22,12 @@ type Health = SuiteStatus | 'checking'
 const HEALTH_TEXT: Record<Health, string> = { up: 'En marche', down: 'Arrêtée', checking: 'Vérification…' }
 /** Mention des apps en ligne, jamais sondées (docs/SUITE.md §3). */
 const ONLINE_TEXT = 'En ligne'
-/** Teinte de la pastille : statuts officiels (succès / danger), neutre pendant la vérification. */
-const HEALTH_STATUS: Record<Health, string> = { up: 'CLOSED', down: 'REJECTED', checking: 'OPEN' }
+/** État d'une app (charte v2) : seule l'app arrêtée est colorée (rouge) ; en marche, simple mention ; vérification : cercle vide. */
+const HEALTH_CLASS: Record<Health, string> = {
+  up: 'text-muted',
+  down: 'font-medium text-down before:bg-down',
+  checking: 'text-faint before:bg-transparent before:shadow-[inset_0_0_0_1.5px_currentColor]',
+}
 
 export function SuiteSwitcher() {
   const [open, setOpen] = useState(false)
@@ -111,6 +115,7 @@ export function SuiteSwitcher() {
         type="button"
         className="ds-btn"
         data-variant="ghost"
+        data-size="sm"
         data-icon-only=""
         aria-label="Suite Atelier : changer d’application"
         title="Suite Atelier"
@@ -120,17 +125,17 @@ export function SuiteSwitcher() {
         onClick={() => (open ? close(false) : openMenu('first'))}
         onKeyDown={onTriggerKey}
       >
-        <LayoutGrid className="size-5" aria-hidden />
+        <LayoutGrid aria-hidden />
       </button>
       {open && (
         <div
           id={menuId}
           role="menu"
           aria-label="Suite Atelier"
-          className="ds-card absolute left-0 top-full z-40 mt-2 w-86 p-1.5 shadow-overlay"
+          className="ds-card absolute left-0 top-full z-50 mt-1 w-80 max-w-[calc(100vw-1.75rem)] p-1 shadow-overlay max-md:left-auto max-md:right-0"
           onKeyDown={onMenuKey}
         >
-          <p className="ds-eyebrow px-2.5 pb-1.5 pt-1" aria-hidden>
+          <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-faint" aria-hidden>
             Suite Atelier
           </p>
           {SUITE_APPS.map((app, index) => {
@@ -145,16 +150,19 @@ export function SuiteSwitcher() {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="atelier-brand__name atelier-brand__name--sm">
-                      <span className="atelier-brand__prefix">atelier_</span>
+                      <span className="atelier-brand__prefix">Atelier </span>
                       {app.short}
                     </span>
                     {state && (
-                      <span className="flex items-center gap-1 text-xs font-normal text-muted" data-status={HEALTH_STATUS[state]}>
-                        <span className="ds-dot" aria-hidden />
+                      <span
+                        className={`ml-auto flex items-center gap-1.5 text-xs ${HEALTH_CLASS[state]} ${
+                          state === 'up' ? '' : "before:size-2 before:shrink-0 before:rounded-full before:content-['']"
+                        }`}
+                      >
                         {HEALTH_TEXT[state]}
                       </span>
                     )}
-                    {online && <span className="text-xs font-normal text-muted">{ONLINE_TEXT}</span>}
+                    {online && <span className="ml-auto text-xs text-muted">{ONLINE_TEXT}</span>}
                   </span>
                   <span className="block truncate text-xs text-muted">{app.description}</span>
                 </span>
@@ -163,7 +171,7 @@ export function SuiteSwitcher() {
                 </span>
               </>
             )
-            const className = 'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left hover:bg-hover focus-visible:bg-hover'
+            const className = 'flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-hover focus-visible:bg-hover'
             const label = `${app.name}${current ? ' (application courante)' : ''}${state ? ` — ${HEALTH_TEXT[state]}` : online ? ` — ${ONLINE_TEXT}` : ''}`
             return current ? (
               <button

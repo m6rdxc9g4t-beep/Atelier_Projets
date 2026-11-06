@@ -1,8 +1,8 @@
 /* Atelier_Projets · Frontend — styles globaux.
    Tailwind CSS v4 est relié aux variables du design system : la palette par défaut de Tailwind est
    retirée (--color-*: initial), seules les couleurs du design system existent comme utilitaires.
-   Charte « néon monochrome » (docs/SUITE.md §1.7) : les fondations passent par les variables --app-*
-   du design system, teintées de la couleur signature (vert citron) en clair comme en sombre. */
+   Charte v2 « Linear » (docs/SUITE.md §1.7) : structure neutre (variables --app-*), la signature de
+   Projets (vert olive) ne sert qu'à l'accent : bouton principal, sélection, focus, liens. Inter à 13 px. */
 
 @import "tailwindcss";
 @import "@atelier/design-system";
@@ -34,7 +34,13 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-faint: var(--accent-faint);
   --color-accent-ink: var(--accent-ink);
-  --color-backdrop: var(--backdrop);
+  --color-accent-contrast: var(--accent-contrast);
+  /* Sélection posée sur une surface opaque (colonnes figées du Gantt) */
+  --color-accent-row: color-mix(in oklab, var(--accent) 14%, var(--app-surface));
+  --color-faint: var(--atelier-faint, var(--app-muted));
+  --color-down: var(--atelier-down, var(--status-rejected));
+  --color-warn: var(--atelier-warn, var(--status-hold));
+  --color-backdrop: color-mix(in oklab, var(--app-bg) 72%, transparent);
 
   /* Couleur sémantique portée par data-type / data-status / data-priority / data-balance */
   --color-kind: var(--kind-color);
@@ -60,11 +66,51 @@
 
   --font-sans: var(--ds-font-sans);
   --font-mono: var(--ds-font-mono);
+  /* Rayons 5 / 7 / 10 px (rounded = 5, rounded-md = 7, rounded-lg et au-delà = 10) */
+  --radius-xs: 4px;
   --radius-sm: var(--ds-radius-sm);
+  --radius: var(--ds-radius-sm);
   --radius-md: var(--ds-radius-md);
   --radius-lg: var(--ds-radius-lg);
-  --shadow-card: var(--ds-shadow-card);
+  --radius-xl: var(--ds-radius-lg);
+  /* Plat au repos : une carte n'a pas d'ombre ; seul ce qui flotte (menus, dialogues) en porte une. */
+  --shadow-card: none;
   --shadow-overlay: var(--ds-shadow-overlay);
+
+  /* Échelle typographique dense (base 13 px sur ordinateur, 14 px sur téléphone) :
+     text-xs méta · text-sm = base · text-base titre de carte · text-lg titre de vue · text-2xl chiffre clé */
+  --text-xs: var(--fs-xs);
+  --text-xs--line-height: 1.35;
+  --text-sm: var(--fs-sm);
+  --text-sm--line-height: 1.45;
+  --text-base: var(--fs-base);
+  --text-base--line-height: 1.4;
+  --text-lg: var(--fs-lg);
+  --text-lg--line-height: 1.35;
+  --text-xl: 1.125rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.375rem;
+  --text-2xl--line-height: 1.2;
+}
+
+:root {
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.875rem;
+  --fs-lg: 0.9375rem;
+  --side-w: 232px;
+  --top-h: 44px;
+}
+/* Téléphone : base 14 px, méta 12.5 px. */
+@media (max-width: 47.99rem) {
+  :root {
+    --fs-xs: 0.78125rem;
+    --fs-sm: 0.875rem;
+    --fs-base: 0.9375rem;
+    --fs-lg: 1rem;
+    --ds-text-sm: 0.78125rem;
+    --ds-text-base: 0.875rem;
+  }
 }
 
 @layer base {
@@ -75,25 +121,56 @@
   }
   body {
     margin: 0;
-    /* Fond de page teinté + fine grille et lueur de la couleur signature (charte néon monochrome). */
-    background: var(--atelier-backdrop), var(--atelier-bg);
-    background-attachment: fixed;
+    background: var(--app-bg);
     color: var(--app-text);
     font-family: var(--ds-font-sans);
-    font-size: 14px;
+    font-size: var(--fs-sm);
+    line-height: 1.45;
+    font-feature-settings: "cv11", "ss03";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  :root {
+    accent-color: var(--accent);
   }
   ::selection {
-    background: var(--accent-soft);
+    background: color-mix(in oklab, var(--accent) 30%, transparent);
+    color: var(--app-text);
   }
   :focus-visible {
-    outline: none;
-    box-shadow: var(--focus-ring);
+    outline: 2px solid var(--focus-color);
+    outline-offset: 2px;
+  }
+  input,
+  textarea {
+    caret-color: var(--accent);
+  }
+  a {
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  /* Chiffres alignés dans toutes les données (tableaux, compteurs, durées) */
+  table,
+  time,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--border-strong) transparent;
+    scrollbar-color: var(--app-border-soft) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--app-border-soft);
+    border-radius: 10px;
+    border: 3px solid var(--app-bg);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 

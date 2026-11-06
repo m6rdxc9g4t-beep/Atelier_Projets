@@ -223,7 +223,7 @@ export function ImportTabDialog({ projects, current }: { projects: Project[]; cu
         )}
 
         {error && (
-          <p className="ds-card ds-ink border-l-4 border-l-kind p-3" data-status="REJECTED" role="alert">
+          <p className="rounded-md border border-down/30 bg-down/[0.08] px-3 py-2.5 text-down" role="alert">
             {error}
           </p>
         )}
@@ -264,9 +264,9 @@ export function ImportTabDialog({ projects, current }: { projects: Project[]; cu
             </div>
 
             {warnings.length > 0 && (
-              <div className="ds-card border-l-4 border-l-kind p-3" data-status="ON_HOLD">
+              <div className="rounded-md border border-warn/30 bg-warn/[0.07] px-3 py-2.5">
                 <p className="mb-1 flex items-center gap-2 font-semibold">
-                  <TriangleAlert className="size-4 text-kind" aria-hidden />
+                  <TriangleAlert className="size-4 text-warn" aria-hidden />
                   {warnings.length} avertissement{warnings.length > 1 ? 's' : ''}
                 </p>
                 <ul className="max-h-24 list-disc space-y-0.5 overflow-y-auto pl-5 text-sm text-muted">

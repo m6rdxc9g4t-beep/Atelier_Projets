@@ -67,7 +67,7 @@ export function DependenciesSection({ item }: { item: WorkItemDetail }) {
   }
 
   return (
-    <section className="space-y-3 p-5">
+    <section className="space-y-3 p-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 font-semibold">
           <Link2 className="size-4 text-muted" aria-hidden /> Dépendances
@@ -78,7 +78,7 @@ export function DependenciesSection({ item }: { item: WorkItemDetail }) {
       </div>
 
       {adding && (
-        <div className="space-y-2 rounded-lg border border-line bg-sunken p-3">
+        <div className="space-y-2 rounded-md border border-line bg-sunken p-3">
           <input
             className="ds-input"
             placeholder="Rechercher un élément (#ID ou titre)…"
@@ -116,8 +116,8 @@ export function DependenciesSection({ item }: { item: WorkItemDetail }) {
       )}
       {item.predecessors.length > 0 && (
         <div>
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Attend la fin de</h4>
-          <ul className="divide-y divide-line rounded-lg border border-line">
+          <h4 className="mb-1 text-xs font-medium text-muted">Attend la fin de</h4>
+          <ul className="divide-y divide-line rounded-md border border-line">
             {item.predecessors.map((dependency) => (
               <RefRow
                 key={dependency.id}
@@ -131,8 +131,8 @@ export function DependenciesSection({ item }: { item: WorkItemDetail }) {
       )}
       {item.successors.length > 0 && (
         <div>
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Bloque</h4>
-          <ul className="divide-y divide-line rounded-lg border border-line">
+          <h4 className="mb-1 text-xs font-medium text-muted">Bloque</h4>
+          <ul className="divide-y divide-line rounded-md border border-line">
             {item.successors.map((dependency) => (
               <RefRow
                 key={dependency.id}

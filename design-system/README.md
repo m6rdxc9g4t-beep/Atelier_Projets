@@ -9,8 +9,9 @@ design-system/
 ├── tokens/ui.css             # Correspondance --app-* / --accent* ← jetons de marque, halos, dégradés, rayons, polices — sans code hex
 ├── themes/light.css          # Thème clair neutre : 6 variables de fondation
 ├── themes/dark.css           # Thème sombre neutre quasi noir : 6 variables de fondation
-├── brand/atelier-brand.css   # Marque commune de la suite (copie exacte) : palette « néon monochrome » --atelier-* dans la
-│                             # couleur signature de l'app, clair et sombre ; tuile, « À propos »
+├── brand/atelier-brand.css   # Marque commune de la suite (copie exacte) : palette v2 « Linear » --atelier-* (structure neutre,
+│                             # signature de l'app pour l'accent), clair et sombre ; icône, « À propos » ; police Inter
+├── brand/atelier-theme.js    # Préférence de thème commune (Système / Clair / Sombre), à charger avant l'affichage
 ├── components/index.css      # Point d'entrée des composants
 ├── components/semantic.css   # data-type / data-status / data-priority / data-balance → --kind-color, --kind-ink, --kind-soft
 ├── components/components.css # .ds-card, .ds-btn, .ds-badge, .ds-type-chip, .ds-diamond, .ds-progress, .ds-bar,
@@ -26,7 +27,7 @@ design-system/
 ```
 
 ```js
-import '@atelier/design-system/brand/atelier-brand.css' // marque, couleur signature et effets néon
+import '@atelier/design-system/brand/atelier-brand.css' // marque, couleur signature, police Inter
 ```
 
 ```html
@@ -47,26 +48,28 @@ Un élément qui porte `data-type`, `data-status`, `data-priority` ou `data-bala
 | `--kind-ink` | Même teinte rapprochée de la couleur du texte : lisible en clair comme en sombre (`.ds-ink`) |
 | `--kind-soft` | Fond teinté léger (badges) |
 
-### Charte « néon monochrome » (`docs/SUITE.md` §1.7)
+### Charte v2 « Linear » (`docs/SUITE.md` §1.7)
 
-Toute l'interface est dans la couleur signature de l'app (vert citron pour Projets), en clair comme en sombre.
+Structure neutre commune à la suite (gris froids, clair et sombre) ; la couleur signature de l'app (vert olive pour Projets)
+ne sert qu'à l'accent : bouton principal plein, sélection, focus, liens, icône.
 `tokens/ui.css` branche les jetons de `brand/atelier-brand.css` sur des variables d'application, avec repli sur les thèmes
 neutres si la marque n'est pas chargée. Les composants et le frontend utilisent ces variables, **pas** `--bg-*` / `--text-*` directement :
 
 | Variable | Jeton de marque | Rôle |
 | :--- | :--- | :--- |
-| `--app-bg` | `--atelier-bg` | Fond de page ; avec la grille et la lueur : `background: var(--atelier-backdrop), var(--atelier-bg); background-attachment: fixed` (jamais `background-image: var(--atelier-backdrop)`) |
+| `--app-bg` | `--atelier-bg` | Fond de page, uni (`--atelier-backdrop` ne vaut plus qu'une couche transparente) |
 | `--app-sidebar` | `--atelier-sidebar` | En-tête, barre latérale (`.ds-chrome`) |
 | `--app-surface` / `-2` / `-3` | `--atelier-surface` / `-2` / `-3` | Cartes ; survol, menus ; sélection |
 | `--app-field` | `--atelier-field` | Champs de saisie |
 | `--app-text` / `--app-muted` | `--atelier-text` / `--atelier-muted` | Texte, texte secondaire |
 | `--app-border` / `-soft` / `--app-line` | `--atelier-border` / `-soft` / `--atelier-line` | Contour des cartes ; champs et boutons ; séparateurs |
 | `--accent` / `-soft` / `-faint` / `-ink` | `--atelier-signature` / `-soft` / `-faint` / `--atelier-ink` | Accent, actif, survol, texte en couleur |
-| `--ds-shadow-card` / `-overlay` | `--atelier-glow` / `-strong` | Halo des cartes ; modales, menus |
-| `--focus-ring`, `--text-glow` | `--atelier-focus`, `--atelier-text-glow` | Focus, titres |
+| `--ds-shadow-card` / `-overlay` | `--atelier-glow` / `-strong` | Ombre discrète (non utilisée par les cartes, plates) ; menus et dialogues qui flottent |
+| `--focus-ring`, `--text-glow` | `--atelier-focus`, `--atelier-text-glow` | Halo des champs en focus ; `none` (plus de texte lumineux) |
 
-Bouton principal : plein en clair, contour néon en sombre (`--btn-primary-*`). Navigation active : `.ds-nav-active`.
-La barre de budget suit la signature en paliers ; les couleurs de types et de statuts ne changent pas.
+Bouton principal : plein dans les deux thèmes (`--btn-primary-*`). Navigation active : `.ds-nav-active` (fond neutre, sans barre de couleur).
+Cartes plates (trait de 1 px, sans ombre) ; contrôle segmenté `.ds-seg` ; la barre de budget est dans la signature ; les couleurs de types
+et de statuts ne changent pas.
 
 Les composants sont déclarés dans la couche `@layer components` : les utilitaires d'un framework (Tailwind…) ou les styles de la page peuvent les surcharger.
 

@@ -138,17 +138,18 @@ Le système de design repose sur des variables CSS strictes réutilisables dans 
 
 | Variable CSS | ☀️ Mode Clair | 🌙 Mode Sombre | Usage |
 | :--- | :--- | :--- | :--- |
-| `--bg-main` | `#F8FAFC` | `#0A0A0D` | Fond principal de l'application |
-| `--bg-surface` | `#FFFFFF` | `#111116` | Cartes, Tableaux, Panneaux latéraux |
-| `--bg-elevated` | `#F1F5F9` | `#191A21` | Modales, Menus déroulants, Survols |
-| `--text-primary` | `#0F172A` | `#F4F5F7` | Texte principal |
-| `--text-muted` | `#64748B` | `#A1A6B2` | Texte secondaire, métadonnées |
-| `--border-color` | `#E2E8F0` | `#262833` | Bordures fines et séparateurs |
+| `--bg-main` | `#FBFBFC` | `#0F1012` | Fond principal de l'application |
+| `--bg-surface` | `#FFFFFF` | `#17181B` | Cartes, Tableaux, Panneaux latéraux |
+| `--bg-elevated` | `#EEEFF2` | `#1C1D21` | Modales, Menus déroulants, Survols |
+| `--text-primary` | `#1A1B1E` | `#E8E9EC` | Texte principal |
+| `--text-muted` | `#5F636C` | `#969AA3` | Texte secondaire, métadonnées |
+| `--border-color` | `#E3E4E8` | `#24262B` | Bordures fines et séparateurs |
 
-Ces deux thèmes sont des bases **neutres**, en CSS pur et copiables. Dans l'application, la charte **« néon monochrome »**
-([`docs/SUITE.md`](./docs/SUITE.md) §1.7) teinte toute l'interface de la couleur signature d'Atelier Projets, **vert citron `#94D82D`**
-(`data-atelier-app="projets"` sur `<html>`), en clair comme en sombre : fond teinté avec fine grille et lueur, barre latérale,
-cartes cerclées d'un trait vert citron avec halo, textes, bouton principal (plein en clair, contour néon en sombre), navigation active.
+Ces deux thèmes sont des bases **neutres** (gris froids), en CSS pur et copiables. Dans l'application, la charte **v2 « Linear »**
+([`docs/SUITE.md`](./docs/SUITE.md) §1.7, règles complètes dans `Atelier_Deploy/DESIGN.md`) garde cette structure neutre, commune à toute
+la suite, et réserve la couleur signature d'Atelier Projets, **vert olive `#568100`** (`data-atelier-app="projets"` sur `<html>`), à ce qui
+porte un sens : bouton principal plein, sélection, focus, liens, icône de l'app. Plat au repos (traits de 1 px, pas de halo ni d'ombre sur
+les cartes), police Inter embarquée à 13 px, coquille du portail : barre latérale de 232 px (marque, projet, vues, thème) et barre haute de 44 px.
 Les jetons `--atelier-*` de `design-system/brand/atelier-brand.css` sont branchés sur les variables `--app-*` de `tokens/ui.css`.
 La couleur signature ne remplace aucune couleur de type ou de statut (Gantt, badges, histogramme inchangés).
 

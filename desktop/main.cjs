@@ -105,8 +105,8 @@ function createWindow() {
     minHeight: 620,
     title: PRODUCT,
     show: false,
-    // Proche de --atelier-bg (charte néon monochrome, vert citron) : sombre ≈ signature 6 % dans #07070A, clair ≈ 5 % dans #FBFBFD.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0D100E' : '#F6FAF4',
+    // = --atelier-bg de la charte v2 « Linear » (fond neutre commun à la suite), sombre et clair.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0F1012' : '#FBFBFC',
     ...(IS_WINDOWS && fs.existsSync(WINDOW_ICON) ? { icon: WINDOW_ICON } : {}),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true },
   })

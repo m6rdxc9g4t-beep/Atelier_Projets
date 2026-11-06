@@ -37,7 +37,7 @@ export function useElapsed(active: boolean): number {
 export function Generating({ label, active }: { label: string; active: boolean }) {
   const seconds = useElapsed(active)
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-line bg-sunken p-4" role="status">
+    <div className="flex items-center gap-3 rounded-md border border-line bg-sunken p-4" role="status">
       <Spinner label={label} />
       <span className="ml-auto text-xs tabular-nums text-muted">{seconds} s</span>
     </div>
@@ -224,7 +224,7 @@ function OllamaSection({ status, engine }: { status: AiStatus; engine: Engine })
         <span className="font-mono text-xs font-normal text-muted">{ollama.url}</span>
       </h3>
       {!ollama.reachable && (
-        <div className="rounded-lg bg-sunken p-3 text-sm">
+        <div className="rounded-md bg-sunken p-3 text-sm">
           <p className="mb-2 text-muted">{ollama.error}</p>
           <p>
             Installer Ollama (ollama.com), puis dans un terminal : <code className="font-mono">ollama pull qwen2.5-coder</code>
@@ -232,7 +232,7 @@ function OllamaSection({ status, engine }: { status: AiStatus; engine: Engine })
         </div>
       )}
       {ollama.reachable && ollama.models.length === 0 && (
-        <p className="rounded-lg bg-sunken p-3 text-sm">
+        <p className="rounded-md bg-sunken p-3 text-sm">
           Aucun modèle installé : <code className="font-mono">ollama pull qwen2.5-coder</code> (ou <code className="font-mono">gemma3</code>).
         </p>
       )}
@@ -298,7 +298,7 @@ function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: 
         historique, dans un dossier vide. Délai maximal : {Math.round(claude.timeoutMs / 1000)} s.
       </p>
       {claude.error && (
-        <p className="rounded-lg bg-sunken p-3 text-sm" data-status={status.onlineMode ? 'BLOCKED' : undefined}>
+        <p className="rounded-md bg-sunken p-3 text-sm" data-status={status.onlineMode ? 'BLOCKED' : undefined}>
           <span className={status.onlineMode ? 'ds-ink' : 'text-muted'}>{claude.error}</span>
         </p>
       )}
@@ -315,7 +315,7 @@ function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: 
       )}
       <fieldset className="space-y-1">
         <legend className="mb-2 text-sm text-muted">Modèle Claude</legend>
-        <div className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-sunken p-0.5 text-sm" role="radiogroup" aria-label="Modèle Claude">
+        <div className="ds-seg grid w-full grid-cols-3" role="radiogroup" aria-label="Modèle Claude">
           {claude.models.map((model) => (
             <button
               key={model}
@@ -323,7 +323,6 @@ function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: 
               role="radio"
               aria-checked={engine.claudeModel === model}
               onClick={() => engine.setClaudeModel(model)}
-              className={`rounded-md py-1.5 transition-colors ${engine.claudeModel === model ? 'bg-elevated font-medium text-fg shadow-card' : 'text-muted hover:text-fg'}`}
             >
               {CLAUDE_MODEL_LABEL[model]}
               {model === claude.defaultModel ? ' (défaut)' : ''}
@@ -332,7 +331,7 @@ function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: 
         </div>
       </fieldset>
 
-      <div className="space-y-2 rounded-lg border border-line p-3">
+      <div className="space-y-2 rounded-md border border-line p-3">
         <h4 className="flex items-center gap-2 text-sm font-semibold">
           <SquareTerminal className="size-4 text-muted" aria-hidden /> Session interactive dans le Terminal
         </h4>
@@ -368,8 +367,8 @@ export function OnlineSwitch({ className }: { className?: string }) {
           ? 'En ligne : Claude peut être utilisé. Cliquer pour repasser hors ligne.'
           : 'Hors ligne : tout reste sur la machine. Cliquer pour autoriser Claude.'
       }
-      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 ${
-        online ? 'border-accent bg-accent-soft text-accent-ink' : 'border-line text-muted hover:text-fg'
+      className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors disabled:opacity-60 ${
+        online ? 'border-transparent bg-accent-soft text-accent-ink' : 'border-line text-muted hover:bg-hover hover:text-fg'
       } ${className ?? ''}`}
     >
       {online ? <Cloud className="size-3.5" aria-hidden /> : <HardDrive className="size-3.5" aria-hidden />}
@@ -394,7 +393,7 @@ function ModelOption({
   warn?: boolean
 }) {
   return (
-    <label className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 ${checked ? 'border-accent bg-accent-soft' : 'border-line hover:bg-hover'}`}>
+    <label className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 ${checked ? 'border-accent bg-accent-soft' : 'border-line hover:bg-hover'}`}>
       <input type="radio" name={name} checked={checked} onChange={onSelect} className="accent-[var(--accent)]" />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-mono text-sm">{title}</span>
@@ -529,7 +528,7 @@ export function BreakdownDialog({ request }: { request: Extract<DialogRequest, {
           />
         )}
         {error && (
-          <p className="rounded-lg bg-sunken p-3 text-sm" role="alert" data-status="REJECTED">
+          <p className="rounded-md bg-sunken p-3 text-sm" role="alert" data-status="REJECTED">
             <span className="ds-ink">{error}</span>
           </p>
         )}
@@ -541,7 +540,7 @@ export function BreakdownDialog({ request }: { request: Extract<DialogRequest, {
         {result && !generating && (
           <ul className="space-y-2" aria-label="Propositions">
             {drafts.map((draft) => (
-              <li key={draft.key} className={`rounded-lg border p-3 ${draft.selected ? 'border-line' : 'border-line opacity-60'}`}>
+              <li key={draft.key} className={`rounded-md border p-3 ${draft.selected ? 'border-line' : 'border-line opacity-60'}`}>
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -670,7 +669,7 @@ export function ClaudeDialog({ request }: { request: Extract<DialogRequest, { ki
       {preview.data && (
         <div className="space-y-4">
           {status.data && !status.data.claude.installed && (
-            <p className="rounded-lg bg-sunken p-3 text-sm" data-status="BLOCKED">
+            <p className="rounded-md bg-sunken p-3 text-sm" data-status="BLOCKED">
               <span className="ds-ink">Claude CLI introuvable</span> — la commande reste utilisable une fois Claude Code installé.
             </p>
           )}
@@ -679,7 +678,7 @@ export function ClaudeDialog({ request }: { request: Extract<DialogRequest, { ki
               Dossier de la session : <span className="break-all font-mono text-fg">{preview.data.cwd}</span>
             </p>
           ) : (
-            <p className="rounded-lg bg-sunken p-3 text-sm" data-status="BLOCKED">
+            <p className="rounded-md bg-sunken p-3 text-sm" data-status="BLOCKED">
               <span className="ds-ink">Aucun dépôt Git local pour ce projet.</span>{' '}
               <button
                 type="button"
@@ -706,7 +705,7 @@ export function ClaudeDialog({ request }: { request: Extract<DialogRequest, { ki
             </select>
           </Field>
           {launched && (
-            <div className="space-y-2 rounded-lg border border-line bg-sunken p-3">
+            <div className="space-y-2 rounded-md border border-line bg-sunken p-3">
               <p className="text-sm">
                 {launched.launched ? 'Session ouverte. Pour la relancer à la main :' : 'Coller cette commande dans un terminal (sous Windows : Git Bash) :'}
               </p>

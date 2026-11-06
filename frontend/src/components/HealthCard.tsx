@@ -15,11 +15,11 @@ export function HealthCard({ dashboard }: { dashboard: Dashboard }) {
   const over = budget.balance?.kind === 'OVER'
 
   return (
-    <Card className="grid gap-6 p-5 lg:grid-cols-[minmax(15rem,1fr)_minmax(0,1.25fr)_minmax(0,1.25fr)] lg:items-start">
+    <Card className="grid gap-5 p-4 md:p-5 lg:grid-cols-[minmax(15rem,1fr)_minmax(0,1.25fr)_minmax(0,1.25fr)] lg:items-start">
       <div className="space-y-2.5">
         <Eyebrow>Santé du projet &amp; budget</Eyebrow>
         {budget.initial ? (
-          <dl className="space-y-1.5 text-[15px]">
+          <dl className="space-y-1 tabular-nums">
             <div>
               <dt className="inline">Budget Initial : </dt>
               <dd className="inline font-semibold">
@@ -45,7 +45,7 @@ export function HealthCard({ dashboard }: { dashboard: Dashboard }) {
             )}
           </dl>
         ) : (
-          <div className="space-y-1.5 text-[15px]">
+          <div className="space-y-1 tabular-nums">
             <p>
               Temps Réalisé : <span className="font-semibold">{daysLong(budget.spent.days)}</span>{' '}
               <span className="text-muted">({hours(budget.spent.hours)})</span>
@@ -60,18 +60,18 @@ export function HealthCard({ dashboard }: { dashboard: Dashboard }) {
         )}
       </div>
 
-      <div className="space-y-3 lg:pt-7">
+      <div className="space-y-2.5 lg:pt-7">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[15px] font-semibold">Progression Budget</span>
+          <span className="font-medium">Progression Budget</span>
           <span className="font-semibold tabular-nums text-accent-ink">{percent(budget.consumedPercent)}</span>
         </div>
         <ProgressBar value={budget.consumedPercent} tone={over ? 'over' : 'budget'} label="Progression du budget consommé" />
         <p className="text-xs text-muted">Temps réalisé / budget initial</p>
       </div>
 
-      <div className="space-y-3 lg:pt-7">
+      <div className="space-y-2.5 lg:pt-7">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[15px] font-semibold">Avancement Réel</span>
+          <span className="font-medium">Avancement Réel</span>
           <span className="ds-ink font-semibold tabular-nums" data-status="CLOSED">
             {percent(progress.percent)}
           </span>
@@ -80,7 +80,7 @@ export function HealthCard({ dashboard }: { dashboard: Dashboard }) {
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted">Pondéré par les estimations</p>
           {trend && (
-            <span className="ds-badge" data-status={TREND_STATUS[trend]} data-plain="">
+            <span className="ds-badge" data-status={TREND_STATUS[trend]}>
               {TREND_LABEL[trend]}
             </span>
           )}

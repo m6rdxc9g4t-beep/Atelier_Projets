@@ -9,7 +9,7 @@
 //    ni variable --type-* / --status-*), donc copiables tels quels dans une autre application ;
 //  - les jetons dérivés (tokens/ui.css) et les composants (components/*.css) n'introduisent aucune couleur
 //    littérale (#hex, rgb(), hsl()…) et ne redéfinissent ni les tokens officiels ni les variables de thème ;
-//  - ils n'emploient plus les jetons de marque supprimés par la charte « néon monochrome » (cyan, bleu nuit, verre).
+//  - ils n'emploient que des jetons --atelier-* définis par le fichier de marque commun (charte v2).
 //
 // Les valeurs --atelier-* elles-mêmes viennent de brand/atelier-brand.css, source du fichier de marque commun
 // (docs/SUITE.md §1.7) : seule la présence des signatures des apps du sélecteur « Suite Atelier » (§3) est contrôlée.
@@ -43,21 +43,21 @@ const STATUSES = {
 
 const THEMES = {
   'themes/light.css': {
-    '--bg-main': '#F8FAFC',
+    '--bg-main': '#FBFBFC',
     '--bg-surface': '#FFFFFF',
-    '--bg-elevated': '#F1F5F9',
-    '--text-primary': '#0F172A',
-    '--text-muted': '#64748B',
-    '--border-color': '#E2E8F0',
+    '--bg-elevated': '#EEEFF2',
+    '--text-primary': '#1A1B1E',
+    '--text-muted': '#5F636C',
+    '--border-color': '#E3E4E8',
   },
   // Thème sombre : base neutre quasi noire (docs/SUITE.md §1.7), teintée dans l'app par les jetons --atelier-* de la marque.
   'themes/dark.css': {
-    '--bg-main': '#0A0A0D',
-    '--bg-surface': '#111116',
-    '--bg-elevated': '#191A21',
-    '--text-primary': '#F4F5F7',
-    '--text-muted': '#A1A6B2',
-    '--border-color': '#262833',
+    '--bg-main': '#0F1012',
+    '--bg-surface': '#17181B',
+    '--bg-elevated': '#1C1D21',
+    '--text-primary': '#E8E9EC',
+    '--text-muted': '#969AA3',
+    '--border-color': '#24262B',
   },
 }
 
@@ -69,7 +69,7 @@ const BRAND_TOKENS = new Set(
 )
 
 // Chaque tuile du sélecteur « Suite Atelier » porte le data-atelier-app de son application (docs/SUITE.md §1.7, §3).
-const SUITE_SIGNATURES = { viz: '#f2c811', tab: '#21a366', projets: '#94d82d', cuisine: '#e056e2' }
+const SUITE_SIGNATURES = { viz: '#996c00', tab: '#1c8742', projets: '#568100', cuisine: '#8568a7' }
 const brandCss = await readFile(path.join(ROOT, 'brand/atelier-brand.css'), 'utf8')
 for (const [app, hex] of Object.entries(SUITE_SIGNATURES)) {
   if (!brandCss.toLowerCase().includes(`--atelier-sig-${app}: ${hex};`)) {
@@ -142,7 +142,7 @@ for (const file of derivedFiles) {
   // Seuls les jetons --atelier-* que définit le fichier de marque commun sont permis : les jetons de la
   // première version de la charte (cyan / bleu nuit, verre) n'y figurent plus et sont donc refusés.
   for (const [, name] of code.matchAll(/var\(\s*(--atelier-[\w-]+)/g)) {
-    if (!BRAND_TOKENS.has(name)) errors.push(`${file} : ${name} n'est pas défini par brand/atelier-brand.css (charte néon monochrome)`)
+    if (!BRAND_TOKENS.has(name)) errors.push(`${file} : ${name} n'est pas défini par brand/atelier-brand.css (charte v2)`)
   }
 }
 

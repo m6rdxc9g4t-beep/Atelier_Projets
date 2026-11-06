@@ -82,7 +82,7 @@ export function EnginePicker({ engine, sends, showModel = true }: { engine: Engi
       <span id={labelId} className="ds-label">
         Moteur
       </span>
-      <div role="radiogroup" aria-labelledby={labelId} className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-sunken p-0.5 text-sm">
+      <div role="radiogroup" aria-labelledby={labelId} className="ds-seg grid w-full grid-cols-3">
         {ENGINE_CHOICES.map((option) => {
           const disabled = option.id === 'claude' && blocked !== null
           const checked = engine.choice === option.id
@@ -95,9 +95,7 @@ export function EnginePicker({ engine, sends, showModel = true }: { engine: Engi
               disabled={disabled}
               title={disabled ? blocked : undefined}
               onClick={() => engine.setChoice(option.id)}
-              className={`rounded-md py-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                checked ? 'bg-elevated font-medium text-fg shadow-card' : 'text-muted hover:text-fg'
-              }`}
+              className="disabled:cursor-not-allowed disabled:opacity-40"
             >
               {option.label}
             </button>

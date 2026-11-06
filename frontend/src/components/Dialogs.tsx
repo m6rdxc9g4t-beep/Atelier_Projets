@@ -275,7 +275,7 @@ function WorkItemDialog({ request }: { request: Extract<DialogRequest, { kind: '
               aria-checked={type === candidate}
               data-type={candidate}
               onClick={() => setType(candidate)}
-              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+              className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm ${
                 type === candidate ? 'border-kind bg-kind-soft font-semibold text-kind-ink' : 'border-line text-muted hover:bg-hover'
               }`}
             >
