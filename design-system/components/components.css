@@ -21,6 +21,47 @@
     border-radius: var(--ds-radius-lg);
   }
 
+  /* --- Carte de chiffres (KPI) : plate, trait de 1 px, coins de 12 px, chiffre tabulaire ----
+     Même forme que .atelier-kpi de la marque commune, en couche « components » (surchargeable).
+     <div class="ds-kpi"><span class="ds-kpi__label">…</span><strong class="ds-kpi__value">…</strong>
+       <span class="ds-kpi__note">…</span></div>   ·   data-size="sm" : version compacte (panneaux). */
+  .ds-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0.875rem 1rem;
+    background-color: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: var(--ds-radius-xl);
+    color: var(--app-text);
+  }
+  .ds-kpi__label {
+    margin: 0;
+    font-size: var(--ds-text-sm, 0.75rem);
+    font-weight: 500;
+    color: var(--app-muted);
+  }
+  .ds-kpi__value {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .ds-kpi__note {
+    margin: 0;
+    font-size: var(--ds-text-sm, 0.75rem);
+    color: var(--atelier-faint, var(--app-muted));
+    font-variant-numeric: tabular-nums;
+  }
+  .ds-kpi[data-size="sm"] { gap: 0.125rem; padding: 0.625rem 0.75rem; }
+  .ds-kpi[data-size="sm"] .ds-kpi__value { font-size: var(--ds-text-base, 0.8125rem); line-height: 1.35; letter-spacing: 0; }
+  /* Carte qui porte une synthèse chiffrée (santé du budget…) : mêmes coins que les cartes de chiffres. */
+  .ds-card[data-kpi] { border-radius: var(--ds-radius-xl); }
+
   /* --- Bandeaux de l'application (barre latérale, en-têtes de groupe) --------------- */
   .ds-chrome { background-color: var(--app-sidebar); }
 

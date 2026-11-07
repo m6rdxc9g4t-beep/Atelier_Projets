@@ -49,11 +49,11 @@ function KpiRow({ dashboard }: { dashboard: Dashboard }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {tiles.map((tile) => (
-        <Card key={tile.label} className="p-4">
-          <p className="text-muted">{tile.label}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{tile.value}</p>
-          <p className="mt-1 text-xs text-muted">{tile.detail}</p>
-        </Card>
+        <div key={tile.label} className="ds-kpi">
+          <p className="ds-kpi__label">{tile.label}</p>
+          <p className="ds-kpi__value">{tile.value}</p>
+          <p className="ds-kpi__note">{tile.detail}</p>
+        </div>
       ))}
     </div>
   )

@@ -41,9 +41,16 @@
   [data-status],
   [data-priority],
   [data-balance] {
-    --kind-ink: color-mix(in oklab, var(--kind-color) 72%, var(--app-text));
+    /* Clair (crème) : teinte plus proche du texte, pour que les couleurs claires (Phase, En attente)
+       gardent ≥ 4,5:1 sur les fonds et les survols ; sombre (bleu nuit) : 72 %, ci-dessous. */
+    --kind-ink: color-mix(in oklab, var(--kind-color) 55%, var(--app-text));
     --kind-soft: color-mix(in oklab, var(--kind-color) 16%, transparent);
     --kind-border: color-mix(in oklab, var(--kind-color) 35%, transparent);
+  }
+
+  :is([data-theme="dark"], .dark) :is([data-type], [data-status], [data-priority], [data-balance]),
+  :is([data-type], [data-status], [data-priority], [data-balance]):is([data-theme="dark"], .dark) {
+    --kind-ink: color-mix(in oklab, var(--kind-color) 72%, var(--app-text));
   }
 
   /* Utilitaires : couleur de texte et pastille. */
