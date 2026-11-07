@@ -70,6 +70,7 @@
   --ds-radius-sm: 5px;
   --ds-radius-md: 7px;
   --ds-radius-lg: 10px;
+  --ds-radius-xl: var(--atelier-radius-xl, 12px); /* cartes de chiffres (KPI) */
   --ds-radius-pill: 999px;
   /* Tailles de texte de l'interface (charte v2) : base 13 px sur ordinateur ; l'app peut les monter sur téléphone. */
   --ds-text-sm: 0.75rem;

@@ -393,9 +393,9 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
           </Button>
         </div>
       </div>
-      <dl className="grid grid-cols-3 gap-3">
-        <div>
-          <dt className="text-xs text-muted">Estimée</dt>
+      <dl className="grid grid-cols-3 gap-2">
+        <div className="ds-kpi" data-size="sm">
+          <dt className="ds-kpi__label">Estimée</dt>
           {editingEstimate ? (
             <form onSubmit={submitEstimate} className="mt-1 flex items-center gap-1">
               <input
@@ -413,7 +413,7 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
             <dd>
               <button
                 type="button"
-                className="group flex items-center gap-1 text-base font-semibold"
+                className="ds-kpi__value group flex items-center gap-1 font-semibold"
                 onClick={() => {
                   setEstimate(item.estimate ? String(item.estimate.days) : '')
                   setEditingEstimate(true)
@@ -423,17 +423,17 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
                 {item.estimate ? days(item.estimate, 2) : 'Non estimé'}
                 <Pencil className="size-3 text-muted opacity-0 group-hover:opacity-100" aria-hidden />
               </button>
-              {item.estimate && <span className="text-xs text-muted">{hours(item.estimate.hours)}</span>}
+              {item.estimate && <span className="ds-kpi__note">{hours(item.estimate.hours)}</span>}
             </dd>
           )}
         </div>
-        <div>
-          <dt className="text-xs text-muted">Réalisé</dt>
-          <dd className="text-base font-semibold">{days(item.spent, 2)}</dd>
-          <dd className="text-xs text-muted">{hours(item.spent.hours)}</dd>
+        <div className="ds-kpi" data-size="sm">
+          <dt className="ds-kpi__label">Réalisé</dt>
+          <dd className="ds-kpi__value">{days(item.spent, 2)}</dd>
+          <dd className="ds-kpi__note">{hours(item.spent.hours)}</dd>
         </div>
-        <div>
-          <dt className="text-xs text-muted">Bilan</dt>
+        <div className="ds-kpi" data-size="sm">
+          <dt className="ds-kpi__label">Bilan</dt>
           <dd className="mt-0.5">
             {item.balance ? (
               <span className="ds-badge" data-balance={item.balance.kind}>

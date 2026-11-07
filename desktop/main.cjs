@@ -105,8 +105,8 @@ function createWindow() {
     minHeight: 620,
     title: PRODUCT,
     show: false,
-    // = --atelier-bg de la charte v2 « Linear » (fond neutre commun à la suite), sombre et clair.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0F1012' : '#FBFBFC',
+    // = --atelier-bg de la marque commune : bleu nuit en sombre, crème en clair (avant le premier affichage).
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0B1220' : '#F8F4EC',
     ...(IS_WINDOWS && fs.existsSync(WINDOW_ICON) ? { icon: WINDOW_ICON } : {}),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true },
   })

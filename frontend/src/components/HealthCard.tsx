@@ -15,7 +15,7 @@ export function HealthCard({ dashboard }: { dashboard: Dashboard }) {
   const over = budget.balance?.kind === 'OVER'
 
   return (
-    <Card className="grid gap-5 p-4 md:p-5 lg:grid-cols-[minmax(15rem,1fr)_minmax(0,1.25fr)_minmax(0,1.25fr)] lg:items-start">
+    <Card data-kpi="" className="grid gap-5 p-4 md:p-5 lg:grid-cols-[minmax(15rem,1fr)_minmax(0,1.25fr)_minmax(0,1.25fr)] lg:items-start">
       <div className="space-y-2.5">
         <Eyebrow>Santé du projet &amp; budget</Eyebrow>
         {budget.initial ? (
