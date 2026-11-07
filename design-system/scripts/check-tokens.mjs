@@ -43,21 +43,21 @@ const STATUSES = {
 
 const THEMES = {
   'themes/light.css': {
-    '--bg-main': '#FBFBFC',
-    '--bg-surface': '#FFFFFF',
-    '--bg-elevated': '#EEEFF2',
-    '--text-primary': '#1A1B1E',
-    '--text-muted': '#5F636C',
-    '--border-color': '#E3E4E8',
+    '--bg-main': '#F8F4EC',
+    '--bg-surface': '#FFFDF8',
+    '--bg-elevated': '#EFE8DB',
+    '--text-primary': '#1F1B16',
+    '--text-muted': '#5F574B',
+    '--border-color': '#E4DAC8',
   },
   // Thème sombre : base neutre quasi noire (docs/SUITE.md §1.7), teintée dans l'app par les jetons --atelier-* de la marque.
   'themes/dark.css': {
-    '--bg-main': '#0F1012',
-    '--bg-surface': '#17181B',
-    '--bg-elevated': '#1C1D21',
-    '--text-primary': '#E8E9EC',
-    '--text-muted': '#969AA3',
-    '--border-color': '#24262B',
+    '--bg-main': '#0B1220',
+    '--bg-surface': '#121B2D',
+    '--bg-elevated': '#172238',
+    '--text-primary': '#E6EAF2',
+    '--text-muted': '#A3AEC2',
+    '--border-color': '#1F2A40',
   },
 }
 
