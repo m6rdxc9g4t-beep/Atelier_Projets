@@ -37,6 +37,7 @@ import { milestoneRoutes } from './routes/milestones.ts'
 import { projectRoutes } from './routes/projects.ts'
 import { reportRoutes } from './routes/reports.ts'
 import { settingsRoutes } from './routes/settings.ts'
+import { exempleRoutes } from './routes/exemples.ts'
 import { suiteRoutes } from './routes/suite.ts'
 import { workItemRoutes } from './routes/work-items.ts'
 
@@ -59,6 +60,8 @@ export interface AppSettings {
   backups: BackupManager | null
   /** Jeton exigé par l'import Atelier Tab (ATELIER_IMPORT_TOKEN) ; undefined = pas de jeton. */
   importToken: string | undefined
+  /** Dossier des exemples de la suite (exemples-suite/, format atelier-exemples/1). */
+  exemplesDir: string
 }
 
 declare module 'fastify' {
@@ -92,6 +95,8 @@ export interface BuildAppOptions {
   backups?: BackupManager | null
   /** Jeton de l'import Atelier Tab (ATELIER_IMPORT_TOKEN). */
   importToken?: string
+  /** Dossier des exemples de la suite (EXEMPLES_DIR ; défaut : exemples-suite/ à la racine du dépôt). */
+  exemplesDir?: string
 }
 
 const { version } = JSON.parse(readFileSync(path.join(BACKEND_ROOT, 'package.json'), 'utf8')) as { version: string }
@@ -109,6 +114,7 @@ export async function buildApp({
   allowedHosts: extraHosts = [],
   backups = null,
   importToken,
+  exemplesDir = path.join(BACKEND_ROOT, '..', 'exemples-suite'),
 }: BuildAppOptions): Promise<App> {
   const app = Fastify({ logger }).withTypeProvider<TypeBoxTypeProvider>()
 
@@ -121,7 +127,7 @@ export async function buildApp({
     claude: ai.claude ?? createClaudeLauncher(),
     claudeEngine: ai.claudeEngine ?? createClaudeEngine(),
   }
-  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github, ai: aiSettings, backups, importToken })
+  app.decorate('settings', { timeZone, now, publicUrl, gitScanMaxCommits, githubMaxPullRequests, github, ai: aiSettings, backups, importToken, exemplesDir })
   app.addHook('onClose', async () => {
     backups?.stop()
     await prisma.$disconnect()
@@ -195,6 +201,7 @@ export async function buildApp({
       await api.register(timerRoutes)
       await api.register(backupRoutes)
       await api.register(suiteRoutes)
+      await api.register(exempleRoutes)
       await api.register(atelierRoutes, { prefix: '/atelier' })
     },
     { prefix: '/api' },

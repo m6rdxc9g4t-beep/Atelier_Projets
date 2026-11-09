@@ -1,0 +1,105 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "assurance-courtage",
+  "titre": "Arpège Courtage",
+  "sous_titre": "Portefeuille, sinistres et renouvellements d'un cabinet de courtage",
+  "secteur": "Assurance",
+  "resume": "Le cabinet Arpège, à Toulouse, gère 7 clients professionnels : primes, commissions, sinistres déclarés ; la flotte automobile se dégrade et les frais juridiques dépassent leur budget en octobre."
+ },
+ "projet": {
+  "nom": "Renouvellements T4 2026 — Arpège Courtage",
+  "description": "Préparer les échéances de fin d'année : une tâche par contrat à renouveler. Exemple de la suite Atelier (données fictives)."
+ },
+ "phases": [
+  {
+   "titre": "Renouvellements",
+   "epics": [
+    {
+     "titre": "Échéances novembre-décembre",
+     "stories": [
+      {
+       "titre": "Contrats à renouveler",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Boulangerie Fournil des Halles — Multirisque pro",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-12-31"
+        },
+        {
+         "titre": "Transports Mercier — Flotte automobile",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "HIGH",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-12-31"
+        },
+        {
+         "titre": "SCI Les Tilleuls — Propriétaire non occupant",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "HIGH",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-30"
+        },
+        {
+         "titre": "Garage Central Perrin — Multirisque pro",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-12-31"
+        },
+        {
+         "titre": "Taxis Rive Droite — Flotte automobile",
+         "type": "TASK",
+         "statut": "IN_REVIEW",
+         "priorite": "HIGH",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-30"
+        }
+       ]
+      },
+      {
+       "titre": "Suivi des budgets",
+       "alertes": true,
+       "items": [
+        {
+         "titre": "Litige Transports Mercier : point avec l'avocat",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-15"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "jalons": [
+  {
+   "titre": "Propositions de renouvellement envoyées",
+   "date": "2026-11-30",
+   "atteint": false
+  }
+ ],
+ "tache_alerte": {
+  "story": "Suivi des budgets",
+  "titre": "Alerte « Frais juridiques du mois » : 2 360,00 € (seuil 800,00 €)",
+  "description": "Alerte Atelier Viz déclenchée sur le jeu « Arpège Courtage — opérations août-oct. 2026 ».\n\n- Valeur mesurée : 2 360,00 €\n- Seuil : 800,00 €\n\nÀ analyser dans le rapport Viz.",
+  "journal": "Créée par l'exemple « Arpège Courtage », comme le ferait le workflow Nexus « Alerte Viz → tâche de suivi Projets » à partir de l'alerte « Frais juridiques du mois »."
+ }
+}

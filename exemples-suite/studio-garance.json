@@ -1,0 +1,77 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "studio-garance",
+  "titre": "Studio Garance",
+  "sous_titre": "Clôture comptable d'un studio de design",
+  "secteur": "Compta",
+  "resume": "Un studio de design graphique d'Arles clôture son mois : relevés bancaires convertis, catégorisés, comparés au budget ; le poste Matériel dépasse et devient une tâche de suivi."
+ },
+ "projet": {
+  "nom": "Gestion 2026 — Studio Garance",
+  "description": "Clôtures mensuelles et suivi des budgets du studio. Exemple de la suite Atelier (données fictives)."
+ },
+ "phases": [
+  {
+   "titre": "Clôtures mensuelles",
+   "epics": [
+    {
+     "titre": "Octobre 2026",
+     "stories": [
+      {
+       "titre": "Clôture d'octobre",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Rapprocher le relevé d'octobre",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": 0.75,
+         "echeance": "2026-11-05"
+        },
+        {
+         "titre": "Catégoriser les opérations d'octobre dans Tab",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": 0.5,
+         "echeance": "2026-11-05"
+        },
+        {
+         "titre": "Relancer la facture 2026-043 (Domaine des Alpilles)",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-20"
+        }
+       ]
+      },
+      {
+       "titre": "Suivi des budgets",
+       "alertes": true,
+       "items": []
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "jalons": [
+  {
+   "titre": "Clôture d'octobre",
+   "date": "2026-11-06",
+   "atteint": true
+  }
+ ],
+ "tache_alerte": {
+  "story": "Suivi des budgets",
+  "titre": "Alerte « Matériel du mois » : 708,00 € (seuil 600,00 €)",
+  "description": "Alerte Atelier Viz déclenchée sur le jeu « Studio Garance — opérations août-oct. 2026 ».\n\n- Valeur mesurée : 708,00 €\n- Seuil : 600,00 €\n\nÀ analyser dans le rapport Viz.",
+  "journal": "Créée par l'exemple « Studio Garance », comme le ferait le workflow Nexus « Alerte Viz → tâche de suivi Projets » à partir de l'alerte « Matériel du mois »."
+ }
+}

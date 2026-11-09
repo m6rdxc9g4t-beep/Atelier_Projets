@@ -21,6 +21,7 @@ describe('variables héritées ignorées au lancement de l’app de bureau', () 
         NODE_ENV: 'development',
         BACKUP_DIR: '/ailleurs',
         BACKUP_KEEP: '0',
+        EXEMPLES_DIR: '/Users/camille/Atelier_Viz/exemples-suite',
         PATH: '/usr/bin',
         HOME: '/Users/camille',
         OLLAMA_URL: 'http://localhost:11434',
