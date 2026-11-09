@@ -1,4 +1,5 @@
 // Application : choix du projet, cadre (en-tête, rail, onglets), vue courante, fiche tâche et dialogues.
+import { SuiteExamples } from './components/SuiteExamples.tsx'
 import { FileUp, FolderPlus, PlugZap } from 'lucide-react'
 import { useEffect } from 'react'
 import { Dialogs } from './components/Dialogs.tsx'
@@ -102,6 +103,9 @@ function NoProject() {
         <Button icon={<FileUp className="size-4" />} onClick={() => openDialog({ kind: 'importTab' })}>
           Importer depuis Atelier Tab
         </Button>
+      </div>
+      <div className="mx-auto mt-8 max-w-2xl text-left">
+        <SuiteExamples />
       </div>
     </EmptyState>
   )

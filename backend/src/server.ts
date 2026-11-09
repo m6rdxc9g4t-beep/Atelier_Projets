@@ -26,6 +26,7 @@ const app = await buildApp({
   github: createOctokitClient({ token: config.githubToken, baseUrl: config.githubApiUrl }),
   allowedHosts: config.allowedHosts,
   importToken: config.importToken,
+  exemplesDir: config.exemplesDir,
   ai: {
     ollama: createOllamaClient({ baseUrl: config.ollamaUrl, timeoutMs: config.ollamaTimeoutMs, contextTokens: config.ollamaContextTokens }),
     model: config.ollamaModel,

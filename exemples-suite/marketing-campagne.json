@@ -1,0 +1,116 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "marketing-campagne",
+  "titre": "Campagne Brume",
+  "sous_titre": "Lancement d'une marque de cosmétiques par une agence",
+  "secteur": "Marketing",
+  "resume": "L'agence Orbe lance la gamme d'automne de Brume Cosmétiques : plan média, performances par canal, factures des régies ; le budget Meta explose au lancement et le coût d'acquisition grimpe."
+ },
+ "projet": {
+  "nom": "Brume — lancement automne 2026",
+  "description": "Campagne de lancement de la gamme d'automne de Brume Cosmétiques. Exemple de la suite Atelier (données fictives)."
+ },
+ "phases": [
+  {
+   "titre": "Préparation",
+   "epics": [
+    {
+     "titre": "Création",
+     "stories": [
+      {
+       "titre": "Contenus",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Shooting produit (Studio Lumen)",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": 16,
+         "passe": 18,
+         "echeance": null
+        },
+        {
+         "titre": "Déclinaisons des visuels par canal",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": 20,
+         "passe": 24,
+         "echeance": null
+        },
+        {
+         "titre": "Brief des 12 créateurs",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": 6,
+         "passe": 5,
+         "echeance": null
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "titre": "Diffusion",
+   "epics": [
+    {
+     "titre": "Lancement d'octobre",
+     "stories": [
+      {
+       "titre": "Pilotage des campagnes",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Suivi quotidien des performances",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": 20,
+         "passe": 22,
+         "echeance": null
+        },
+        {
+         "titre": "Bilan du lancement pour Brume",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": 8,
+         "passe": 3,
+         "echeance": "2026-11-10"
+        }
+       ]
+      },
+      {
+       "titre": "Suivi des budgets",
+       "alertes": true,
+       "items": []
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "jalons": [
+  {
+   "titre": "Lancement de la gamme",
+   "date": "2026-10-01",
+   "atteint": true
+  },
+  {
+   "titre": "Bilan client",
+   "date": "2026-11-10",
+   "atteint": false
+  }
+ ],
+ "tache_alerte": {
+  "story": "Suivi des budgets",
+  "titre": "Alerte « Dépenses Meta du mois » : 4 320,00 € (seuil 2 500,00 €)",
+  "description": "Alerte Atelier Viz déclenchée sur le jeu « Campagne Brume — opérations août-oct. 2026 ».\n\n- Valeur mesurée : 4 320,00 €\n- Seuil : 2 500,00 €\n\nÀ analyser dans le rapport Viz.",
+  "journal": "Créée par l'exemple « Campagne Brume », comme le ferait le workflow Nexus « Alerte Viz → tâche de suivi Projets » à partir de l'alerte « Dépenses Meta du mois »."
+ }
+}

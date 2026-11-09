@@ -93,3 +93,7 @@ export type AtelierTabImportOptions = NonNullable<paths['/api/imports/atelier-ta
 export type AtelierTabPreview = ResponseOf<'/api/imports/atelier-tab/preview', 'post'>
 export type AtelierTabImportResult = ResponseOf<'/api/imports/atelier-tab', 'post'>
 export type AtelierTabImportItem = AtelierTabImportResult['items'][number]
+
+/** Exemples de la suite (histoires fictives communes à toutes les apps). */
+export type ExempleHistoire = ResponseOf<'/api/exemples-suite', 'get'>[number]
+export type ExempleCharge = ResponseOf<'/api/exemples-suite/{histoire}', 'post'>

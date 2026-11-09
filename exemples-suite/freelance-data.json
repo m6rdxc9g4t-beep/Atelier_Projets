@@ -1,0 +1,144 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "freelance-data",
+  "titre": "Consultant data freelance",
+  "sous_titre": "Missions, temps facturé et trésorerie d'un indépendant",
+  "secteur": "Freelance",
+  "resume": "Julien Morel, consultant data indépendant à Dijon : missions suivies dans Tab et Projets, temps passé, factures payées via une plateforme, provisions URSSAF ; ses frais de logiciels dérapent en octobre."
+ },
+ "projet": {
+  "nom": "Missions 2026 — Julien Morel",
+  "description": "Missions de conseil data : un epic par client, le temps passé saisi chaque semaine. Exemple de la suite Atelier (données fictives)."
+ },
+ "phases": [
+  {
+   "titre": "Missions en cours",
+   "epics": [
+    {
+     "titre": "Coopérative Laitière du Jura",
+     "stories": [
+      {
+       "titre": "Tableau de bord de la collecte de lait",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Modèle de données collecte (producteurs, tournées)",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": 24,
+         "passe": 26,
+         "echeance": null
+        },
+        {
+         "titre": "Indicateurs qualité du lait (TB, TP, cellules)",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": 32,
+         "passe": 30,
+         "echeance": null
+        },
+        {
+         "titre": "Tableau de bord par tournée",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": 40,
+         "passe": 28,
+         "echeance": "2026-11-14"
+        },
+        {
+         "titre": "Recette avec le service qualité",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": 8,
+         "passe": null,
+         "echeance": "2026-11-14"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "titre": "Réseau de Librairies Oxalis",
+     "stories": [
+      {
+       "titre": "Audit qualité des données clients",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Profilage des fichiers clients des 9 librairies",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": 12,
+         "passe": 14,
+         "echeance": null
+        },
+        {
+         "titre": "Doublons et adresses invalides : règles de nettoyage",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": 16,
+         "passe": 10,
+         "echeance": null
+        },
+        {
+         "titre": "Restitution et score de qualité",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": 8,
+         "passe": null,
+         "echeance": "2026-11-07"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "titre": "Gestion de l'activité",
+   "epics": [
+    {
+     "titre": "Administratif",
+     "stories": [
+      {
+       "titre": "Suivi des budgets",
+       "alertes": true,
+       "items": [
+        {
+         "titre": "Déclarer le chiffre d'affaires d'octobre à l'URSSAF",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-30"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "jalons": [
+  {
+   "titre": "Livraison du tableau de bord collecte",
+   "date": "2026-11-14",
+   "atteint": false
+  }
+ ],
+ "tache_alerte": {
+  "story": "Suivi des budgets",
+  "titre": "Alerte « Logiciels du mois » : 1 142,60 € (seuil 300,00 €)",
+  "description": "Alerte Atelier Viz déclenchée sur le jeu « Consultant data freelance — opérations août-oct. 2026 ».\n\n- Valeur mesurée : 1 142,60 €\n- Seuil : 300,00 €\n\nÀ analyser dans le rapport Viz.",
+  "journal": "Créée par l'exemple « Consultant data freelance », comme le ferait le workflow Nexus « Alerte Viz → tâche de suivi Projets » à partir de l'alerte « Logiciels du mois »."
+ }
+}

@@ -46,6 +46,8 @@ export interface AppConfig {
   backupKeep: number
   /** Jeton exigé par l'import Atelier Tab (Authorization: Bearer …) ; undefined = aucun jeton. Jamais journalisé. */
   importToken: string | undefined
+  /** Exemples de la suite (EXEMPLES_DIR) ; undefined = exemples-suite/ à la racine du dépôt. */
+  exemplesDir: string | undefined
 }
 
 /**
@@ -163,6 +165,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     backupDir: path.resolve(BACKEND_ROOT, env.BACKUP_DIR?.trim() || 'prisma/backups'),
     backupKeep: env.BACKUP_KEEP?.trim() === '0' ? 0 : parsePositiveInteger('BACKUP_KEEP', env.BACKUP_KEEP, 14),
     importToken: env.ATELIER_IMPORT_TOKEN?.trim() || undefined,
+    exemplesDir: env.EXEMPLES_DIR?.trim() || undefined,
     allowedHosts: (env.ALLOWED_HOSTS ?? '').split(',').map((host) => host.trim()).filter(Boolean),
   }
 }

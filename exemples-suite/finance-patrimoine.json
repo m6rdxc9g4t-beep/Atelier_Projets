@@ -1,0 +1,91 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "finance-patrimoine",
+  "titre": "Lemaire Patrimoine",
+  "sous_titre": "Portefeuille et allocation d'une holding familiale",
+  "secteur": "Finance",
+  "resume": "La holding de la famille Lemaire place sa trésorerie : achats d'ETF, dividendes, comité mensuel, allocation cible ; les frais de courtage d'octobre dépassent l'enveloppe après un rééquilibrage."
+ },
+ "projet": {
+  "nom": "Rééquilibrage 2026 — Lemaire Patrimoine",
+  "description": "Ramener le portefeuille à l'allocation cible votée par le comité de septembre. Exemple de la suite Atelier (données fictives)."
+ },
+ "phases": [
+  {
+   "titre": "Rééquilibrage",
+   "epics": [
+    {
+     "titre": "Comité de septembre",
+     "stories": [
+      {
+       "titre": "Ordres à passer",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Vendre 80 parts d'ETF S&P 500",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-10-01"
+        },
+        {
+         "titre": "Acheter 300 parts d'ETF Euro Stoxx 50",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-10-02"
+        },
+        {
+         "titre": "Acheter 200 parts d'ETF Obligations Euro",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-10-03"
+        },
+        {
+         "titre": "Comparer les frais de deux autres courtiers",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-30"
+        }
+       ]
+      },
+      {
+       "titre": "Suivi des budgets",
+       "alertes": true,
+       "items": []
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "jalons": [
+  {
+   "titre": "Allocation cible atteinte",
+   "date": "2026-10-31",
+   "atteint": true
+  },
+  {
+   "titre": "Comité de décembre",
+   "date": "2026-12-10",
+   "atteint": false
+  }
+ ],
+ "tache_alerte": {
+  "story": "Suivi des budgets",
+  "titre": "Alerte « Frais de courtage du mois » : 421,62 € (seuil 250,00 €)",
+  "description": "Alerte Atelier Viz déclenchée sur le jeu « Lemaire Patrimoine — opérations août-oct. 2026 ».\n\n- Valeur mesurée : 421,62 €\n- Seuil : 250,00 €\n\nÀ analyser dans le rapport Viz.",
+  "journal": "Créée par l'exemple « Lemaire Patrimoine », comme le ferait le workflow Nexus « Alerte Viz → tâche de suivi Projets » à partir de l'alerte « Frais de courtage du mois »."
+ }
+}

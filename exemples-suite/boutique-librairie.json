@@ -1,0 +1,91 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "boutique-librairie",
+  "titre": "Librairie Les Pages Vives",
+  "sous_titre": "Ventes, stock et commandes d'une librairie-papeterie",
+  "secteur": "Boutique",
+  "resume": "Une librairie-papeterie de la Croix-Rousse à Lyon : caisse par rayon, stock et commandes aux distributeurs, rentrée scolaire puis préparation des fêtes ; les achats de livres d'octobre dépassent."
+ },
+ "projet": {
+  "nom": "Fêtes de fin d'année 2026 — Les Pages Vives",
+  "description": "Préparer la saison des fêtes : commandes, vitrine, animations en boutique. Exemple de la suite Atelier (données fictives)."
+ },
+ "phases": [
+  {
+   "titre": "Préparation des fêtes",
+   "epics": [
+    {
+     "titre": "Novembre-décembre",
+     "stories": [
+      {
+       "titre": "Commandes et vitrine",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Commander les beaux livres des fêtes",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-10-24"
+        },
+        {
+         "titre": "Vitrine d'hiver",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": 10,
+         "passe": 4,
+         "echeance": "2026-11-20"
+        },
+        {
+         "titre": "Séance de dédicaces jeunesse (samedi 12 décembre)",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-12-12"
+        },
+        {
+         "titre": "Recruter un renfort pour décembre",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-15"
+        }
+       ]
+      },
+      {
+       "titre": "Suivi des budgets",
+       "alertes": true,
+       "items": []
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "jalons": [
+  {
+   "titre": "Rentrée scolaire bouclée",
+   "date": "2026-09-15",
+   "atteint": true
+  },
+  {
+   "titre": "Ouverture des dimanches de décembre",
+   "date": "2026-12-06",
+   "atteint": false
+  }
+ ],
+ "tache_alerte": {
+  "story": "Suivi des budgets",
+  "titre": "Alerte « Achats de livres du mois » : 15 200,00 € (seuil 13 000,00 €)",
+  "description": "Alerte Atelier Viz déclenchée sur le jeu « Librairie Les Pages Vives — opérations août-oct. 2026 ».\n\n- Valeur mesurée : 15 200,00 €\n- Seuil : 13 000,00 €\n\nÀ analyser dans le rapport Viz.",
+  "journal": "Créée par l'exemple « Librairie Les Pages Vives », comme le ferait le workflow Nexus « Alerte Viz → tâche de suivi Projets » à partir de l'alerte « Achats de livres du mois »."
+ }
+}

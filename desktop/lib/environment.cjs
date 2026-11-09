@@ -30,6 +30,8 @@ const IGNORED_INHERITED = Object.freeze({
   // Emplacement et nombre des sauvegardes de la base : données (BACKUP_KEEP=0 les désactiverait).
   BACKUP_DIR: 'dossier de sauvegarde d’une autre application',
   BACKUP_KEEP: 'réglage de sauvegarde d’une autre application',
+  // Exemples de la suite : Viz, Trésorerie et les autres apps utilisent le même nom pour leur propre dossier.
+  EXEMPLES_DIR: 'dossier d’exemples d’une autre application',
   // Nom générique : une valeur Python (WARNING, CRITICAL) est refusée par loadConfig et l'API ne démarrerait plus.
   LOG_LEVEL: 'niveau de journal d’une autre application',
   // Mode d'exécution d'une autre app (NODE_ENV=development d'un serveur Next.js) : compilation Vite non optimisée.

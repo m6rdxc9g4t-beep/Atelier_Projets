@@ -1,0 +1,97 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "immobilier-locatif",
+  "titre": "SCI Les Tilleuls",
+  "sous_titre": "Gestion locative de six appartements",
+  "secteur": "Immobilier",
+  "resume": "La SCI familiale Les Tilleuls loue six appartements à Nantes : loyers encaissés, charges, état locatif, travaux ; en octobre un appartement est vacant, un loyer est impayé et les travaux de remise en état dépassent leur budget."
+ },
+ "projet": {
+  "nom": "Gestion 2026 — SCI Les Tilleuls",
+  "description": "Relocation de l'appartement 6, impayés et travaux de l'année. Exemple de la suite Atelier (données fictives)."
+ },
+ "phases": [
+  {
+   "titre": "Gestion courante",
+   "epics": [
+    {
+     "titre": "Automne 2026",
+     "stories": [
+      {
+       "titre": "Relocation de l'appartement 6",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Remise en état (peinture, sols)",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-10-20"
+        },
+        {
+         "titre": "Publier l'annonce et organiser les visites",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-10"
+        },
+        {
+         "titre": "Constituer le dossier du futur locataire",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-25"
+        }
+       ]
+      },
+      {
+       "titre": "Impayés",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Relance amiable famille Nguyen (loyer d'octobre)",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "HIGH",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-08"
+        }
+       ]
+      },
+      {
+       "titre": "Suivi des budgets",
+       "alertes": true,
+       "items": []
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "jalons": [
+  {
+   "titre": "Appartement 6 reloué",
+   "date": "2026-12-01",
+   "atteint": false
+  },
+  {
+   "titre": "Assemblée générale de la SCI",
+   "date": "2026-12-15",
+   "atteint": false
+  }
+ ],
+ "tache_alerte": {
+  "story": "Suivi des budgets",
+  "titre": "Alerte « Travaux du mois » : 3 540,00 € (seuil 1 500,00 €)",
+  "description": "Alerte Atelier Viz déclenchée sur le jeu « SCI Les Tilleuls — opérations août-oct. 2026 ».\n\n- Valeur mesurée : 3 540,00 €\n- Seuil : 1 500,00 €\n\nÀ analyser dans le rapport Viz.",
+  "journal": "Créée par l'exemple « SCI Les Tilleuls », comme le ferait le workflow Nexus « Alerte Viz → tâche de suivi Projets » à partir de l'alerte « Travaux du mois »."
+ }
+}

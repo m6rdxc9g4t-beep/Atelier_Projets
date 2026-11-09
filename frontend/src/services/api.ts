@@ -189,3 +189,10 @@ export const atelierTabService = {
   import: (body: AtelierTabEnvelope, query: AtelierTabImportOptions, idempotencyKey: string) =>
     unwrap(http.POST('/api/imports/atelier-tab', { params: { query, header: { 'idempotency-key': idempotencyKey } }, body })),
 }
+
+/** Exemples de la suite : histoires fictives à suivre d'une app à l'autre (projet complet créé ici). */
+export const exempleService = {
+  list: () => unwrap(http.GET('/api/exemples-suite')),
+  load: (histoire: string) => unwrap(http.POST('/api/exemples-suite/{histoire}', { params: { path: { histoire } } })),
+  remove: (histoire: string) => unwrap(http.DELETE('/api/exemples-suite/{histoire}', { params: { path: { histoire } } })),
+}

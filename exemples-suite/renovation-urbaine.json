@@ -1,0 +1,140 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "renovation-urbaine",
+  "titre": "Rénovation Urbaine 2026",
+  "sous_titre": "Suivi d'un chantier de réhabilitation",
+  "secteur": "Chantier",
+  "resume": "La réhabilitation d'un immeuble de logements à Villeurbanne : planning des lots, situations de travaux payées depuis le compte chantier, budget par lot ; le gros œuvre dépasse son enveloppe du mois."
+ },
+ "projet": {
+  "nom": "Rénovation Urbaine 2026",
+  "description": "Réhabilitation d'un immeuble de 18 logements, rue Francis-de-Pressensé à Villeurbanne. Exemple de la suite Atelier (données fictives)."
+ },
+ "phases": [
+  {
+   "titre": "Travaux",
+   "epics": [
+    {
+     "titre": "Clos et couvert",
+     "stories": [
+      {
+       "titre": "Lots structure",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Gros œuvre",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": 75,
+         "passe": 52,
+         "echeance": "2026-11-30"
+        },
+        {
+         "titre": "Charpente bois",
+         "type": "TASK",
+         "statut": "CLOSED",
+         "priorite": "NORMAL",
+         "estime": 48,
+         "passe": 48,
+         "echeance": "2026-12-15"
+        },
+        {
+         "titre": "Isolation thermique",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": 25,
+         "passe": 0,
+         "echeance": "2027-01-20"
+        },
+        {
+         "titre": "Menuiseries extérieures",
+         "type": "TASK",
+         "statut": "ON_HOLD",
+         "priorite": "NORMAL",
+         "estime": 36,
+         "passe": 4,
+         "echeance": "2027-01-31"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "titre": "Second œuvre",
+     "stories": [
+      {
+       "titre": "Lots techniques",
+       "alertes": false,
+       "items": [
+        {
+         "titre": "Électricité",
+         "type": "TASK",
+         "statut": "IN_PROGRESS",
+         "priorite": "NORMAL",
+         "estime": 30,
+         "passe": 11,
+         "echeance": "2027-02-15"
+        },
+        {
+         "titre": "Plomberie et chauffage",
+         "type": "TASK",
+         "statut": "OPEN",
+         "priorite": "NORMAL",
+         "estime": 28,
+         "passe": 0,
+         "echeance": "2027-02-28"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "titre": "Pilotage",
+   "epics": [
+    {
+     "titre": "Budget",
+     "stories": [
+      {
+       "titre": "Suivi des budgets",
+       "alertes": true,
+       "items": [
+        {
+         "titre": "Valider l'avenant travaux supplémentaires fondations",
+         "type": "TASK",
+         "statut": "IN_REVIEW",
+         "priorite": "NORMAL",
+         "estime": null,
+         "passe": null,
+         "echeance": "2026-11-12"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "jalons": [
+  {
+   "titre": "Hors d'eau",
+   "date": "2026-10-30",
+   "atteint": true
+  },
+  {
+   "titre": "Hors d'air",
+   "date": "2027-01-31",
+   "atteint": false
+  }
+ ],
+ "tache_alerte": {
+  "story": "Suivi des budgets",
+  "titre": "Alerte « Gros œuvre du mois » : 16 000,00 € (seuil 14 000,00 €)",
+  "description": "Alerte Atelier Viz déclenchée sur le jeu « Rénovation Urbaine 2026 — opérations août-oct. 2026 ».\n\n- Valeur mesurée : 16 000,00 €\n- Seuil : 14 000,00 €\n\nÀ analyser dans le rapport Viz.",
+  "journal": "Créée par l'exemple « Rénovation Urbaine 2026 », comme le ferait le workflow Nexus « Alerte Viz → tâche de suivi Projets » à partir de l'alerte « Gros œuvre du mois »."
+ }
+}

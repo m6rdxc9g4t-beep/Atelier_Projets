@@ -18502,6 +18502,341 @@
         }
       }
     },
+    "/api/exemples-suite": {
+      "get": {
+        "summary": "Lister les exemples de la suite",
+        "tags": [
+          "Exemples de la suite"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "titre",
+                      "sous_titre",
+                      "secteur",
+                      "resume",
+                      "parcours",
+                      "projet",
+                      "elements",
+                      "jalons",
+                      "charge",
+                      "projectId"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "titre": {
+                        "type": "string"
+                      },
+                      "sous_titre": {
+                        "type": "string"
+                      },
+                      "secteur": {
+                        "type": "string"
+                      },
+                      "resume": {
+                        "type": "string"
+                      },
+                      "parcours": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "app",
+                            "titre",
+                            "texte"
+                          ],
+                          "properties": {
+                            "app": {
+                              "type": "string",
+                              "description": "convert, tab, viz, tresorerie, nexus, projets ou wiki"
+                            },
+                            "titre": {
+                              "type": "string"
+                            },
+                            "texte": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "projet": {
+                        "type": "string",
+                        "description": "Nom du projet que l’exemple crée"
+                      },
+                      "elements": {
+                        "type": "integer"
+                      },
+                      "jalons": {
+                        "type": "integer"
+                      },
+                      "charge": {
+                        "type": "boolean"
+                      },
+                      "projectId": {
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "description": "Histoire d’exemple et ce qu’elle crée dans Projets"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/exemples-suite/{histoire}": {
+      "post": {
+        "summary": "Charger un exemple (projet, éléments, temps, jalons)",
+        "tags": [
+          "Exemples de la suite"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+            },
+            "in": "path",
+            "name": "histoire",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "histoire",
+                    "projectId",
+                    "dejaCharge",
+                    "storyAlerteId"
+                  ],
+                  "properties": {
+                    "histoire": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "integer"
+                    },
+                    "dejaCharge": {
+                      "type": "boolean"
+                    },
+                    "storyAlerteId": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Retirer un exemple (supprime le projet qu’il a créé)",
+        "tags": [
+          "Exemples de la suite"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+            },
+            "in": "path",
+            "name": "histoire",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Aucun contenu"
+          },
+          "400": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/atelier/manifest": {
       "get": {
         "summary": "Manifeste du nœud Atelier Projets (actions, schémas d’entrée et de sortie, événements)",
