@@ -27,6 +27,8 @@ export type DialogRequest =
   | { kind: 'claude'; workItemId: number }
   | { kind: 'linkRepo'; workItemId: number | null }
   | { kind: 'importTab' }
+  | { kind: 'deleteProject'; projectId: number }
+  | { kind: 'deletePhase'; projectId: number; phaseId: number }
 
 export interface Toast {
   id: number
@@ -40,6 +42,10 @@ interface AppState {
   view: ViewId
   /** Barre latérale dépliée (libellés visibles, 232 px) ; repliée : icônes seules. */
   railExpanded: boolean
+  /** Projets dépliés dans l'arborescence de la barre latérale (leurs phases sont visibles). */
+  expandedProjectIds: number[]
+  /** Phase à montrer dans le Gantt (clic dans la barre latérale), consommée par la vue. */
+  focusPhaseId: number | null
   /** Surcharge de « 1 jour = X heures » pour l'affichage (null = paramètre du projet). */
   hoursPerDay: number | null
   selectedWorkItemId: number | null
@@ -60,6 +66,11 @@ interface AppState {
   setProject: (projectId: number | null) => void
   setView: (view: ViewId) => void
   toggleRail: () => void
+  /** Déplie ou replie un projet de la barre latérale (force : état voulu). */
+  toggleProjectTree: (projectId: number, force?: boolean) => void
+  /** Ouvre le Gantt d'un projet sur une phase. */
+  showPhase: (projectId: number, phaseId: number) => void
+  clearFocusPhase: () => void
   setHoursPerDay: (hoursPerDay: number | null) => void
   openWorkItem: (workItemId: number | null) => void
   openDialog: (dialog: DialogRequest | null) => void
@@ -106,6 +117,8 @@ export const useApp = create<AppState>()(
       projectId: null,
       view: 'gantt',
       railExpanded: true,
+      expandedProjectIds: [],
+      focusPhaseId: null,
       hoursPerDay: null,
       selectedWorkItemId: null,
       aiModel: null,
@@ -123,6 +136,20 @@ export const useApp = create<AppState>()(
       setProject: (projectId) => set({ projectId, selectedWorkItemId: null, hoursPerDay: null }),
       setView: (view) => set({ view }),
       toggleRail: () => set((state) => ({ railExpanded: !state.railExpanded })),
+      toggleProjectTree: (projectId, force) =>
+        set((state) => {
+          const open = state.expandedProjectIds.includes(projectId)
+          const want = force ?? !open
+          if (want === open) return {}
+          return { expandedProjectIds: want ? [...state.expandedProjectIds, projectId] : state.expandedProjectIds.filter((id) => id !== projectId) }
+        }),
+      showPhase: (projectId, phaseId) =>
+        set((state) =>
+          state.projectId === projectId
+            ? { view: 'gantt', focusPhaseId: phaseId }
+            : { projectId, selectedWorkItemId: null, hoursPerDay: null, view: 'gantt', focusPhaseId: phaseId },
+        ),
+      clearFocusPhase: () => set({ focusPhaseId: null }),
       setHoursPerDay: (hoursPerDay) => set({ hoursPerDay }),
       openWorkItem: (selectedWorkItemId) => set({ selectedWorkItemId }),
       openDialog: (dialog) => set({ dialog }),
@@ -146,12 +173,16 @@ export const useApp = create<AppState>()(
         // Le thème n'est plus enregistré ici : la préférence commune de la suite fait foi (l'ancienne valeur est
         // reprise une fois par index.html dans « atelier:theme »).
         const { theme: _legacyTheme, ...rest } = saved
-        return { ...current, ...rest, ...restoreAiPreferences(saved) }
+        const expandedProjectIds = Array.isArray(saved.expandedProjectIds)
+          ? saved.expandedProjectIds.filter((id): id is number => Number.isInteger(id))
+          : []
+        return { ...current, ...rest, expandedProjectIds, ...restoreAiPreferences(saved) }
       },
       partialize: (state) => ({
         projectId: state.projectId,
         view: state.view,
         railExpanded: state.railExpanded,
+        expandedProjectIds: state.expandedProjectIds,
         aiModel: state.aiModel,
         aiEngine: state.aiEngine,
         claudeModel: state.claudeModel,

@@ -19,6 +19,7 @@ import {
   Plus,
   Settings,
   Sun,
+  Trash2,
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
@@ -29,6 +30,7 @@ import type { Project } from '../services/types.ts'
 import { useAi } from '../store/ai.ts'
 import { useApp, useAppState, type Theme, type ViewId } from '../store/app.ts'
 import { OnlineSwitch } from './AiDialogs.tsx'
+import { ProjectTree } from './ProjectTree.tsx'
 import { AtelierBrand } from './AtelierBrand.tsx'
 import { SuiteSwitcher } from './SuiteSwitcher.tsx'
 import { TimerPill } from './Timer.tsx'
@@ -115,7 +117,9 @@ function AiButton() {
 
 /**
  * Barre latérale (≥ 768 px : colonne de 232 px, ou 52 px repliée ; en dessous : bandeau en haut).
- * Haut : marque (« À propos »), sélecteur de la suite, projet courant ; milieu : vues du projet ; pied : thème.
+ * Haut : marque (« À propos »), sélecteur de la suite ; puis vues du projet courant, arborescence des projets
+ * (Projets › Phases, comme la barre d'Atelier Tab) ; pied : thème. Repliée ou sur téléphone, l'arborescence
+ * laisse la place au menu déroulant des projets.
  */
 export function Sidebar({ projects, project }: { projects: Project[]; project: Project | undefined }) {
   const { railExpanded, openDialog } = useAppState((state) => ({ railExpanded: state.railExpanded, openDialog: state.openDialog }))
@@ -137,14 +141,14 @@ export function Sidebar({ projects, project }: { projects: Project[]; project: P
           </div>
         </div>
 
-        <div className={`order-3 w-full md:order-none md:mt-3 ${collapsed ? 'md:flex md:justify-center' : ''}`}>
+        <div className={`order-3 w-full md:order-none md:mt-3 ${collapsed ? 'md:flex md:justify-center' : 'md:hidden'}`}>
           <ProjectSwitcher projects={projects} project={project} compact={collapsed} />
         </div>
       </header>
 
       <nav
         aria-label="Navigation principale"
-        className="order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-1 md:flex-col md:gap-px md:overflow-x-visible md:overflow-y-auto md:px-0"
+        className={`order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-none md:flex-col ${collapsed ? 'md:flex-1' : ''} md:gap-px md:overflow-x-visible md:overflow-y-auto md:px-0`}
       >
         <ViewTabs collapsed={collapsed} />
         <button
@@ -157,6 +161,12 @@ export function Sidebar({ projects, project }: { projects: Project[]; project: P
           {collapsed ? <span className="sr-only">Ajouter une phase</span> : <span className="truncate">Nouvelle phase</span>}
         </button>
       </nav>
+
+      {!collapsed && (
+        <div className="hidden md:mt-4 md:flex md:min-h-0 md:flex-1 md:flex-col">
+          <ProjectTree projects={projects} current={project} />
+        </div>
+      )}
 
       <div className={`order-2 flex items-center gap-1 md:order-none md:mt-2 md:flex-col md:items-stretch md:gap-1.5 md:pt-2 ${collapsed ? 'md:items-center' : ''}`}>
         <a
@@ -238,7 +248,15 @@ export function TopBar({ project }: { project: Project | undefined }) {
         title={railExpanded ? 'Replier la barre latérale' : 'Déplier la barre latérale'}
         onClick={toggleRail}
       />
-      {project && title && <h1 className="hidden truncate text-sm font-semibold md:block">{title}</h1>}
+      {project && title && (
+        <h1 className="hidden min-w-0 items-center gap-1.5 text-sm font-semibold md:flex">
+          <span className="truncate font-medium text-muted">{project.name}</span>
+          <span className="text-faint" aria-hidden>
+            /
+          </span>
+          <span className="truncate">{title}</span>
+        </h1>
+      )}
       {github && project?.github && (
         <a
           href={project.github.url}
@@ -368,6 +386,19 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
               <FileUp className="size-4 text-faint" aria-hidden />
               Importer depuis Atelier Tab…
             </button>
+            {project && (
+              <button
+                type="button"
+                className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover"
+                onClick={() => {
+                  setOpen(false)
+                  openDialog({ kind: 'deleteProject', projectId: project.id })
+                }}
+              >
+                <Trash2 className="size-4 text-st-rejected" aria-hidden />
+                <span className="truncate">Supprimer « {project.name} »…</span>
+              </button>
+            )}
           </div>
         </div>
       )}

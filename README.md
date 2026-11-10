@@ -149,7 +149,7 @@ Ces deux thèmes sont la base commune de la suite, **crème** en clair et **bleu
 ([`docs/SUITE.md`](./docs/SUITE.md) §1.7, règles complètes dans `Atelier_Deploy/DESIGN.md`) garde cette structure, commune à toute
 la suite, et réserve la couleur signature d'Atelier Projets, **vert olive `#568100`** (`data-atelier-app="projets"` sur `<html>`), à ce qui
 porte un sens : bouton principal plein, sélection, focus, liens, icône de l'app. Plat au repos (traits de 1 px, pas de halo ni d'ombre sur
-les cartes ; cartes de chiffres arrondies à 12 px, `.ds-kpi`), police Inter embarquée à 13 px, coquille du portail : barre latérale de 232 px (marque, projet, vues, thème) et barre haute de 44 px.
+les cartes ; cartes de chiffres arrondies à 12 px, `.ds-kpi`), police Inter embarquée à 13 px, coquille du portail : barre latérale de 232 px (marque, vues, arborescence **Projets › Phases** sur le modèle d'Atelier Tab — clic : ouvrir, double-clic : renommer, au survol : supprimer ou ajouter une phase, avec confirmation qui détaille ce qui sera supprimé —, thème ; repliée ou sur téléphone, menu déroulant des projets) et barre haute de 44 px (projet / vue).
 Les jetons `--atelier-*` de `design-system/brand/atelier-brand.css` sont branchés sur les variables `--app-*` de `tokens/ui.css`.
 La couleur signature ne remplace aucune couleur de type ou de statut (Gantt, badges, histogramme inchangés).
 

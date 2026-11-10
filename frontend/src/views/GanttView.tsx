@@ -361,6 +361,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
   const [drag, setDrag] = useState<Drag | null>(null)
   const [linking, setLinking] = useState<{ fromId: number; x: number; y: number } | null>(null)
   const openDialog = useApp((state) => state.openDialog)
+  const { focusPhaseId, clearFocusPhase } = useAppState((state) => ({ focusPhaseId: state.focusPhaseId, clearFocusPhase: state.clearFocusPhase }))
   const { busy, run } = useAction()
   const rows = useMemo(() => buildRows(tree, collapsed), [tree, collapsed])
   const calendar = useMemo(() => buildCalendar(tree, zoom), [tree, zoom])
@@ -403,6 +404,25 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
     const { todayOffset, ppd } = calendarRef.current
     if (element) element.scrollLeft = todayOffset === null ? 0 : Math.max(0, todayOffset - 3 * 7 * ppd)
   }, [tree.project.id, zoom, hasRows])
+
+  // Phase choisie dans la barre latérale : dépliée, amenée en haut de l'écran et focalisée.
+  useEffect(() => {
+    if (focusPhaseId === null) return
+    const key = `phase-${focusPhaseId}`
+    setCollapsed((current) => {
+      if (!current.has(key)) return current
+      const next = new Set(current)
+      next.delete(key)
+      return next
+    })
+    const frame = requestAnimationFrame(() => {
+      const row = document.querySelector<HTMLElement>(`[data-row-key="${key}"]`)
+      row?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      row?.querySelector<HTMLElement>('[data-row-title]')?.focus({ preventScroll: true })
+      clearFocusPhase()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusPhaseId, clearFocusPhase])
 
   const toggle = (key: string) =>
     setCollapsed((current) => {
@@ -808,6 +828,7 @@ function GanttRow(props: GanttRowProps) {
       role="row"
       aria-selected={isSelected || undefined}
       data-item-id={row.item?.id}
+      data-row-key={row.key}
       className={`group flex border-b border-line ${container ? 'bg-sunken' : ''} ${
         isSelected ? 'bg-accent-soft' : linkTarget ? 'hover:bg-accent-soft' : 'hover:bg-hover'
       }`}
@@ -835,6 +856,7 @@ function GanttRow(props: GanttRowProps) {
         {row.kind === 'MILESTONE' ? <span className="ds-diamond mx-0.5" data-reached={row.milestone?.reached} aria-hidden /> : <TypeChip type={kindAttr as 'PHASE'} />}
         <button
           type="button"
+          data-row-title=""
           onClick={() => props.onOpen(row)}
           className={`min-w-0 flex-1 truncate text-left ${row.kind === 'PHASE' ? 'font-semibold' : ''}`}
           title={`${row.code} : ${row.title}`}
