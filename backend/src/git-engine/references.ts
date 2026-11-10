@@ -14,13 +14,18 @@ export interface WorkItemReference {
   keyword: string | null
 }
 
+/** Lettre ou « _ » collé aux chiffres : « #15aabf », « #2563EB » sont des couleurs, pas des #ID. */
+const GLUED_LETTER = /[\p{L}_]/u
+
 /**
  * Références d'un texte, sans doublon : un même #ID cité plusieurs fois garde le premier mot-clé
- * rencontré (« ref #12 … fix #12 » → ref). Les #ID impossibles (0, trop grands) sont ignorés.
+ * rencontré (« ref #12 … fix #12 » → ref). Les #ID impossibles (0, trop grands) sont ignorés, comme les
+ * chiffres suivis d'une lettre (couleur hexadécimale « #15aabf », identifiant « #12abc »).
  */
 export function parseReferences(text: string): WorkItemReference[] {
   const references = new Map<number, WorkItemReference>()
   for (const match of text.matchAll(new RegExp(REFERENCE_PATTERN))) {
+    if (GLUED_LETTER.test(text.charAt(match.index + match[0].length))) continue
     const workItemId = Number(match[2])
     if (!Number.isSafeInteger(workItemId) || workItemId < 1 || workItemId > MAX_WORK_ITEM_ID) continue
     const keyword = match[1]?.toLowerCase() ?? null

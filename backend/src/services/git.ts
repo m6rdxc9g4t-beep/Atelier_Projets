@@ -57,8 +57,9 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
 
 /**
  * Lit les commits du dépôt local et rattache ceux qui citent un #ID du projet. Idempotent : un commit déjà
- * connu garde sa branche et ne reçoit que les liens manquants (élément créé après coup) ; un commit disparu
- * du dépôt (amend, rebase, branche supprimée) est retiré, sauf lecture tronquée par la limite.
+ * connu garde sa branche, reçoit les liens manquants (élément créé après coup) et perd ceux que son message
+ * ne justifie pas ; un commit disparu du dépôt (amend, rebase, branche supprimée) est retiré, sauf lecture
+ * tronquée par la limite.
  */
 const running = new Map<number, Promise<unknown>>()
 
@@ -145,6 +146,15 @@ async function scan(
     await prisma.$transaction(batch.map((data) => prisma.gitCommitLink.create({ data })))
   }
   linksCreated += missing.length
+
+  // Liens que le message ne justifie plus (règle de détection corrigée : couleur « #15aabf » lue comme #15).
+  for (const commit of stored) {
+    const cited = new Set(commitReferences(commit.message).map((reference) => reference.workItemId))
+    const stale = commit.links.map((link) => link.workItemId).filter((workItemId) => !cited.has(workItemId))
+    if (stale.length > 0) {
+      await prisma.gitCommitLink.deleteMany({ where: { commitId: commit.id, workItemId: { in: stale } } })
+    }
+  }
 
   const gone = truncated ? [] : stored.filter((commit) => !reachable.has(commit.hash)).map((commit) => commit.id)
   if (gone.length > 0) await prisma.gitCommit.deleteMany({ where: { id: { in: gone } } })

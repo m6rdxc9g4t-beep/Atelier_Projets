@@ -31,6 +31,22 @@ describe('références #ID (regex CLAUDE.md §3.3)', () => {
     assert.deepEqual(parseReferences('chore: initial commit'), [])
     assert.deepEqual(parseReferences(''), [])
   })
+
+  it('ne prend pas une couleur hexadécimale pour un #ID', () => {
+    assert.deepEqual(commitReferences('feat(ui): signature cyan #15aabf'), [])
+    assert.deepEqual(parseReferences('fix(theme): statut #2563EB, lien #007cbb, vert #1c8742'), [])
+    assert.deepEqual(parseReferences('voir #12abc et #7_bis'), [])
+    assert.deepEqual(parseReferences('style: fond #0b1220 pour la tâche task #12'), [{ workItemId: 12, keyword: 'task' }])
+  })
+
+  it('garde un #ID suivi d’une ponctuation ou d’une fin de ligne', () => {
+    assert.deepEqual(parseReferences('fix #12: x, ref #9) puis #7.\nfeat #3'), [
+      { workItemId: 12, keyword: 'fix' },
+      { workItemId: 9, keyword: 'ref' },
+      { workItemId: 7, keyword: null },
+      { workItemId: 3, keyword: 'feat' },
+    ])
+  })
 })
 
 describe('numéro porté par une branche', () => {
