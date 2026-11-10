@@ -513,6 +513,10 @@ Atelier Projets, **Atelier Viz** (BI locale) et **Atelier Tab** (tableur + base 
 | **Atelier Projets** | **http://127.0.0.1:5174** | **http://127.0.0.1:4174** | **http://127.0.0.1:3000/api** |
 | Atelier Tab | http://127.0.0.1:5175 | http://127.0.0.1:4175 · app Electron | santé seulement : `:4175/api/health` (app, aperçu), `:5175/api/health` (dev) |
 
+### Lien profond (Atelier Hub)
+
+`?projet=<id>` ouvre ce projet ; `?projet=<id>&element=<id>` ouvre aussi la fiche de l'élément (lecture dans `frontend/src/lib/deep-link.ts`, appliquée avant le premier rendu puis retirée de l'adresse). C'est le lien qu'envoie Atelier Hub quand on clique sur une feature ou une tâche. Projet inconnu : le premier projet de la liste s'ouvre, comme pour un choix enregistré disparu.
+
 ### Sélecteur « Suite Atelier »
 
 L'icône grille à gauche du nom de l'application ouvre le menu des applications de la suite — Atelier Viz, Atelier Tab, Atelier Projets et Atelier Cuisine (l'application courante est cochée) ; un clic ouvre l'application dans un nouvel onglet. Au clavier : `↓` ou `Entrée` ouvre, `↑` `↓` `Début` `Fin` naviguent, `Échap` ferme et rend le focus ; un clic à l'extérieur ferme aussi.
