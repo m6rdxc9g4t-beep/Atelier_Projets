@@ -9,6 +9,7 @@ import { hierarchyService, milestoneService, projectService, reportService, work
 import type { Priority, Project, WorkItemType } from '../services/types.ts'
 import { useApp, type DialogRequest } from '../store/app.ts'
 import { AiPanel, BreakdownDialog, ClaudeDialog, LinkRepoDialog } from './AiDialogs.tsx'
+import { DeleteDialog } from './DeleteDialog.tsx'
 import { ImportTabDialog } from './ImportTabDialog.tsx'
 import { Button, Field, Modal, TypeChip } from './ui.tsx'
 import { withGithubInput } from '../lib/github.ts'
@@ -21,6 +22,7 @@ export function Dialogs({ project, projects }: { project: Project | undefined; p
   if (dialog.kind === 'ai') return <AiPanel project={project} />
   if (dialog.kind === 'breakdown') return <BreakdownDialog request={dialog} />
   if (dialog.kind === 'claude') return <ClaudeDialog request={dialog} />
+  if (dialog.kind === 'deleteProject' || dialog.kind === 'deletePhase') return <DeleteDialog request={dialog} projects={projects} />
   if (!project) return null
   if (dialog.kind === 'linkRepo') return <LinkRepoDialog project={project} request={dialog} />
   switch (dialog.kind) {
