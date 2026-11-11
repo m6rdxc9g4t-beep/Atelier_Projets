@@ -31,6 +31,15 @@ const apiTarget = process.env.ATELIER_API_URL ?? 'http://127.0.0.1:3000'
 
 export default defineConfig({
   plugins: [atelierTheme(), react(), tailwindcss()],
+  build: {
+    rolldownOptions: {
+      output: {
+        // React dans son propre fichier : son nom (empreinte du contenu) ne change pas quand le code de l'app
+        // change, il reste donc en cache d'une mise à jour à l'autre (assets servis « immutable »).
+        codeSplitting: { groups: [{ name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ }] },
+      },
+    },
+  },
   server: {
     host: '127.0.0.1',
     port: 5174,

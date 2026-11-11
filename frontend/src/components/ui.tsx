@@ -2,6 +2,8 @@
 // Elles ne portent aucune couleur : la teinte vient des attributs data-type / data-status / data-priority.
 import { Flame, Loader2, X } from 'lucide-react'
 import {
+  lazy,
+  Suspense,
   useEffect,
   useId,
   useRef,
@@ -10,8 +12,6 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import Markdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { clampPercent } from '../lib/format.ts'
 import { PRIORITY_LABEL, STATUS_LABEL, TYPE_LABEL } from '../lib/labels.ts'
 import type { Priority, WorkItemStatus, WorkItemType } from '../services/types.ts'
@@ -151,16 +151,17 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   )
 }
 
+/** Analyseur Markdown chargé à la première fiche ouverte (hors du paquet initial). */
+const RenderedMarkdown = lazy(() => import('./Markdown.tsx'))
+
 export function MarkdownText({ children, empty }: { children: string; empty: string }) {
   if (children.trim() === '') return <p className="text-muted italic">{empty}</p>
   return (
     <div className="ds-markdown">
-      <Markdown
-        remarkPlugins={[remarkGfm]}
-        components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" /> }}
-      >
-        {children}
-      </Markdown>
+      {/* Le temps du chargement : le texte brut, déjà lisible. */}
+      <Suspense fallback={<p className="whitespace-pre-wrap">{children}</p>}>
+        <RenderedMarkdown>{children}</RenderedMarkdown>
+      </Suspense>
     </div>
   )
 }
