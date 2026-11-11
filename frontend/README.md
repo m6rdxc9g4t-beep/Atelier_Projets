@@ -22,11 +22,14 @@ frontend/
     ├── components/            # shell (en-tête, rail, onglets, notifications), SuiteSwitcher, HealthCard, Dialogs, AiDialogs, ImportTabDialog, ui
     ├── store/app.ts           # Zustand : thème, projet, vue, élément ouvert, dialogue, notifications
     ├── services/              # client.ts (openapi-fetch, erreurs), api.ts (une fonction par route), types.ts
-    └── lib/                   # mise en forme, libellés FR, useApi / useAction, theme.ts, suite.ts (adresses de la Suite Atelier)
+    └── lib/                   # mise en forme, libellés FR, useApi / useAction, theme.ts, suite.ts (adresses de la Suite Atelier),
+                               # freshness.ts (relecture au retour sur la fenêtre), milestone.ts (état d'un jalon)
 ```
 
 ## Règles (CLAUDE.md §1)
 
 - **Couleurs** : uniquement les variables du design system. Les utilitaires Tailwind disponibles sont `bg-surface`, `bg-elevated`, `text-fg`, `text-muted`, `border-line`, `text-accent-ink`, `bg-phase`, `bg-st-closed`… ; pour une teinte qui dépend d'une valeur, poser `data-type` / `data-status` / `data-priority` / `data-balance` et utiliser `bg-kind`, `text-kind-ink` ou les classes `ds-*`.
 - **Aucun calcul métier** : jours, pourcentages, bilans, statuts des conteneurs et histogramme viennent de l'API.
+- **Données à jour** : après une écriture, `refresh()` du store fait relire les vues ; au retour sur la fenêtre après 5 s d'absence, `lib/freshness.ts` fait de même (écritures d'une autre app : nœud Atelier, webhook d'Atelier Tab, Claude CLI, commits). Un dialogue ouvert garde sa saisie : la relecture attend sa fermeture.
+- **Au doigt** (`@media (pointer: coarse)` de `index.css`, charte de la suite) : toute cible fait au moins 40 px et le texte d'un champ 16 px (en dessous, Safari sur iPhone zoome la page). Une cible hors composants `ds-*` porte `pointer-coarse:h-10` ou `pointer-coarse:min-h-10` ; les boutons des lignes du Gantt (36 px) restent compacts. Vérifié par `e2e/ergonomie.spec.ts`.
 - **Contrat** : après une modification de l'API, `npm run openapi` (racine) régénère `backend/openapi.json` puis `src/services/api.gen.ts` ; `tsc` signale alors tout écart dans le frontend.

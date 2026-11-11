@@ -63,6 +63,45 @@ test('fiche : l’avancement réglé juste avant de fermer est enregistré', asy
   await expect.poll(async () => (await api(request, `/api/work-items/${s.c}`)).progress).toBe(10)
 })
 
+test('une tâche créée par une autre app apparaît au retour sur la fenêtre', async ({ page, request }) => {
+  const s = await createScenario(request, 'Retour')
+  await page.clock.install()
+  await openProject(page, s.projectId)
+  await expect(page.getByTitle(`#${s.a} : Maquette`, { exact: true })).toBeVisible()
+
+  // La fenêtre passe en arrière-plan ; pendant ce temps, une autre app (un workflow de Nexus) crée une tâche.
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+  const response = await request.post(`/api/stories/${s.storyId}/work-items`, { data: { type: 'TASK', title: 'Créée ailleurs' } })
+  expect(response.ok()).toBeTruthy()
+  await page.clock.fastForward(10_000)
+  await expect(page.getByTitle(/ : Créée ailleurs$/)).toBeHidden()
+
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByTitle(/ : Créée ailleurs$/)).toBeVisible()
+})
+
+test('retour sur la fenêtre : un dialogue ouvert garde sa saisie, la relecture suit sa fermeture', async ({ page, request }) => {
+  const s = await createScenario(request, 'Saisie')
+  await page.clock.install()
+  await openProject(page, s.projectId)
+  await page.locator(`[data-row-key="milestone-${s.milestoneId}"] [data-row-title]`).click()
+  const dialog = page.getByRole('dialog')
+  const title = dialog.getByLabel('Titre')
+  await expect(title).toHaveValue('Livraison')
+  await title.fill('Livraison décalée')
+
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+  const response = await request.post(`/api/stories/${s.storyId}/work-items`, { data: { type: 'TASK', title: 'Créée pendant la saisie' } })
+  expect(response.ok()).toBeTruthy()
+  await page.clock.fastForward(10_000)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await page.clock.fastForward(1_000)
+  await expect(title).toHaveValue('Livraison décalée')
+
+  await dialog.getByRole('button', { name: 'Annuler' }).click()
+  await expect(page.getByTitle(/ : Créée pendant la saisie$/)).toBeVisible()
+})
+
 test.describe('au téléphone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
 
