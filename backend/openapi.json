@@ -423,7 +423,7 @@
                   "localRepoPath": {
                     "minLength": 1,
                     "maxLength": 1000,
-                    "description": "Chemin absolu du dépôt Git local",
+                    "description": "Chemin absolu du dépôt Git local (« ~/… » accepté : développé à l’enregistrement ; relatif refusé)",
                     "type": [
                       "string",
                       "null"
@@ -1045,7 +1045,7 @@
                   "localRepoPath": {
                     "minLength": 1,
                     "maxLength": 1000,
-                    "description": "Chemin absolu du dépôt Git local",
+                    "description": "Chemin absolu du dépôt Git local (« ~/… » accepté : développé à l’enregistrement ; relatif refusé)",
                     "type": [
                       "string",
                       "null"

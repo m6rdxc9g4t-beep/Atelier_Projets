@@ -165,7 +165,11 @@ describe('analyse du dépôt Git local', () => {
       const notGit = await api('POST', `/api/projects/${bare.projectId}/git/scan`)
       assert.equal(notGit.status, 400)
       assert.match(notGit.body.message, /racine d’un dépôt Git/)
-      await api('PATCH', `/api/projects/${bare.projectId}`, { localRepoPath: 'relatif/depot' })
+      // Un chemin relatif est refusé à l'enregistrement ; une valeur ancienne en base l'est encore à l'analyse.
+      const relative = await api('PATCH', `/api/projects/${bare.projectId}`, { localRepoPath: 'relatif/depot' })
+      assert.equal(relative.status, 400)
+      assert.match(relative.body.message, /chemin complet du dossier/)
+      await ctx.prisma.project.update({ where: { id: bare.projectId }, data: { localRepoPath: 'relatif/depot' } })
       assert.match((await api('POST', `/api/projects/${bare.projectId}/git/scan`)).body.message, /non absolu/)
       await api('PATCH', `/api/projects/${bare.projectId}`, { localRepoPath: path.join(plain, 'absent') })
       assert.match((await api('POST', `/api/projects/${bare.projectId}/git/scan`)).body.message, /introuvable/)

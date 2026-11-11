@@ -1,5 +1,7 @@
 // Projets : CRUD, slug unique, budget saisi en heures ou en jours.
+import { homedir } from 'node:os'
 import { DEFAULT_HOURS_PER_DAY } from '../domain/durations.ts'
+import { normalizeRepoPath, RepoPathError } from '../domain/repo-path.ts'
 import { slugify, slugSearchPrefix, uniqueSlug } from '../domain/slug.ts'
 import type { Db } from '../db/client.ts'
 import type { Prisma } from '../generated/prisma/client.ts'
@@ -12,6 +14,17 @@ import { deleteWithItems } from './work-items.ts'
 function assertGithubPair(owner: string | null, repo: string | null): void {
   if ((owner === null) !== (repo === null)) {
     throw badRequest('Le dépôt GitHub se définit par githubOwner ET githubRepo (ou aucun des deux)')
+  }
+}
+
+/** Chemin du dépôt local prêt à être enregistré (« ~/dev/x » développé) ; un chemin relatif est refusé (400). */
+function repoPath(input: string | null): string | null {
+  if (input === null) return null
+  try {
+    return normalizeRepoPath(input, homedir())
+  } catch (error) {
+    if (error instanceof RepoPathError) throw badRequest(error.message)
+    throw error
   }
 }
 
@@ -47,6 +60,7 @@ export async function createProject(prisma: Db, input: ProjectCreate): Promise<P
   const githubOwner = input.githubOwner ?? null
   const githubRepo = input.githubRepo ?? null
   assertGithubPair(githubOwner, githubRepo)
+  const localRepoPath = repoPath(input.localRepoPath ?? null)
 
   let slug: string
   if (input.slug !== undefined) {
@@ -61,7 +75,7 @@ export async function createProject(prisma: Db, input: ProjectCreate): Promise<P
       name: input.name.trim(),
       slug,
       description: input.description ?? '',
-      localRepoPath: input.localRepoPath ?? null,
+      localRepoPath,
       githubOwner,
       githubRepo,
       defaultBranch: input.defaultBranch ?? 'main',
@@ -89,7 +103,7 @@ export async function updateProject(prisma: Db, projectId: number, input: Projec
   if (input.name !== undefined) data.name = input.name.trim()
   if (input.slug !== undefined) data.slug = input.slug
   if (input.description !== undefined) data.description = input.description
-  if (input.localRepoPath !== undefined) data.localRepoPath = input.localRepoPath
+  if (input.localRepoPath !== undefined) data.localRepoPath = repoPath(input.localRepoPath)
   if (input.defaultBranch !== undefined) data.defaultBranch = input.defaultBranch
   const budgetHours = resolveHours(input.budgetHours, input.budgetDays, hoursPerDay, 'budget')
   if (budgetHours !== undefined) data.budgetHours = budgetHours

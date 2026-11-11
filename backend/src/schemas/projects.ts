@@ -45,7 +45,7 @@ const slug = Type.String({ pattern: SLUG_PATTERN, maxLength: 60, description: 'I
 const projectFields = {
   description: Type.Optional(Markdown),
   localRepoPath: Type.Optional(
-    NullableInput(Type.String({ minLength: 1, maxLength: 1000, description: 'Chemin absolu du dépôt Git local' })),
+    NullableInput(Type.String({ minLength: 1, maxLength: 1000, description: 'Chemin absolu du dépôt Git local (« ~/… » accepté : développé à l’enregistrement ; relatif refusé)' })),
   ),
   githubOwner: Type.Optional(NullableInput(Type.String({ pattern: GITHUB_OWNER }))),
   githubRepo: Type.Optional(NullableInput(Type.String({ pattern: GITHUB_REPO }))),

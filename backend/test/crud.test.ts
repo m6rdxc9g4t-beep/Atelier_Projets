@@ -1,5 +1,7 @@
 // Tests d'intégration CRUD sur une base vierge : tout est créé via l'API.
 import assert from 'node:assert/strict'
+import { homedir } from 'node:os'
+import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { addLogEntry } from '../src/services/work-items.ts'
 import { call, createTestContext, type TestContext } from './helpers/test-app.ts'
@@ -61,6 +63,13 @@ describe('projets', () => {
 
     const linked = await api('PATCH', `/api/projects/${created.body.id}`, { localRepoPath: '/Users/francois/dev/atelier' })
     assert.equal(linked.body.localRepoPath, '/Users/francois/dev/atelier')
+    // Chemin tel qu'on le saisit : « ~ » développé, guillemets et barre finale retirés ; relatif refusé tout de suite.
+    const tilde = await api('PATCH', `/api/projects/${created.body.id}`, { localRepoPath: ' "~/dev/atelier/" ' })
+    assert.equal(tilde.body.localRepoPath, path.join(homedir(), 'dev', 'atelier'))
+    const relative = await api('PATCH', `/api/projects/${created.body.id}`, { localRepoPath: 'dev/atelier' })
+    assert.deepEqual([relative.status, relative.body.code], [400, 'BAD_REQUEST'])
+    assert.match(relative.body.message, /chemin complet du dossier/)
+    assert.equal((await api('POST', '/api/projects', { name: 'Relatif', localRepoPath: './x' })).status, 400)
     const unlinked = await api('PATCH', `/api/projects/${created.body.id}`, {
       localRepoPath: null,
       githubOwner: null,
