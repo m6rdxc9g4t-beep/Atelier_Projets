@@ -39,6 +39,20 @@ describe('références #ID (regex CLAUDE.md §3.3)', () => {
     assert.deepEqual(parseReferences('style: fond #0b1220 pour la tâche task #12'), [{ workItemId: 12, keyword: 'task' }])
   })
 
+  it('garde un #ID en italique ou en gras Markdown (« _ » fermant), pas un identifiant « #7_bis »', () => {
+    assert.deepEqual(parseReferences('_Closes #12_'), [{ workItemId: 12, keyword: null }])
+    assert.deepEqual(parseReferences('__fix #12__ et suite'), [{ workItemId: 12, keyword: 'fix' }])
+    assert.deepEqual(commitReferences('docs: note\n\n_ref #34_, __task #56__.'), [
+      { workItemId: 34, keyword: 'ref' },
+      { workItemId: 56, keyword: 'task' },
+    ])
+    assert.deepEqual(parseReferences('_#8_ puis #9_'), [
+      { workItemId: 8, keyword: null },
+      { workItemId: 9, keyword: null },
+    ])
+    assert.deepEqual(parseReferences('#7_bis, #7__bis, #7_2 et #7_é'), [])
+  })
+
   it('garde un #ID suivi d’une ponctuation ou d’une fin de ligne', () => {
     assert.deepEqual(parseReferences('fix #12: x, ref #9) puis #7.\nfeat #3'), [
       { workItemId: 12, keyword: 'fix' },
