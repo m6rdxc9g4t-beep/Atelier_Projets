@@ -9,7 +9,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { after, before, beforeEach, describe, it } = require('node:test')
-const { acquireLock, parsePorcelain, plan, prepare, recover, renameRetry, rotateLog, UpdateError, LOCK, STAMP } = require('../lib/prepare.cjs')
+const { acquireLock, lockThenRotate, parsePorcelain, plan, prepare, recover, renameRetry, rotateLog, UpdateError, LOCK, STAMP } = require('../lib/prepare.cjs')
 
 // npm simulé lancé par Node, sans shell : même forme que node.exe + npm-cli.js sous Windows.
 const FAKE_NPM = [process.execPath, path.join(__dirname, 'fixtures', 'fake-npm.cjs')]
@@ -319,10 +319,40 @@ describe('journal', () => {
     assert.equal(fs.readFileSync(path.join(dir, 'app.1.log'), 'utf8'), 'y'.repeat(80))
   })
 
-  it('l’application de bureau tourne app.log avant d’y écrire', () => {
+  it('un second lancement, sans le verrou d’instance, ne renomme pas le journal de l’application ouverte', () => {
+    const dir = path.join(root, 'rotation-verrou')
+    const file = path.join(dir, 'app.log')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(file, 'z'.repeat(80))
+    assert.equal(lockThenRotate(() => false, file, 50), false)
+    assert.deepEqual(fs.readdirSync(dir), ['app.log'])
+    // Verrou obtenu : il est demandé avant la rotation, qui se fait alors.
+    const order = []
+    const granted = lockThenRotate(
+      () => {
+        order.push(fs.existsSync(file) ? 'verrou, journal en place' : 'verrou, journal déjà tourné')
+        return true
+      },
+      file,
+      50,
+    )
+    assert.equal(granted, true)
+    assert.deepEqual(order, ['verrou, journal en place'])
+    assert.deepEqual(fs.readdirSync(dir), ['app.1.log'])
+  })
+
+  it('l’application de bureau ne tourne app.log qu’après le verrou d’instance, avant d’y écrire', () => {
     const main = fs.readFileSync(path.join(__dirname, '..', 'main.cjs'), 'utf8')
-    const rotation = main.indexOf('rotateLog(LOG_FILE')
-    assert.ok(rotation > 0, 'rotateLog(LOG_FILE…) attendu dans main.cjs')
-    assert.ok(rotation < main.indexOf('function log('), 'la rotation précède toute écriture du journal')
+    // Une seule rotation, par lockThenRotate ; un seul appel au verrou, celui qu'il reçoit.
+    assert.doesNotMatch(main, /\brotateLog\b/, 'aucune rotation directe dans main.cjs')
+    assert.equal(main.match(/lockThenRotate\(/g)?.length, 1)
+    assert.equal(main.match(/requestSingleInstanceLock/g)?.length, 1)
+    assert.match(main, /lockThenRotate\(\(\) => app\.requestSingleInstanceLock\(\), LOG_FILE, LOG_MAX_BYTES\)/)
+    // Les deux entrées (lancement normal, mise à jour seule) passent par là avant leur première ligne de journal.
+    assert.equal(main.match(/if \(!claimInstance\(\)\)/g)?.length, 2)
+    const lifecycle = main.slice(main.indexOf('// --- Cycle de vie'))
+    assert.ok(lifecycle.indexOf('claimInstance()') < lifecycle.indexOf('launch()'), 'verrou et rotation avant le lancement')
+    const updateOnly = main.slice(main.indexOf('async function updateOnly()'), main.indexOf('// --- Cycle de vie'))
+    assert.ok(updateOnly.indexOf('claimInstance()') < updateOnly.indexOf('say('), 'verrou et rotation avant la première ligne')
   })
 })

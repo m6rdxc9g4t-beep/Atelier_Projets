@@ -171,6 +171,17 @@ function rotateLog(logFile, maxBytes = LOG_MAX_BYTES) {
   }
 }
 
+/**
+ * Verrou d'instance unique, puis rotation du journal de l'application : dans cet ordre. Un second lancement
+ * (raccourci, sélecteur de la suite, `--mise-a-jour-seulement` d'install.ps1) qui n'obtient pas le verrou ne
+ * renomme jamais le journal où l'API de l'instance ouverte écrit encore. Renvoie vrai si le verrou est obtenu.
+ */
+function lockThenRotate(requestLock, logFile, maxBytes = LOG_MAX_BYTES) {
+  if (!requestLock()) return false
+  rotateLog(logFile, maxBytes)
+  return true
+}
+
 /** Commande npm [exécutable, ...arguments] : `npm` donné (chaîne ou tableau), sinon cherchée dans le PATH de `env`. */
 function resolveNpm(npm, env) {
   if (Array.isArray(npm)) return npm
@@ -450,6 +461,7 @@ module.exports = {
   recover,
   previousBuildUsable,
   rotateLog,
+  lockThenRotate,
   renameRetry,
   UpdateError,
   STEPS,
