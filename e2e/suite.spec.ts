@@ -143,8 +143,10 @@ test('importer un fichier DataFlow d’Atelier Tab : aperçu puis import', async
   await expect(dialog.getByText('3 créé(s)')).toBeVisible()
   await dialog.getByRole('button', { name: 'Fermer', exact: true }).last().click()
 
-  // Le projet importé devient le projet courant ; ses éléments sont dans la phase « Imports Atelier Tab ».
-  await expect(page.locator('header').getByRole('button', { name: 'Rénovation Urbaine 2026' })).toBeVisible()
+  // Le projet importé devient le projet courant (titre de la barre haute, entrée de la barre latérale) ;
+  // ses éléments sont dans la phase « Imports Atelier Tab ».
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Rénovation Urbaine 2026')
+  await expect(page.getByRole('region', { name: 'Projets' }).getByRole('button', { name: 'Rénovation Urbaine 2026', exact: true })).toBeVisible()
   const projects = await api<{ id: number; name: string }[]>(request, '/api/projects')
   const imported = projects.find((project) => project.name === 'Rénovation Urbaine 2026')
   const dataset = await api<{ rows: { titre: string; phase: string }[] }>(request, `/api/exports/datasets/work-items?projectId=${imported!.id}`)
