@@ -252,7 +252,7 @@ function Milestones({ tree }: { tree: ProjectTree }) {
               <li key={milestone.id}>
                 <button
                   type="button"
-                  className="flex h-8 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-hover"
+                  className="flex h-8 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-hover pointer-coarse:h-10"
                   onClick={() => openDialog({ kind: 'editMilestone', id: milestone.id })}
                 >
                   <span className="ds-diamond" data-reached={milestone.reached} aria-hidden />

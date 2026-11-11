@@ -97,7 +97,7 @@ function EnginePill({ label, ok, title, onClick }: { label: string; ok: boolean;
       title={title}
       aria-label={`${label} : ${ok ? 'disponible' : 'indisponible'} — ${title}`}
       onClick={onClick}
-      className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-fg"
+      className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-fg pointer-coarse:h-10"
     >
       <span className="ds-dot" data-status={ok ? 'CLOSED' : 'OPEN'} aria-hidden />
       {label}
