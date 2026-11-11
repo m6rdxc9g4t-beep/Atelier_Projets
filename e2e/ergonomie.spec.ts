@@ -1,6 +1,6 @@
 // Ergonomie : focus des fenêtres, saisies conservées en cas d'erreur ou de fermeture rapide.
 import path from 'node:path'
-import { createScenario, expect, openProject, test } from './helpers.ts'
+import { api, createScenario, expect, openProject, test } from './helpers.ts'
 
 const FIXTURE = path.resolve('backend', 'test', 'fixtures', 'atelier-tab-planning.json')
 
@@ -47,4 +47,18 @@ test('fiche : un titre refusé par l’API reste dans le champ', async ({ page, 
   await page.unroute(`**/api/work-items/${s.a}*`)
   await input.press('Enter')
   await expect(aside.getByRole('heading', { name: /Maquette haute fidélité/ })).toBeVisible()
+})
+
+test('fiche : l’avancement réglé juste avant de fermer est enregistré', async ({ page, request }) => {
+  const s = await createScenario(request, 'Avancement')
+  await openProject(page, s.projectId)
+  await page.getByTitle(`#${s.c} : Recette`, { exact: true }).click()
+  const aside = page.locator('aside')
+  const slider = aside.getByLabel('Avancement déclaré')
+  await slider.focus()
+  await slider.press('ArrowRight')
+  await slider.press('ArrowRight')
+  await aside.getByRole('button', { name: 'Fermer la fiche' }).click()
+  await expect(aside).toBeHidden()
+  await expect.poll(async () => (await api(request, `/api/work-items/${s.c}`)).progress).toBe(10)
 })
