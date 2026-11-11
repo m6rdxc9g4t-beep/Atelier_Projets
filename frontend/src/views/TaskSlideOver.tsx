@@ -241,7 +241,7 @@ function TaskContent({ item }: { item: WorkItemDetail }) {
   )
 }
 
-function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: (title: string) => Promise<unknown>; busy: boolean }) {
+function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: (title: string) => Promise<{ ok: boolean }>; busy: boolean }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(item.title)
   const { busy: typeBusy, run } = useAction()
@@ -254,8 +254,8 @@ function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: 
         onSubmit={async (event) => {
           event.preventDefault()
           if (title.trim() === '' || title === item.title) return setEditing(false)
-          await onRename(title.trim())
-          setEditing(false)
+          // Refus de l'API ou backend injoignable : le champ reste ouvert avec le texte saisi.
+          if ((await onRename(title.trim())).ok) setEditing(false)
         }}
       >
         <input className="ds-input text-base font-semibold" value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Titre" autoFocus maxLength={200} />
@@ -313,18 +313,28 @@ function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: 
 function ProgressControl({ item, onCommit }: { item: WorkItemDetail; onCommit: (progress: number) => void }) {
   const [value, setValue] = useLocalValue(item.progress)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  /** Valeur réglée, pas encore envoyée. */
+  const pending = useRef<number | null>(null)
+  const latest = useRef({ saved: item.progress, onCommit })
+  latest.current = { saved: item.progress, onCommit }
   const done = item.status === 'RESOLVED' || item.status === 'CLOSED'
 
+  const flush = () => {
+    clearTimeout(timer.current)
+    const next = pending.current
+    pending.current = null
+    if (next !== null && next !== latest.current.saved) latest.current.onCommit(next)
+  }
   // Enregistre la valeur une fois le curseur immobile (souris ou flèches du clavier) ; jamais désactivé
   // pendant l'enregistrement, pour garder le focus clavier.
   const schedule = (next: number) => {
     setValue(next)
+    pending.current = next
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => {
-      if (next !== item.progress) onCommit(next)
-    }, 450)
+    timer.current = setTimeout(flush, 450)
   }
-  useEffect(() => () => clearTimeout(timer.current), [])
+  // Fiche fermée (ou autre élément ouvert) avant la fin du délai : la valeur réglée est envoyée, pas perdue.
+  useEffect(() => flush, [])
 
   return (
     <div className="space-y-1.5">

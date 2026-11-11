@@ -24,3 +24,27 @@ test('import Atelier Tab : le focus reste sur le champ modifié, puis revient au
   await expect(dialog).toBeHidden()
   await expect(trigger).toBeFocused()
 })
+
+test('fiche : un titre refusé par l’API reste dans le champ', async ({ page, request }) => {
+  const s = await createScenario(request, 'Titre')
+  await openProject(page, s.projectId)
+  await page.getByTitle(`#${s.a} : Maquette`, { exact: true }).click()
+  const aside = page.locator('aside')
+  await aside.getByRole('button', { name: 'Modifier le titre' }).click()
+
+  await page.route(`**/api/work-items/${s.a}*`, (route) =>
+    route.request().method() === 'PATCH'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ statusCode: 500, code: 'INTERNAL', message: 'Erreur interne' }) })
+      : route.fallback(),
+  )
+  const input = aside.getByLabel('Titre', { exact: true })
+  await input.fill('Maquette haute fidélité')
+  await input.press('Enter')
+  await expect(page.getByRole('alert').filter({ hasText: 'Erreur interne' })).toBeVisible()
+  await expect(input).toHaveValue('Maquette haute fidélité')
+
+  // L'API répond de nouveau : le même texte s'enregistre sans être ressaisi.
+  await page.unroute(`**/api/work-items/${s.a}*`)
+  await input.press('Enter')
+  await expect(aside.getByRole('heading', { name: /Maquette haute fidélité/ })).toBeVisible()
+})
