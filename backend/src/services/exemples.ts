@@ -3,8 +3,9 @@
 //
 // Pour Projets, une histoire apporte un projet complet (phases, epics, stories, éléments, temps passés, jalons) et la
 // tâche de suivi née de l'alerte de Viz, comme la crée le workflow Nexus « Alerte Viz → tâche de suivi Projets ».
-// L'histoire ne porte ni date de début, ni avancement, ni budget : planItem et projectFrame les déduisent
-// (estimation, temps passé, échéances, jalons) pour que le Gantt et la santé du budget aient quelque chose à montrer.
+// L'histoire ne porte ni date de début, ni avancement, ni budget : planItem et projectFrame (purs, testés) les
+// déduisent (estimation, temps passé, échéances, jalons) pour que le Gantt et la santé du budget aient quelque chose
+// à montrer. Rien n'est jamais ajouté aux fichiers générés pour cela.
 // Tout passe par les services existants (événements du nœud Atelier compris). Le projet créé est noté dans
 // AppSetting (clé « exemplesSuite ») : retirer l'exemple supprime ce projet, et lui seul.
 import { readFile } from 'node:fs/promises'
