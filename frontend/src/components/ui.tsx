@@ -224,6 +224,10 @@ export function Modal({
 }) {
   const guardRef = useRef(guard)
   guardRef.current = guard
+  // onClose est lu au moment de l'appel : une fonction recréée à chaque rendu de l'appelant ne relance pas
+  // l'effet ci-dessous (qui replacerait le focus sur le premier champ à chaque rendu).
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   const titleId = useId()
   const panel = useRef<HTMLDivElement>(null)
 
@@ -234,7 +238,7 @@ export function Modal({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        if (!guardRef.current) onClose()
+        if (!guardRef.current) closeRef.current()
       }
       if (event.key !== 'Tab' || !panel.current) return
       const focusable = [...panel.current.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]')].filter(
@@ -254,7 +258,7 @@ export function Modal({
       document.removeEventListener('keydown', onKey)
       previous?.focus()
     }
-  }, [onClose])
+  }, [])
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-backdrop p-4 pt-[10vh]">
