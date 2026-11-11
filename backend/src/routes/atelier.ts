@@ -11,6 +11,7 @@ import { BACKEND_ROOT } from '../config.ts'
 import type { Db } from '../db/client.ts'
 import { HttpError } from '../http/errors.ts'
 import { IdempotencyHeaders, sendIdempotent } from '../http/idempotency.ts'
+import { validationMessage } from '../http/validation-messages.ts'
 import { Prisma } from '../generated/prisma/client.ts'
 import { AtelierEventPageSchema, atelierErrors, EventsQuery, ManifestSchema } from '../schemas/atelier.ts'
 import type {
@@ -60,7 +61,7 @@ const PRISMA_ERRORS: Record<string, [number, string, string]> = {
 export function atelierErrorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply): FastifyReply {
   const send = (statusCode: number, code: string, detail: string) => reply.status(statusCode).send({ detail, code: contractCode(statusCode, code) })
   if (error instanceof HttpError) return send(error.statusCode, error.code, error.message)
-  if (error.validation) return send(400, 'VALIDATION', error.message)
+  if (error.validation) return send(400, 'VALIDATION', validationMessage(error.validation, error.message))
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     const known = PRISMA_ERRORS[error.code]
     if (known) return send(...known)

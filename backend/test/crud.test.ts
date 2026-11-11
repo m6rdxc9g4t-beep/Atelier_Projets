@@ -82,6 +82,11 @@ describe('projets', () => {
     const unknown = await api('POST', '/api/projects', { name: 'X', budget: 3 })
     assert.equal(unknown.status, 400)
     assert.equal(unknown.body.code, 'VALIDATION_ERROR')
+    // Messages de validation en français, avec le nom du champ (plus de « body/… must … »).
+    assert.equal(unknown.body.message, 'Champ inconnu : « budget ».')
+    assert.equal((await api('POST', '/api/projects', { name: '   ' })).body.message, 'Nom : ne peut pas être vide.')
+    assert.equal((await api('POST', '/api/projects', { name: 'X', hoursPerDay: 30 })).body.message, '« 1 jour = X heures » : 24 au plus.')
+    assert.equal((await api('GET', '/api/work-items/1?hoursPerDay=0')).body.message, '« 1 jour = X heures » : doit être supérieur à 0.')
 
     const halfGithub = await api('POST', '/api/projects', { name: 'X', githubOwner: 'francois' })
     assert.equal(halfGithub.status, 400)

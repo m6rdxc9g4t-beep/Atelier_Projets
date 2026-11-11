@@ -435,7 +435,7 @@ Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`
 - **Durées** : stockées en heures, toujours renvoyées sous la forme `{ "hours": 24, "days": 3 }` (1 jour = `hoursPerDay` du projet, 8 h par défaut). En écriture, une estimation ou un budget se saisit soit en heures (`estimatedHours`, `budgetHours`), soit en jours (`estimatedDays`, `budgetDays`) ; les saisies de temps se font en heures.
 - **Dates** : dates calendaires en `AAAA-MM-JJ` ; horodatages en ISO 8601 (UTC).
 - **Écriture** : `POST` → `201` avec la ressource créée, `PATCH` partiel → `200`, `DELETE` → `204`. Les corps JSON sont typés strictement : un champ inconnu, `"50"` à la place de `50` ou `null` sur un champ obligatoire sont refusés ; `null` efface un champ facultatif (dates, estimation, budget, dépôt…).
-- **Erreurs** : `{ "statusCode", "error", "code", "message" }` — `VALIDATION_ERROR` / `BAD_REQUEST` (400), `NOT_FOUND` (404), `CONFLICT` (409). Seules les routes `/api/atelier/*` (nœud Atelier, §8) répondent `{ "detail", "code" }`.
+- **Erreurs** : `{ "statusCode", "error", "code", "message" }` — `VALIDATION_ERROR` / `BAD_REQUEST` (400), `NOT_FOUND` (404), `CONFLICT` (409). Le `message` d'une erreur de validation est en français et nomme le champ (« Heures : 24 au plus. », « Champ inconnu : « budget ». ») ; il en va de même du `detail` du nœud Atelier. Seules les routes `/api/atelier/*` (nœud Atelier, §8) répondent `{ "detail", "code" }`.
 - **Événements** : toute écriture d'un élément, d'une saisie de temps ou d'un jalon (par ces routes, l'import ou le chronomètre) alimente le journal du nœud Atelier (`GET /api/atelier/events`, §8).
 
 ### Ressources
