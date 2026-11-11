@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { BACKEND_ROOT } from '../config.ts'
 import type { Db } from '../db/client.ts'
-import { HttpError } from '../http/errors.ts'
+import { HttpError, PRISMA_ERRORS } from '../http/errors.ts'
 import { IdempotencyHeaders, sendIdempotent } from '../http/idempotency.ts'
 import { validationMessage } from '../http/validation-messages.ts'
 import { Prisma } from '../generated/prisma/client.ts'
@@ -51,12 +51,6 @@ function contractCode(statusCode: number, code: string): string {
   return code
 }
 
-const PRISMA_ERRORS: Record<string, [number, string, string]> = {
-  P2025: [404, 'NOT_FOUND', 'Élément introuvable'],
-  P2002: [409, 'CONFLICT', 'Valeur déjà utilisée (contrainte d’unicité)'],
-  P2003: [409, 'CONFLICT', 'Référence invalide (clé étrangère)'],
-}
-
 /** Gestionnaire d'erreurs des routes /api/atelier/* : { detail, code }. */
 export function atelierErrorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply): FastifyReply {
   const send = (statusCode: number, code: string, detail: string) => reply.status(statusCode).send({ detail, code: contractCode(statusCode, code) })
@@ -64,7 +58,10 @@ export function atelierErrorHandler(error: FastifyError, request: FastifyRequest
   if (error.validation) return send(400, 'VALIDATION', validationMessage(error.validation, error.message))
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     const known = PRISMA_ERRORS[error.code]
-    if (known) return send(...known)
+    if (known) {
+      if (known[0] >= 500) request.log.error({ err: error }, known[2])
+      return send(...known)
+    }
   }
   const statusCode = error.statusCode !== undefined && error.statusCode >= 400 && error.statusCode < 500 ? error.statusCode : 500
   if (statusCode === 500) {
