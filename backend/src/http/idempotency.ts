@@ -5,7 +5,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { Type } from 'typebox'
 import type { Db } from '../db/client.ts'
-import { hashRequest, normalizeIdempotencyKey, runIdempotent } from '../services/idempotency.ts'
+import { hashRequest, legacyHashRequest, normalizeIdempotencyKey, runIdempotent } from '../services/idempotency.ts'
 
 export const IDEMPOTENCY_KEY_HEADER = 'idempotency-key'
 export const IDEMPOTENCY_REPLAYED_HEADER = 'idempotency-replayed'
@@ -50,7 +50,16 @@ export async function sendIdempotent<T>(
   const source = route.hashSource ?? { params: request.params ?? null, query: request.query ?? null, body: request.body ?? null }
   const outcome = await runIdempotent(
     prisma,
-    { scope: route.scope, key, hash: hashRequest(source), statusCode: route.statusCode, now: route.now, ...(route.timeoutMs && { timeoutMs: route.timeoutMs }) },
+    {
+      scope: route.scope,
+      key,
+      hash: hashRequest(source),
+      // Calculée seulement avec une clé : inutile de sérialiser deux fois un gros import sans Idempotency-Key.
+      ...(key && { legacyHash: legacyHashRequest(source) }),
+      statusCode: route.statusCode,
+      now: route.now,
+      ...(route.timeoutMs && { timeoutMs: route.timeoutMs }),
+    },
     write,
   )
   if (outcome.replayed) reply.header(IDEMPOTENCY_REPLAYED_HEADER, 'true')

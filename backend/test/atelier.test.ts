@@ -13,6 +13,7 @@ import { createPrismaClient } from '../src/db/client.ts'
 import { snakeKeys, snakeSchema, toSnakeKey } from '../src/domain/snake-case.ts'
 import { EVENT_KEEP_COUNT, EVENT_KEEP_MS, emitEvents, nodeEvent, purgeEvents } from '../src/services/atelier-events.ts'
 import { NODE_ACTIONS } from '../src/services/atelier-manifest.ts'
+import { hashRequest, legacyHashRequest, runIdempotent } from '../src/services/idempotency.ts'
 import { EVENT_DATA_SCHEMAS } from '../src/schemas/atelier.ts'
 import { applyMigrations, createTestContext, type TestContext } from './helpers/test-app.ts'
 
@@ -681,6 +682,35 @@ describe('idempotence (Idempotency-Key, §7.4)', () => {
       }
     })
   }
+
+  it('même contenu, clés dans un autre ordre → réponse rejouée (corps canonique, §7.7)', async () => {
+    const key = 'nexus:run-10:ordre'
+    const url = '/api/atelier/work-items/104/time-entries'
+    const first = await req('POST', url, { hours: 0.5, comment: 'Relecture', spent_on: '2026-10-19' }, { 'idempotency-key': key })
+    assert.equal(first.status, 201, JSON.stringify(first.body))
+    const count = await ctx.prisma.timeEntry.count()
+    const replay = await req('POST', url, { spent_on: '2026-10-19', comment: 'Relecture', hours: 0.5 }, { 'idempotency-key': key })
+    assert.equal(replay.status, 201)
+    assert.equal(replay.headers['idempotency-replayed'], 'true')
+    assert.deepEqual(replay.body, first.body)
+    assert.equal(await ctx.prisma.timeEntry.count(), count)
+  })
+
+  it('une clé enregistrée avec l’ancienne empreinte reste rejouable', async () => {
+    const source = { body: { hours: 1, comment: 'x' }, params: { id: 1 } }
+    const options = { scope: 'test.empreinte', key: 'avant-mise-a-jour', statusCode: 201, now: new Date() }
+    const stored = await runIdempotent(ctx.prisma, { ...options, hash: legacyHashRequest(source) }, async () => ({ ok: 1 }))
+    assert.equal(stored.replayed, false)
+    assert.notEqual(hashRequest(source), legacyHashRequest(source))
+    const write = async () => assert.fail('rien ne doit être réécrit')
+    const replay = await runIdempotent(ctx.prisma, { ...options, hash: hashRequest(source), legacyHash: legacyHashRequest(source) }, write)
+    assert.deepEqual(replay, { statusCode: 201, body: { ok: 1 }, replayed: true })
+    const other = { ...source, body: { hours: 2 } }
+    await assert.rejects(
+      runIdempotent(ctx.prisma, { ...options, hash: hashRequest(other), legacyHash: legacyHashRequest(other) }, write),
+      { code: 'IDEMPOTENCY_KEY_REUSED' },
+    )
+  })
 
   it('portée par action : la même clé sert à deux actions différentes', async () => {
     const key = 'nexus:run-8:partagee'

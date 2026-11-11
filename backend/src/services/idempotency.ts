@@ -8,6 +8,7 @@
 // fenêtre où l'écriture est faite mais la clé perdue). Les événements du nœud (services/atelier-events.ts) sont
 // émis dans cette même transaction : une écriture rejouée n'émet rien.
 import { createHash } from 'node:crypto'
+import { canonicalJson } from '../domain/canonical-json.ts'
 import type { Db } from '../db/client.ts'
 import { HttpError } from '../http/errors.ts'
 
@@ -16,9 +17,20 @@ export const IDEMPOTENCY_RETENTION_MS = 30 * 24 * 3600 * 1000
 /** Délai par défaut d'une transaction d'écriture idempotente (Prisma : 5 s). */
 const DEFAULT_TIMEOUT_MS = 5_000
 
-/** Empreinte SHA-256 (hex) d'un contenu de requête sérialisé en JSON. */
+const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex')
+
+/** Empreinte SHA-256 (hex) d'un contenu de requête, en JSON canonique : l'ordre des clés est indifférent (§7.7). */
 export function hashRequest(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex')
+  return sha256(canonicalJson(value))
+}
+
+/**
+ * Empreinte d'avant la forme canonique (clés dans l'ordre reçu). Une clé enregistrée avec elle reste rejouable
+ * pendant sa rétention de 30 jours : sans cela, le rejeu d'une écriture faite juste avant la mise à jour
+ * répondrait 409 au lieu de la réponse enregistrée.
+ */
+export function legacyHashRequest(value: unknown): string {
+  return sha256(JSON.stringify(value))
 }
 
 /** Clé d'un en-tête Idempotency-Key : espaces retirés, absente si vide. */
@@ -34,6 +46,8 @@ export interface IdempotentOptions {
   key: string | null
   /** Empreinte du contenu de la requête (hashRequest). */
   hash: string
+  /** Ancienne empreinte du même contenu (legacyHashRequest), acceptée pour une clé déjà enregistrée. */
+  legacyHash?: string
   /** Statut HTTP de la réponse, rejoué tel quel. */
   statusCode: number
   now: Date
@@ -48,10 +62,10 @@ export interface IdempotentOutcome<T> {
   replayed: boolean
 }
 
-async function storedResponse<T>(db: Db, scope: string, key: string, hash: string): Promise<IdempotentOutcome<T> | null> {
+async function storedResponse<T>(db: Db, scope: string, key: string, hashes: readonly string[]): Promise<IdempotentOutcome<T> | null> {
   const stored = await db.idempotencyRecord.findUnique({ where: { scope_key: { scope, key } } })
   if (!stored) return null
-  if (stored.requestHash !== hash) {
+  if (!hashes.includes(stored.requestHash)) {
     throw new HttpError(409, 'IDEMPOTENCY_KEY_REUSED', 'Cette clé Idempotency-Key a déjà servi pour un autre contenu : utiliser une nouvelle clé')
   }
   return { statusCode: stored.statusCode, body: JSON.parse(stored.response) as T, replayed: true }
@@ -64,8 +78,9 @@ async function storedResponse<T>(db: Db, scope: string, key: string, hash: strin
 export async function runIdempotent<T>(prisma: Db, options: IdempotentOptions, write: (db: Db) => Promise<T>): Promise<IdempotentOutcome<T>> {
   const { scope, key, hash, statusCode, now } = options
   const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const hashes = options.legacyHash === undefined ? [hash] : [hash, options.legacyHash]
   if (key) {
-    const replay = await storedResponse<T>(prisma, scope, key, hash)
+    const replay = await storedResponse<T>(prisma, scope, key, hashes)
     if (replay) return replay
   }
   try {
@@ -73,7 +88,7 @@ export async function runIdempotent<T>(prisma: Db, options: IdempotentOptions, w
       async (tx) => {
         // Deux envois simultanés de la même clé : le second voit la réponse du premier.
         if (key) {
-          const replay = await storedResponse<T>(tx, scope, key, hash)
+          const replay = await storedResponse<T>(tx, scope, key, hashes)
           if (replay) return replay
         }
         const body = await write(tx)
@@ -88,7 +103,7 @@ export async function runIdempotent<T>(prisma: Db, options: IdempotentOptions, w
   } catch (error) {
     // Course perdue sur la clé (P2002) : l'autre requête a écrit ; renvoyer sa réponse.
     if (key && (error as { code?: string }).code === 'P2002') {
-      const replay = await storedResponse<T>(prisma, scope, key, hash)
+      const replay = await storedResponse<T>(prisma, scope, key, hashes)
       if (replay) return replay
     }
     throw error

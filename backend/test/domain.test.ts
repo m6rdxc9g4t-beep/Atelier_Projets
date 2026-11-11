@@ -1,6 +1,7 @@
 // Tests unitaires du domaine métier (fonctions pures, sans base ni HTTP).
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { canonicalJson } from '../src/domain/canonical-json.ts'
 import { aggregate, deriveStatus, effectiveProgress, progressSummary } from '../src/domain/aggregates.ts'
 import { computeBalance, computeEnvelopeBalance, computeTrend } from '../src/domain/balance.ts'
 import { formatDateOnly, parseDateOnly, todayDateOnly } from '../src/domain/dates.ts'
@@ -199,5 +200,21 @@ describe('slugs de projet', () => {
     const taken = new Set(['demo', 'demo-2'])
     assert.equal(uniqueSlug('demo', (slug) => taken.has(slug)), 'demo-3')
     assert.equal(uniqueSlug('libre', (slug) => taken.has(slug)), 'libre')
+  })
+})
+
+describe('JSON canonique', () => {
+  it('trie les clés à tous les niveaux et garde l’ordre des tableaux', () => {
+    assert.equal(canonicalJson({ b: 1, a: { d: [3, { z: 1, y: 2 }], c: null } }), '{"a":{"c":null,"d":[3,{"y":2,"z":1}]},"b":1}')
+    assert.equal(canonicalJson({ type: 'TASK', title: 'x' }), canonicalJson({ title: 'x', type: 'TASK' }))
+    assert.notEqual(canonicalJson([1, 2]), canonicalJson([2, 1]))
+  })
+
+  it('suit JSON.stringify pour les valeurs simples et les propriétés absentes', () => {
+    assert.equal(canonicalJson({ a: undefined, b: 'é' }), '{"b":"é"}')
+    assert.equal(canonicalJson(null), 'null')
+    assert.equal(canonicalJson(undefined), 'null')
+    assert.equal(canonicalJson('x'), '"x"')
+    assert.equal(canonicalJson(new Date('2026-10-18T00:00:00Z')), '"2026-10-18T00:00:00.000Z"')
   })
 })
