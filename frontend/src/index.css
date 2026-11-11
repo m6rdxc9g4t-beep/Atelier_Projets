@@ -180,11 +180,35 @@
   container-type: inline-size;
 }
 .gantt {
-  --gantt-left: 13rem;
+  --gantt-left: 14.5rem;
+  --gantt-indent: 10px;
+}
+/* Retrait d'une ligne selon son niveau (--level, posé par la ligne). */
+.gantt-cell {
+  padding-left: calc(12px + var(--level, 0) * var(--gantt-indent));
+}
+/* Carte étroite (téléphone) : la colonne figée ne garde que la hiérarchie — retraits serrés, ni budget ni
+   nom du type (la pastille de couleur le dit déjà) — pour que le titre reste lisible. */
+.gantt-budget,
+.gantt-type {
+  display: none;
+}
+.gantt-actions {
+  right: 0.75rem;
 }
 @container (min-width: 30rem) {
   .gantt {
     --gantt-left: 17rem;
+    --gantt-indent: 18px;
+  }
+  .gantt-budget {
+    display: block;
+  }
+  .gantt-type {
+    display: inline;
+  }
+  .gantt-actions {
+    right: 4rem;
   }
 }
 @container (min-width: 42rem) {
@@ -302,8 +326,15 @@
   }
   html[data-printing="gantt"] .gantt {
     --gantt-left: var(--print-left, 21rem);
+    --gantt-indent: 18px;
     max-height: none;
     overflow: visible;
+  }
+  html[data-printing="gantt"] .gantt-budget {
+    display: block;
+  }
+  html[data-printing="gantt"] .gantt-type {
+    display: inline;
   }
   html[data-printing="gantt"] .gantt-content {
     zoom: var(--print-scale, 1);

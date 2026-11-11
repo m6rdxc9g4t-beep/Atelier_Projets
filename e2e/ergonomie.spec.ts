@@ -1,4 +1,4 @@
-// Ergonomie : focus des fenêtres, saisies conservées en cas d'erreur ou de fermeture rapide.
+// Ergonomie : focus des fenêtres, saisies conservées en cas d'erreur ou de fermeture rapide, Gantt au téléphone.
 import path from 'node:path'
 import { api, createScenario, expect, openProject, test } from './helpers.ts'
 
@@ -61,4 +61,23 @@ test('fiche : l’avancement réglé juste avant de fermer est enregistré', asy
   await aside.getByRole('button', { name: 'Fermer la fiche' }).click()
   await expect(aside).toBeHidden()
   await expect.poll(async () => (await api(request, `/api/work-items/${s.c}`)).progress).toBe(10)
+})
+
+test.describe('au téléphone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+
+  test('Gantt : titres lisibles dans la colonne figée, ajout d’un élément au doigt', async ({ page, request }) => {
+    const s = await createScenario(request, 'Téléphone')
+    await openProject(page, s.projectId)
+    const title = page.getByTitle(`#${s.a} : Maquette`, { exact: true })
+    await expect(title).toBeVisible()
+    expect((await title.boundingBox())!.width).toBeGreaterThan(90)
+
+    // Sans survol, les actions de la ligne restent affichées : la story reçoit un élément.
+    await page.getByRole('button', { name: 'Ajouter un élément' }).tap()
+    const dialog = page.getByRole('dialog', { name: 'Nouvel élément' })
+    await dialog.getByLabel('Titre').fill('Tests au doigt')
+    await dialog.getByRole('button', { name: 'Créer', exact: true }).tap()
+    await expect(page.getByTitle(/ : Tests au doigt$/)).toBeVisible()
+  })
 })
