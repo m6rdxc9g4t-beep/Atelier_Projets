@@ -80,4 +80,30 @@ test.describe('au téléphone', () => {
     await dialog.getByRole('button', { name: 'Créer', exact: true }).tap()
     await expect(page.getByTitle(/ : Tests au doigt$/)).toBeVisible()
   })
+
+  test('cibles d’au moins 40 px et champs à 16 px (pas de zoom d’iOS), panneau IA accessible', async ({ page, request }) => {
+    const s = await createScenario(request, 'Doigt')
+    await openProject(page, s.projectId)
+    await page.getByTitle(`#${s.a} : Maquette`, { exact: true }).click()
+    const aside = page.locator('aside')
+    await expect(aside.getByLabel('Avancement déclaré')).toBeVisible()
+
+    // Hors des lignes du Gantt (36 px, géométrie du diagramme) et de la marque commune (copie de la suite).
+    const tooSmall = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('button, select, input, textarea, a[href]')]
+        .filter((element) => !element.closest('.gantt, .atelier-brand'))
+        .flatMap((element) => {
+          const box = element.getBoundingClientRect()
+          if (box.width === 0 || box.height === 0) return []
+          const field = element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement || (element instanceof HTMLInputElement && !['checkbox', 'radio', 'range', 'file'].includes(element.type))
+          const small = box.height < 39.5 || (field && Number.parseFloat(getComputedStyle(element).fontSize) < 16)
+          return small ? [`${Math.round(box.width)}×${Math.round(box.height)} ${element.getAttribute('aria-label') ?? element.textContent?.trim().slice(0, 30) ?? element.tagName}`] : []
+        }),
+    )
+    expect(tooSmall).toEqual([])
+
+    await aside.getByRole('button', { name: 'Fermer la fiche' }).tap()
+    await page.getByRole('button', { name: 'IA', exact: true }).tap()
+    await expect(page.getByRole('dialog', { name: 'Intelligence artificielle' })).toBeVisible()
+  })
 })

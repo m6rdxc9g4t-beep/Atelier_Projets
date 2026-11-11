@@ -52,7 +52,7 @@ export function HealthCard({ dashboard }: { dashboard: Dashboard }) {
             </p>
             <p className="text-muted">
               Aucun budget initial.{' '}
-              <button type="button" className="text-accent-ink underline underline-offset-2" onClick={() => setView('settings')}>
+              <button type="button" className="text-accent-ink underline underline-offset-2 pointer-coarse:-my-2.5 pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center" onClick={() => setView('settings')}>
                 Le définir
               </button>
             </p>

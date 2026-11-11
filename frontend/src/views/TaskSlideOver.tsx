@@ -67,7 +67,7 @@ export function TaskSlideOver({ workItemId, project }: { workItemId: number; pro
         aria-label={`Fiche de l’élément #${workItemId}`}
         className="ds-card fixed inset-y-0 right-0 z-40 flex w-[min(30rem,100vw)] flex-col rounded-none border-y-0 border-r-0 shadow-overlay xl:static xl:z-auto xl:w-[28rem] xl:shadow-card 2xl:w-[32rem]"
       >
-        <div className="flex h-11 shrink-0 items-center justify-between border-b border-line pl-4 pr-2">
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-line pl-4 pr-2 pointer-coarse:h-12">
           <span className="text-xs font-medium text-muted">Fiche élément</span>
           <div className="flex items-center gap-1">
             <ClaudeLaunchButton project={project} workItemId={workItemId} />
@@ -354,7 +354,7 @@ function ProgressControl({ item, onCommit }: { item: WorkItemDetail; onCommit: (
         disabled={done}
         title={done ? 'Un élément résolu ou terminé est à 100 %' : undefined}
         onChange={(event) => schedule(Number(event.target.value))}
-        className="w-full accent-[var(--accent)]"
+        className="w-full accent-[var(--accent)] pointer-coarse:h-10"
       />
     </div>
   )
@@ -429,7 +429,7 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
             <dd>
               <button
                 type="button"
-                className="ds-kpi__value group flex items-center gap-1 font-semibold"
+                className="ds-kpi__value group flex items-center gap-1 font-semibold pointer-coarse:-my-2.5 pointer-coarse:min-h-10"
                 onClick={() => {
                   setEstimate(item.estimate ? String(item.estimate.days) : '')
                   setEditingEstimate(true)
@@ -488,7 +488,7 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
 
       {item.timeEntries.length > 0 && (
         <div>
-          <button type="button" className="text-sm text-accent-ink hover:underline" onClick={() => setShowEntries((value) => !value)} aria-expanded={showEntries}>
+          <button type="button" className="text-sm text-accent-ink hover:underline pointer-coarse:min-h-10" onClick={() => setShowEntries((value) => !value)} aria-expanded={showEntries}>
             {showEntries ? 'Masquer' : 'Afficher'} les saisies ({item.timeEntries.length})
           </button>
           {showEntries && (

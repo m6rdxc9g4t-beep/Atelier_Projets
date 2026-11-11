@@ -367,7 +367,7 @@ export function OnlineSwitch({ className }: { className?: string }) {
           ? 'En ligne : Claude peut être utilisé. Cliquer pour repasser hors ligne.'
           : 'Hors ligne : tout reste sur la machine. Cliquer pour autoriser Claude.'
       }
-      className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors disabled:opacity-60 ${
+      className={`flex h-7 pointer-coarse:h-10 pointer-coarse:px-3 shrink-0 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors disabled:opacity-60 ${
         online ? 'border-transparent bg-accent-soft text-accent-ink' : 'border-line text-muted hover:bg-hover hover:text-fg'
       } ${className ?? ''}`}
     >
