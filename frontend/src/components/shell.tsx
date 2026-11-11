@@ -242,7 +242,7 @@ export function TopBar({ project }: { project: Project | undefined }) {
       <Button
         variant="ghost"
         size="sm"
-        className="hidden md:inline-flex"
+        className="hidden shrink-0 md:inline-flex"
         icon={railExpanded ? <PanelLeftClose /> : <PanelLeftOpen />}
         aria-label="Afficher ou masquer les libellés du menu"
         title={railExpanded ? 'Replier la barre latérale' : 'Déplier la barre latérale'}
@@ -268,7 +268,8 @@ export function TopBar({ project }: { project: Project | undefined }) {
           <span className="truncate">{github}</span>
         </a>
       )}
-      <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+      {/* Seul le titre cède la place (tronqué) : les commandes de droite ne rétrécissent pas, sinon « IA » sort de l'écran. */}
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2">
         <TimerPill />
         <AiControls />
       </div>

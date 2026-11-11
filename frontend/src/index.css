@@ -248,6 +248,20 @@
     --gantt-left: 26rem;
   }
 }
+/* Au doigt, les actions d'une ligne restent affichées dans la colonne (pas de survol) : sur une carte de moins
+   de 42rem (tablette en portrait), la colonne garde la disposition serrée du téléphone, sinon le titre d'une
+   story n'a plus la place de son code. */
+@media (pointer: coarse) {
+  @container (min-width: 30rem) and (max-width: 41.99rem) {
+    .gantt {
+      --gantt-indent: 10px;
+    }
+    .gantt-budget,
+    .gantt-type {
+      display: none;
+    }
+  }
+}
 
 /* Gantt interactif : poignées de redimensionnement, rond de liaison, flèches de dépendance. */
 .gantt-handle {
