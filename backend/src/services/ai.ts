@@ -264,6 +264,8 @@ export async function summarizeCommits(
   if (commits.length === 0) {
     throw badRequest(`Aucun commit lié à #${item.id} : citer « #${item.id} » dans les messages de commit puis analyser le dépôt`)
   }
+  // Moteur résolu avant de lire le dépôt : un refus (Claude hors ligne ou indisponible) ne coûte aucun « git show ».
+  const resolved = await resolveEngine(prisma, settings, input)
 
   const warnings: string[] = []
   let repository: Awaited<ReturnType<typeof openRepository>> | null = null
@@ -306,7 +308,6 @@ export async function summarizeCommits(
   }
   if (item.commitLinks.length === MAX_SUMMARY_COMMITS) warnings.push(`Seuls les ${MAX_SUMMARY_COMMITS} commits les plus récents ont été lus.`)
 
-  const resolved = await resolveEngine(prisma, settings, input)
   const answer = await generate(settings, resolved, {
     signal,
     messages: buildSummaryMessages({
