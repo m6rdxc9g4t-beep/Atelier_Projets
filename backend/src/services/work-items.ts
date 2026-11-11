@@ -182,8 +182,16 @@ export async function getWorkItemDetail(
   }
 }
 
-/** Données d'un nouvel élément, validées (dates, statut / avancement, estimation convertie en heures). */
-function newWorkItemData(project: { id: number; hoursPerDay: number }, storyId: number, input: WorkItemCreate) {
+/**
+ * Données d'un nouvel élément, validées (dates, statut / avancement, estimation convertie en heures).
+ * `hoursPerDay` : conversion de la vue (« 1 jour = X heures » surchargé), sinon celle du projet.
+ */
+function newWorkItemData(
+  project: { id: number; hoursPerDay: number },
+  storyId: number,
+  input: WorkItemCreate,
+  hoursPerDay: number = project.hoursPerDay,
+) {
   const startDate = inputDate(input.startDate ?? null)
   const dueDate = inputDate(input.dueDate ?? null)
   assertDateOrder(startDate, dueDate)
@@ -197,7 +205,7 @@ function newWorkItemData(project: { id: number; hoursPerDay: number }, storyId: 
     title: input.title.trim(),
     description: input.description ?? '',
     implementationLog: input.implementationLog ?? '',
-    estimatedHours: resolveHours(input.estimatedHours, input.estimatedDays, project.hoursPerDay, 'estimated') ?? null,
+    estimatedHours: resolveHours(input.estimatedHours, input.estimatedDays, hoursPerDay, 'estimated') ?? null,
     progress: progressFor(status, input.progress) ?? 0,
     startDate,
     dueDate,
@@ -218,9 +226,10 @@ export async function createWorkItem(
   storyId: number,
   input: WorkItemCreate,
   now: Date = new Date(),
+  options: ReportOptions = {},
 ): Promise<WorkItemDetailDto> {
   const story = await requireStory(prisma, storyId)
-  const data = newWorkItemData(story.epic.phase.project, storyId, input)
+  const data = newWorkItemData(story.epic.phase.project, storyId, input, options.hoursPerDay)
   const id = await prisma.$transaction(async (tx) => {
     const item = await tx.workItem.create({
       data: { ...data, position: input.position ?? (await nextWorkItemPosition(tx, storyId)) },
@@ -228,7 +237,7 @@ export async function createWorkItem(
     await emitEvents(tx, [createdEvent(item)], now)
     return item.id
   })
-  return getWorkItemDetail(prisma, id)
+  return getWorkItemDetail(prisma, id, options)
 }
 
 /**
@@ -279,11 +288,16 @@ export function updateEvents(
   ]
 }
 
+/**
+ * Modifie un élément. `options.hoursPerDay` (surcharge de la vue) convertit une estimation saisie en jours
+ * avec la même valeur que celle affichée par la fiche, et sert à la fiche renvoyée.
+ */
 export async function updateWorkItem(
   prisma: Db,
   workItemId: number,
   input: WorkItemUpdate,
   now: Date = new Date(),
+  options: ReportOptions = {},
 ): Promise<WorkItemDetailDto> {
   const current = await prisma.workItem.findUnique({ where: { id: workItemId }, include: { project: true } })
   if (!current) throw notFound(`Élément #${workItemId} introuvable`)
@@ -303,7 +317,12 @@ export async function updateWorkItem(
   // Résolu / terminé ⇒ 100 % ; rouvrir un élément conserve son avancement, sauf valeur fournie.
   const progress = progressFor(input.status ?? current.status, input.progress)
   if (progress !== undefined) data.progress = progress
-  const estimatedHours = resolveHours(input.estimatedHours, input.estimatedDays, current.project.hoursPerDay, 'estimated')
+  const estimatedHours = resolveHours(
+    input.estimatedHours,
+    input.estimatedDays,
+    options.hoursPerDay ?? current.project.hoursPerDay,
+    'estimated',
+  )
   if (estimatedHours !== undefined) data.estimatedHours = estimatedHours
 
   if (input.storyId !== undefined && input.storyId !== current.storyId) {
@@ -321,7 +340,7 @@ export async function updateWorkItem(
     const updated = await tx.workItem.update({ where: { id: workItemId }, data })
     await emitEvents(tx, updateEvents(updated, fields, { from: current.status, to: updated.status }), now)
   })
-  return getWorkItemDetail(prisma, workItemId)
+  return getWorkItemDetail(prisma, workItemId, options)
 }
 
 /** Événements « supprimé » des éléments qui vont disparaître (directement ou avec leur conteneur). */

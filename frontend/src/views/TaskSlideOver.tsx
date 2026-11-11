@@ -378,7 +378,13 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
     event.preventDefault()
     const value = parseNumber(estimate)
     if (estimate.trim() !== '' && (value === null || value < 0)) return useApp.getState().notify('error', 'Estimation invalide.')
-    const result = await run('estimate', () => workItemService.update(item.id, { estimatedDays: value }), 'Estimation mise à jour')
+    // Les jours saisis sont ceux de la conversion affichée (« 1 jour = X heures » de la vue) : l'API convertit avec elle.
+    const hoursPerDay = useApp.getState().hoursPerDay ?? undefined
+    const result = await run(
+      'estimate',
+      () => workItemService.update(item.id, { estimatedDays: value }, { hoursPerDay }),
+      'Estimation mise à jour',
+    )
     if (result.ok) setEditingEstimate(false)
   }
 

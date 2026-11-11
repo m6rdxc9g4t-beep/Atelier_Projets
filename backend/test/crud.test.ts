@@ -146,6 +146,28 @@ describe('hiérarchie et éléments', () => {
     assert.equal(badType.status, 400)
   })
 
+  it('convertit une estimation en jours avec la surcharge « 1 jour = X heures » de la vue', async () => {
+    const { storyId } = await scaffold('Vue à 7 heures')
+    const created = await api('POST', `/api/stories/${storyId}/work-items?hoursPerDay=7`, { type: 'TASK', title: 'Maquette', estimatedDays: 3 })
+    assert.equal(created.status, 201)
+    assert.deepEqual(created.body.estimate, { hours: 21, days: 3 })
+
+    // Fiche affichée avec la vue à 7 h : réenregistrer la valeur lue ne change pas les heures stockées.
+    const item = (await api('POST', `/api/stories/${storyId}/work-items`, { type: 'TASK', title: 'Intégration', estimatedHours: 24 })).body
+    const shown = (await api('GET', `/api/work-items/${item.id}?hoursPerDay=7`)).body.estimate
+    assert.equal(shown.days, 3.4286)
+    const saved = await api('PATCH', `/api/work-items/${item.id}?hoursPerDay=7`, { estimatedDays: shown.days })
+    assert.deepEqual(saved.body.estimate, { hours: 24, days: 3.4286 })
+    assert.equal((await api('GET', `/api/work-items/${item.id}`)).body.estimate.hours, 24)
+
+    const typed = await api('PATCH', `/api/work-items/${item.id}?hoursPerDay=7`, { estimatedDays: 3 })
+    assert.deepEqual(typed.body.estimate, { hours: 21, days: 3 })
+    // Sans surcharge, la conversion du projet (8 h) reste la règle.
+    const plain = await api('PATCH', `/api/work-items/${item.id}`, { estimatedDays: 3 })
+    assert.deepEqual(plain.body.estimate, { hours: 24, days: 3 })
+    assert.equal((await api('PATCH', `/api/work-items/${item.id}?hoursPerDay=0`, { estimatedDays: 3 })).status, 400)
+  })
+
   it('met à jour statut, avancement et estimation', async () => {
     const { storyId } = await scaffold('Workflow')
     const item = (await api('POST', `/api/stories/${storyId}/work-items`, { type: 'TASK', title: 'Config CI', estimatedHours: 6 })).body

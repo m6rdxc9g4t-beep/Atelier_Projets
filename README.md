@@ -460,7 +460,7 @@ Base : `http://127.0.0.1:3000/api` — documentation interactive : **`/api/docs`
 | TimeSheetView | `GET /projects/:projectId/timesheet?epicId=&phaseId=&storyId=&type=&status=` | Par élément : budget, réalisé, bilan ; totaux (nombre, % terminé/résolu, budget, réalisé, reste et solde `balance`) |
 | TaskSlideOver | `GET /work-items/:workItemId` | Parent, statut, budget et temps, onglets Description et Journal, saisies de temps, commits liés au `#ID`, prédécesseurs et successeurs avec leur marge |
 
-Les trois vues et la fiche élément acceptent `?hoursPerDay=` pour afficher les jours avec une autre conversion (sélecteur « 1 Jour = 8 Heures ▾ »), sans modifier les heures stockées.
+Les trois vues et la fiche élément acceptent `?hoursPerDay=` pour afficher les jours avec une autre conversion (sélecteur « 1 Jour = 8 Heures ▾ »), sans modifier les heures stockées. `POST /stories/:storyId/work-items` et `PATCH /work-items/:workItemId` l'acceptent aussi : une estimation saisie en jours (`estimatedDays`) est alors convertie avec la conversion affichée, pas avec celle du projet (réenregistrer la valeur lue ne change pas les heures).
 
 ### Règles métier appliquées
 
