@@ -246,17 +246,23 @@ function WorkItemDialog({ request }: { request: Extract<DialogRequest, { kind: '
     event.preventDefault()
     const estimatedDays = parseNumber(estimate)
     if (estimate.trim() !== '' && (estimatedDays === null || estimatedDays < 0)) return fail('Estimation invalide.')
+    // Jours de la conversion affichée par la vue (« 1 jour = X heures » surchargé), comme sur la fiche.
+    const hoursPerDay = useApp.getState().hoursPerDay ?? undefined
     const result = await run(
       'create',
       () =>
-        workItemService.create(request.storyId, {
-          type,
-          title: title.trim(),
-          priority,
-          ...(estimatedDays !== null && { estimatedDays }),
-          ...(start && { startDate: start }),
-          ...(due && { dueDate: due }),
-        }),
+        workItemService.create(
+          request.storyId,
+          {
+            type,
+            title: title.trim(),
+            priority,
+            ...(estimatedDays !== null && { estimatedDays }),
+            ...(start && { startDate: start }),
+            ...(due && { dueDate: due }),
+          },
+          { hoursPerDay },
+        ),
       `${TYPE_LABEL[type]} créée`,
     )
     if (result.ok) {

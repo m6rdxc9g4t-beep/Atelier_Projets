@@ -15,12 +15,27 @@ export interface WorkItemReference {
 }
 
 /**
+ * Suite collée aux chiffres : une lettre (« #15aabf », « #2563EB » sont des couleurs, pas des #ID) ou « _ » puis
+ * une lettre ou un chiffre (« #7_bis »). Un « _ » seul ferme un italique ou un gras Markdown : « _Closes #12_ »
+ * désigne bien l'élément #12.
+ */
+const GLUED_SUFFIX = /(?:\p{L}|_+[\p{L}\p{N}])/uy
+
+/** Vrai si ce qui suit la position `end` est collé aux chiffres (motif ancré : le texte n'est pas recopié). */
+function isGlued(text: string, end: number): boolean {
+  GLUED_SUFFIX.lastIndex = end
+  return GLUED_SUFFIX.test(text)
+}
+
+/**
  * Références d'un texte, sans doublon : un même #ID cité plusieurs fois garde le premier mot-clé
- * rencontré (« ref #12 … fix #12 » → ref). Les #ID impossibles (0, trop grands) sont ignorés.
+ * rencontré (« ref #12 … fix #12 » → ref). Les #ID impossibles (0, trop grands) sont ignorés, comme les
+ * chiffres suivis d'une lettre (couleur hexadécimale « #15aabf », identifiant « #12abc » ou « #7_bis »).
  */
 export function parseReferences(text: string): WorkItemReference[] {
   const references = new Map<number, WorkItemReference>()
   for (const match of text.matchAll(new RegExp(REFERENCE_PATTERN))) {
+    if (isGlued(text, match.index + match[0].length)) continue
     const workItemId = Number(match[2])
     if (!Number.isSafeInteger(workItemId) || workItemId < 1 || workItemId > MAX_WORK_ITEM_ID) continue
     const keyword = match[1]?.toLowerCase() ?? null

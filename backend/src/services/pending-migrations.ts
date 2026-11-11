@@ -43,6 +43,17 @@ export async function pendingMigrations(options: { databaseFile: string; migrati
   return local.filter((name) => !applied.has(name))
 }
 
+/**
+ * Message à journaliser au démarrage de l'API quand la base est en retard sur le code ; null si elle est à jour
+ * (ou illisible : le démarrage ne doit pas échouer pour un simple avertissement).
+ */
+export async function pendingMigrationsWarning(options: { databaseFile: string; migrationsDir: string }): Promise<string | null> {
+  const pending = await pendingMigrations(options).catch(() => [])
+  if (pending.length === 0) return null
+  const count = pending.length === 1 ? '1 migration en attente' : `${pending.length} migrations en attente`
+  return `Base de données non à jour : ${count} (${pending[0]}${pending.length > 1 ? ', …' : ''}). Arrêter l’API, lancer « npm run db:deploy --workspace=@atelier/backend » à la racine du dépôt, puis la relancer.`
+}
+
 export type PreMigrationBackup =
   | { status: 'up-to-date'; pending: [] }
   | { status: 'new-database'; pending: string[] }

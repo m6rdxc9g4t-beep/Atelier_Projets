@@ -97,7 +97,7 @@ function EnginePill({ label, ok, title, onClick }: { label: string; ok: boolean;
       title={title}
       aria-label={`${label} : ${ok ? 'disponible' : 'indisponible'} — ${title}`}
       onClick={onClick}
-      className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-fg"
+      className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-fg pointer-coarse:h-10"
     >
       <span className="ds-dot" data-status={ok ? 'CLOSED' : 'OPEN'} aria-hidden />
       {label}
@@ -109,7 +109,7 @@ function EnginePill({ label, ok, title, onClick }: { label: string; ok: boolean;
 function AiButton() {
   const openDialog = useApp((state) => state.openDialog)
   return (
-    <Button variant="primary" size="sm" icon={<Bot />} title="Intelligence artificielle : moteurs, modèles, session Claude CLI" className="hidden sm:inline-flex" onClick={() => openDialog({ kind: 'ai' })}>
+    <Button variant="primary" size="sm" icon={<Bot />} title="Intelligence artificielle : moteurs, modèles, session Claude CLI" onClick={() => openDialog({ kind: 'ai' })}>
       IA
     </Button>
   )
@@ -185,9 +185,9 @@ export function Sidebar({ projects, project }: { projects: Project[]; project: P
   )
 }
 
-/** Entrée de navigation : 30 px, icône 16 px discrète, libellé 13 px en 500 ; pastille bordée sur téléphone. */
+/** Entrée de navigation : 30 px (40 px au doigt), icône 16 px discrète, libellé 13 px en 500 ; pastille bordée sur téléphone. */
 const NAV_ITEM =
-  'flex h-[30px] shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full border border-line px-2.5 text-left text-sm font-medium text-fg transition-colors hover:bg-hover md:rounded-md md:border-0 md:px-2 [&>svg]:hidden [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-faint md:[&>svg]:block'
+  'flex h-[30px] shrink-0 pointer-coarse:h-10 items-center gap-2.5 whitespace-nowrap rounded-full border border-line px-2.5 text-left text-sm font-medium text-fg transition-colors hover:bg-hover md:rounded-md md:border-0 md:px-2 [&>svg]:hidden [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-faint md:[&>svg]:block'
 
 /**
  * Vues du projet : onglets (tablist) disposés en colonne dans la barre latérale, en rangée sur téléphone.
@@ -238,11 +238,11 @@ export function TopBar({ project }: { project: Project | undefined }) {
   const title = VIEWS.find((entry) => entry.id === view)?.label
 
   return (
-    <header className="flex min-h-[var(--top-h)] shrink-0 items-center gap-2 border-b border-line bg-main px-3.5 md:gap-3 md:px-4">
+    <header className="flex min-h-[var(--top-h)] shrink-0 items-center gap-2 border-b border-line bg-main px-3.5 md:gap-3 md:px-4 pointer-coarse:py-1">
       <Button
         variant="ghost"
         size="sm"
-        className="hidden md:inline-flex"
+        className="hidden shrink-0 md:inline-flex"
         icon={railExpanded ? <PanelLeftClose /> : <PanelLeftOpen />}
         aria-label="Afficher ou masquer les libellés du menu"
         title={railExpanded ? 'Replier la barre latérale' : 'Déplier la barre latérale'}
@@ -268,7 +268,8 @@ export function TopBar({ project }: { project: Project | undefined }) {
           <span className="truncate">{github}</span>
         </a>
       )}
-      <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+      {/* Seul le titre cède la place (tronqué) : les commandes de droite ne rétrécissent pas, sinon « IA » sort de l'écran. */}
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2">
         <TimerPill />
         <AiControls />
       </div>
@@ -325,7 +326,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
     <div className={`relative min-w-0 ${compact ? '' : 'w-full'}`} ref={root}>
       <button
         type="button"
-        className={`flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-line bg-surface pl-2 pr-1.5 text-left text-sm font-medium transition-colors hover:bg-hover ${
+        className={`flex h-8 pointer-coarse:h-10 w-full min-w-0 items-center gap-2 rounded-md border border-line bg-surface pl-2 pr-1.5 text-left text-sm font-medium transition-colors hover:bg-hover ${
           compact ? 'md:size-8 md:justify-center md:p-0' : ''
         }`}
         aria-haspopup="listbox"
@@ -349,7 +350,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
                   type="button"
                   role="option"
                   aria-selected={candidate.id === project?.id}
-                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover"
+                  className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover pointer-coarse:h-10"
                   onClick={() => {
                     setProject(candidate.id)
                     setOpen(false)
@@ -366,7 +367,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
           <div className="mt-1 border-t border-line pt-1">
             <button
               type="button"
-              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover"
+              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover pointer-coarse:h-10"
               onClick={() => {
                 setOpen(false)
                 openDialog({ kind: 'project' })
@@ -377,7 +378,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
             </button>
             <button
               type="button"
-              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover"
+              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover pointer-coarse:h-10"
               onClick={() => {
                 setOpen(false)
                 openDialog({ kind: 'importTab' })
@@ -389,7 +390,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
             {project && (
               <button
                 type="button"
-                className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover"
+                className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover pointer-coarse:h-10"
                 onClick={() => {
                   setOpen(false)
                   openDialog({ kind: 'deleteProject', projectId: project.id })
@@ -419,7 +420,7 @@ export function Toasts() {
         >
           <span className="ds-dot mt-[0.3rem]" aria-hidden />
           <p className="flex-1 leading-snug">{toast.message}</p>
-          <button type="button" className="grid size-5 place-items-center rounded text-muted hover:bg-hover hover:text-fg" aria-label="Fermer la notification" onClick={() => dismiss(toast.id)}>
+          <button type="button" className="grid size-5 place-items-center rounded text-muted hover:bg-hover hover:text-fg pointer-coarse:-m-2.5 pointer-coarse:size-10" aria-label="Fermer la notification" onClick={() => dismiss(toast.id)}>
             <X className="size-3.5" />
           </button>
         </div>

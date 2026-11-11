@@ -723,6 +723,44 @@ describe('mode en ligne et choix du moteur', () => {
     assert.ok(prompt.includes(`TASK #${item.id} — Cache HTTP`))
   })
 
+  it('moteur refusé : la réponse part avant toute lecture du dépôt', { skip: process.platform === 'win32' && 'faux git en script shell : macOS / Linux' }, async () => {
+    const project = (await api('POST', '/api/projects', { name: 'Refus rapide', localRepoPath: repo.dir })).body
+    const phase = (await api('POST', `/api/projects/${project.id}/phases`, { title: 'P' })).body
+    const epic = (await api('POST', `/api/phases/${phase.id}/epics`, { title: 'E' })).body
+    const story = (await api('POST', `/api/epics/${epic.id}/stories`, { title: 'S' })).body
+    const item = (await api('POST', `/api/stories/${story.id}/work-items`, { type: 'TASK', title: 'Tri' })).body
+    await repo.commit(`feat(tri): ordre stable task #${item.id}`)
+    await api('POST', `/api/projects/${project.id}/git/scan`)
+
+    // Témoin : un « git » placé en tête du PATH note chaque lancement, puis passe la main au vrai.
+    const bin = await mkdtemp(path.join(tmpdir(), 'atelier-faux-git-'))
+    const runs = path.join(bin, 'lancements.log')
+    const originalPath = process.env.PATH ?? ''
+    await writeFile(path.join(bin, 'git'), `#!/bin/sh\necho x >> '${runs}'\nPATH='${originalPath}' exec git "$@"\n`)
+    await chmod(path.join(bin, 'git'), 0o755)
+    const launched = async () => (await readFile(runs, 'utf8').catch(() => '')).length
+    process.env.PATH = `${bin}${path.delimiter}${originalPath}`
+    try {
+      await setOnline(false)
+      const offline = await api('POST', '/api/ai/summarize-commits', { workItemId: item.id, engine: 'claude' })
+      assert.equal(offline.body.code, 'CLAUDE_OFFLINE')
+      await setOnline(true)
+      claudeEngine.state = { ...claudeEngine.state, available: false, error: 'CLI Claude Code introuvable' }
+      const unavailable = await api('POST', '/api/ai/summarize-commits', { workItemId: item.id, engine: 'claude' })
+      assert.equal(unavailable.status, 502)
+      assert.equal(await launched(), 0, 'aucun processus git avant le refus du moteur')
+
+      // Le témoin fonctionne : un résumé accepté lit bien le dépôt.
+      ollama.replies.push('Tri rendu stable.')
+      const done = await api('POST', '/api/ai/summarize-commits', { workItemId: item.id, engine: 'ollama' })
+      assert.equal(done.status, 200, JSON.stringify(done.body))
+      assert.ok((await launched()) > 0)
+    } finally {
+      process.env.PATH = originalPath
+      await rm(bin, { recursive: true, force: true })
+    }
+  })
+
   it('diffs : le total envoyé ne dépasse jamais AI_MAX_DIFF_CHARS, même avec beaucoup de commits', async () => {
     const project = (await api('POST', '/api/projects', { name: 'Budget des diffs', localRepoPath: repo.dir })).body
     const phase = (await api('POST', `/api/projects/${project.id}/phases`, { title: 'P' })).body

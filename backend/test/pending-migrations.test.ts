@@ -11,7 +11,16 @@ import { promisify } from 'node:util'
 import Database from 'better-sqlite3'
 import { BACKEND_ROOT } from '../src/config.ts'
 import { BackupManager } from '../src/services/backups.ts'
-import { appliedMigrations, backupBeforeMigrations, localMigrations, pendingMigrations } from '../src/services/pending-migrations.ts'
+import { buildApp } from '../src/app.ts'
+import { createPrismaClient } from '../src/db/client.ts'
+import {
+  appliedMigrations,
+  backupBeforeMigrations,
+  localMigrations,
+  pendingMigrations,
+  pendingMigrationsWarning,
+} from '../src/services/pending-migrations.ts'
+import { applyMigrations } from './helpers/test-app.ts'
 
 const run = promisify(execFile)
 
@@ -62,6 +71,21 @@ describe('sauvegarde avant migration', () => {
     assert.deepEqual(await pendingMigrations({ databaseFile, migrationsDir }), ['20260201000000_suite', '20260301000000_nouvelle'])
   })
 
+  it('prépare l’avertissement du démarrage quand la base est en retard, rien sinon', async () => {
+    writeApplied([{ name: '20260101000000_init', finished: true }])
+    assert.match(
+      (await pendingMigrationsWarning({ databaseFile, migrationsDir })) ?? '',
+      /^Base de données non à jour : 2 migrations en attente \(20260201000000_suite, …\)\. .*npm run db:deploy/,
+    )
+    writeApplied([{ name: '20260101000000_init', finished: true }, { name: '20260201000000_suite', finished: true }])
+    assert.match((await pendingMigrationsWarning({ databaseFile, migrationsDir })) ?? '', /: 1 migration en attente \(20260301000000_nouvelle\)\./)
+    writeApplied(['20260101000000_init', '20260201000000_suite', '20260301000000_nouvelle'].map((name) => ({ name, finished: true })))
+    assert.equal(await pendingMigrationsWarning({ databaseFile, migrationsDir }), null)
+    // Base illisible : pas d'avertissement, le démarrage continue.
+    await writeFile(path.join(dir, 'illisible.db'), 'pas une base SQLite, mais assez longue pour être lue comme un en-tête'.repeat(4))
+    assert.equal(await pendingMigrationsWarning({ databaseFile: path.join(dir, 'illisible.db'), migrationsDir }), null)
+  })
+
   it('ne copie rien quand tout est appliqué, copie (sorte « migration ») sinon', async () => {
     const backups = new BackupManager({ databaseFile, dir: path.join(dir, 'backups'), keep: 3 })
     writeApplied(['20260101000000_init', '20260201000000_suite', '20260301000000_nouvelle'].map((name) => ({ name, finished: true })))
@@ -108,5 +132,40 @@ describe('sauvegarde avant migration', () => {
       }),
       (error: { code?: number; stderr?: string }) => error.code === 1 && /Sauvegarde de la base impossible/.test(error.stderr ?? ''),
     )
+  })
+})
+
+describe('API lancée sur une base non migrée', () => {
+  let dir: string
+  before(async () => {
+    dir = await mkdtemp(path.join(tmpdir(), 'atelier-non-migree-'))
+  })
+  after(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('répond 503 DATABASE_NOT_MIGRATED avec la commande à lancer (table ou colonne absente)', async () => {
+    // Table absente : base vide. Colonne absente : base d'avant une migration qui en ajoute une.
+    const older = path.join(dir, 'ancienne.db')
+    await applyMigrations(older)
+    const db = new Database(older)
+    db.exec('ALTER TABLE "Project" DROP COLUMN "description"')
+    db.close()
+
+    for (const file of [path.join(dir, 'vide.db'), older]) {
+      const app = await buildApp({ prisma: createPrismaClient(`file:${file}`), logger: false, timeZone: 'Europe/Paris' })
+      try {
+        const api = await app.inject({ method: 'GET', url: '/api/projects' })
+        assert.equal(api.statusCode, 503, api.body)
+        assert.equal(api.json().code, 'DATABASE_NOT_MIGRATED')
+        assert.match(api.json().message, /migrations sont en attente.*npm run db:deploy/)
+        const node = await app.inject({ method: 'GET', url: '/api/atelier/projects' })
+        assert.equal(node.statusCode, 503, node.body)
+        assert.deepEqual(Object.keys(node.json()).sort(), ['code', 'detail'])
+        assert.equal(node.json().code, 'DATABASE_NOT_MIGRATED')
+      } finally {
+        await app.close()
+      }
+    }
   })
 })

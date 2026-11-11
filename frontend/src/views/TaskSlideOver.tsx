@@ -67,7 +67,7 @@ export function TaskSlideOver({ workItemId, project }: { workItemId: number; pro
         aria-label={`Fiche de l’élément #${workItemId}`}
         className="ds-card fixed inset-y-0 right-0 z-40 flex w-[min(30rem,100vw)] flex-col rounded-none border-y-0 border-r-0 shadow-overlay xl:static xl:z-auto xl:w-[28rem] xl:shadow-card 2xl:w-[32rem]"
       >
-        <div className="flex h-11 shrink-0 items-center justify-between border-b border-line pl-4 pr-2">
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-line pl-4 pr-2 pointer-coarse:h-12">
           <span className="text-xs font-medium text-muted">Fiche élément</span>
           <div className="flex items-center gap-1">
             <ClaudeLaunchButton project={project} workItemId={workItemId} />
@@ -241,7 +241,7 @@ function TaskContent({ item }: { item: WorkItemDetail }) {
   )
 }
 
-function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: (title: string) => Promise<unknown>; busy: boolean }) {
+function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: (title: string) => Promise<{ ok: boolean }>; busy: boolean }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(item.title)
   const { busy: typeBusy, run } = useAction()
@@ -254,8 +254,8 @@ function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: 
         onSubmit={async (event) => {
           event.preventDefault()
           if (title.trim() === '' || title === item.title) return setEditing(false)
-          await onRename(title.trim())
-          setEditing(false)
+          // Refus de l'API ou backend injoignable : le champ reste ouvert avec le texte saisi.
+          if ((await onRename(title.trim())).ok) setEditing(false)
         }}
       >
         <input className="ds-input text-base font-semibold" value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Titre" autoFocus maxLength={200} />
@@ -313,18 +313,28 @@ function TitleBlock({ item, onRename, busy }: { item: WorkItemDetail; onRename: 
 function ProgressControl({ item, onCommit }: { item: WorkItemDetail; onCommit: (progress: number) => void }) {
   const [value, setValue] = useLocalValue(item.progress)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  /** Valeur réglée, pas encore envoyée. */
+  const pending = useRef<number | null>(null)
+  const latest = useRef({ saved: item.progress, onCommit })
+  latest.current = { saved: item.progress, onCommit }
   const done = item.status === 'RESOLVED' || item.status === 'CLOSED'
 
+  const flush = () => {
+    clearTimeout(timer.current)
+    const next = pending.current
+    pending.current = null
+    if (next !== null && next !== latest.current.saved) latest.current.onCommit(next)
+  }
   // Enregistre la valeur une fois le curseur immobile (souris ou flèches du clavier) ; jamais désactivé
   // pendant l'enregistrement, pour garder le focus clavier.
   const schedule = (next: number) => {
     setValue(next)
+    pending.current = next
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => {
-      if (next !== item.progress) onCommit(next)
-    }, 450)
+    timer.current = setTimeout(flush, 450)
   }
-  useEffect(() => () => clearTimeout(timer.current), [])
+  // Fiche fermée (ou autre élément ouvert) avant la fin du délai : la valeur réglée est envoyée, pas perdue.
+  useEffect(() => flush, [])
 
   return (
     <div className="space-y-1.5">
@@ -344,7 +354,7 @@ function ProgressControl({ item, onCommit }: { item: WorkItemDetail; onCommit: (
         disabled={done}
         title={done ? 'Un élément résolu ou terminé est à 100 %' : undefined}
         onChange={(event) => schedule(Number(event.target.value))}
-        className="w-full accent-[var(--accent)]"
+        className="w-full accent-[var(--accent)] pointer-coarse:h-10"
       />
     </div>
   )
@@ -378,7 +388,13 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
     event.preventDefault()
     const value = parseNumber(estimate)
     if (estimate.trim() !== '' && (value === null || value < 0)) return useApp.getState().notify('error', 'Estimation invalide.')
-    const result = await run('estimate', () => workItemService.update(item.id, { estimatedDays: value }), 'Estimation mise à jour')
+    // Les jours saisis sont ceux de la conversion affichée (« 1 jour = X heures » de la vue) : l'API convertit avec elle.
+    const hoursPerDay = useApp.getState().hoursPerDay ?? undefined
+    const result = await run(
+      'estimate',
+      () => workItemService.update(item.id, { estimatedDays: value }, { hoursPerDay }),
+      'Estimation mise à jour',
+    )
     if (result.ok) setEditingEstimate(false)
   }
 
@@ -413,7 +429,7 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
             <dd>
               <button
                 type="button"
-                className="ds-kpi__value group flex items-center gap-1 font-semibold"
+                className="ds-kpi__value group flex items-center gap-1 font-semibold pointer-coarse:-my-2.5 pointer-coarse:min-h-10"
                 onClick={() => {
                   setEstimate(item.estimate ? String(item.estimate.days) : '')
                   setEditingEstimate(true)
@@ -472,7 +488,7 @@ function BudgetSection({ item }: { item: WorkItemDetail }) {
 
       {item.timeEntries.length > 0 && (
         <div>
-          <button type="button" className="text-sm text-accent-ink hover:underline" onClick={() => setShowEntries((value) => !value)} aria-expanded={showEntries}>
+          <button type="button" className="text-sm text-accent-ink hover:underline pointer-coarse:min-h-10" onClick={() => setShowEntries((value) => !value)} aria-expanded={showEntries}>
             {showEntries ? 'Masquer' : 'Afficher'} les saisies ({item.timeEntries.length})
           </button>
           {showEntries && (

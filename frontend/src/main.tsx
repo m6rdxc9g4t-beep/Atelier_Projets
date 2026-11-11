@@ -23,3 +23,8 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 )
+
+// Analyseur Markdown (chargé à la demande, voir ui.tsx) : téléchargé au repos après le premier affichage,
+// pour que la première fiche ouverte soit déjà mise en forme.
+const whenIdle = window.requestIdleCallback ?? ((run: () => void) => window.setTimeout(run, 1500))
+whenIdle(() => void import('./components/Markdown.tsx'))

@@ -1,12 +1,14 @@
 // Point d'entrée : configuration → base SQLite → API Fastify (127.0.0.1:3000 par défaut).
+import path from 'node:path'
 import { buildApp } from './app.ts'
-import { loadConfig, loadEnvFile } from './config.ts'
+import { BACKEND_ROOT, loadConfig, loadEnvFile } from './config.ts'
 import { createPrismaClient } from './db/client.ts'
 import { createClaudeLauncher } from './ai-bridge/claude-cli.ts'
 import { createClaudeEngine } from './ai-bridge/claude-print.ts'
 import { createOllamaClient } from './ai-bridge/ollama.ts'
 import { createOctokitClient } from './git-engine/github.ts'
 import { BackupManager } from './services/backups.ts'
+import { pendingMigrationsWarning } from './services/pending-migrations.ts'
 
 loadEnvFile()
 const config = loadConfig()
@@ -49,6 +51,13 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
 process.once('SIGINT', (signal) => void shutdown(signal))
 process.once('SIGTERM', (signal) => void shutdown(signal))
+
+// Lancement en terminal après un « git pull », base remplacée par une sauvegarde plus ancienne : le dire tout de suite
+// (l'app de bureau et Docker appliquent les migrations avant de lancer l'API). L'API démarre quand même.
+if (databaseFile) {
+  const warning = await pendingMigrationsWarning({ databaseFile, migrationsDir: path.join(BACKEND_ROOT, 'prisma', 'migrations') })
+  if (warning) app.log.error(warning)
+}
 
 try {
   await app.listen({ host: config.host, port: config.port })

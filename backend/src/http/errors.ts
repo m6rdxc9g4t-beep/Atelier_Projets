@@ -39,10 +39,17 @@ function errorBody(statusCode: number, code: string, message: string): ErrorBody
   return { statusCode, error: STATUS_CODES[statusCode] ?? 'Error', code, message }
 }
 
-const PRISMA_ERRORS: Record<string, [statusCode: number, code: string, message: string]> = {
+/** Table ou colonne absente : l'API tourne sur une base plus ancienne que le code (migrations en attente). */
+export const DATABASE_NOT_MIGRATED_MESSAGE =
+  'Base de données non à jour : des migrations sont en attente. Arrêter l’API, lancer « npm run db:deploy --workspace=@atelier/backend » à la racine du dépôt, puis la relancer (l’application de bureau le fait à son lancement).'
+
+/** Erreurs Prisma connues → statut, code et message (API et nœud Atelier). */
+export const PRISMA_ERRORS: Record<string, [statusCode: number, code: string, message: string]> = {
   P2025: [404, 'NOT_FOUND', 'Élément introuvable'],
   P2002: [409, 'CONFLICT', 'Valeur déjà utilisée (contrainte d’unicité)'],
   P2003: [409, 'CONFLICT', 'Référence invalide (clé étrangère)'],
+  P2021: [503, 'DATABASE_NOT_MIGRATED', DATABASE_NOT_MIGRATED_MESSAGE],
+  P2022: [503, 'DATABASE_NOT_MIGRATED', DATABASE_NOT_MIGRATED_MESSAGE],
 }
 
 export function errorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply): FastifyReply {
@@ -54,7 +61,10 @@ export function errorHandler(error: FastifyError, request: FastifyRequest, reply
   }
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     const known = PRISMA_ERRORS[error.code]
-    if (known) return reply.status(known[0]).send(errorBody(...known))
+    if (known) {
+      if (known[0] >= 500) request.log.error({ err: error }, known[2])
+      return reply.status(known[0]).send(errorBody(...known))
+    }
   }
   const statusCode = error.statusCode !== undefined && error.statusCode >= 400 && error.statusCode < 500 ? error.statusCode : 500
   if (statusCode === 500) {

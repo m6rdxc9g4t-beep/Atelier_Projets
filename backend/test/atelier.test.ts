@@ -13,6 +13,7 @@ import { createPrismaClient } from '../src/db/client.ts'
 import { snakeKeys, snakeSchema, toSnakeKey } from '../src/domain/snake-case.ts'
 import { EVENT_KEEP_COUNT, EVENT_KEEP_MS, emitEvents, nodeEvent, purgeEvents } from '../src/services/atelier-events.ts'
 import { NODE_ACTIONS } from '../src/services/atelier-manifest.ts'
+import { hashRequest, legacyHashRequest, runIdempotent } from '../src/services/idempotency.ts'
 import { EVENT_DATA_SCHEMAS } from '../src/schemas/atelier.ts'
 import { applyMigrations, createTestContext, type TestContext } from './helpers/test-app.ts'
 
@@ -290,10 +291,12 @@ describe('erreurs { detail, code } (§7.5)', () => {
     assert.deepEqual(notFound.body, { detail: 'Élément #999999 introuvable', code: 'NOT_FOUND' })
     const validation = await req('POST', `/api/atelier/stories/${await demoStoryId()}/work-items`, { type: 'TASK' })
     assert.equal(validation.status, 400)
-    assert.equal(validation.body.code, 'VALIDATION')
+    assert.deepEqual(validation.body, { detail: 'Titre : champ obligatoire.', code: 'VALIDATION' })
     const unknownField = await req('PATCH', '/api/atelier/work-items/101', { onlineMode: true })
     assert.equal(unknownField.status, 400)
-    assert.equal(unknownField.body.code, 'VALIDATION')
+    assert.deepEqual(unknownField.body, { detail: 'Champ inconnu : « onlineMode ».', code: 'VALIDATION' })
+    const tooMany = await req('GET', '/api/atelier/events?limit=5000')
+    assert.deepEqual(tooMany.body, { detail: 'Limite : 500 au plus.', code: 'VALIDATION' })
     const route = await req('GET', '/api/atelier/inconnue')
     assert.deepEqual(Object.keys(route.body).sort(), ['code', 'detail'])
     assert.equal(route.body.code, 'NOT_FOUND')
@@ -679,6 +682,35 @@ describe('idempotence (Idempotency-Key, §7.4)', () => {
       }
     })
   }
+
+  it('même contenu, clés dans un autre ordre → réponse rejouée (corps canonique, §7.7)', async () => {
+    const key = 'nexus:run-10:ordre'
+    const url = '/api/atelier/work-items/104/time-entries'
+    const first = await req('POST', url, { hours: 0.5, comment: 'Relecture', spent_on: '2026-10-19' }, { 'idempotency-key': key })
+    assert.equal(first.status, 201, JSON.stringify(first.body))
+    const count = await ctx.prisma.timeEntry.count()
+    const replay = await req('POST', url, { spent_on: '2026-10-19', comment: 'Relecture', hours: 0.5 }, { 'idempotency-key': key })
+    assert.equal(replay.status, 201)
+    assert.equal(replay.headers['idempotency-replayed'], 'true')
+    assert.deepEqual(replay.body, first.body)
+    assert.equal(await ctx.prisma.timeEntry.count(), count)
+  })
+
+  it('une clé enregistrée avec l’ancienne empreinte reste rejouable', async () => {
+    const source = { body: { hours: 1, comment: 'x' }, params: { id: 1 } }
+    const options = { scope: 'test.empreinte', key: 'avant-mise-a-jour', statusCode: 201, now: new Date() }
+    const stored = await runIdempotent(ctx.prisma, { ...options, hash: legacyHashRequest(source) }, async () => ({ ok: 1 }))
+    assert.equal(stored.replayed, false)
+    assert.notEqual(hashRequest(source), legacyHashRequest(source))
+    const write = async () => assert.fail('rien ne doit être réécrit')
+    const replay = await runIdempotent(ctx.prisma, { ...options, hash: hashRequest(source), legacyHash: legacyHashRequest(source) }, write)
+    assert.deepEqual(replay, { statusCode: 201, body: { ok: 1 }, replayed: true })
+    const other = { ...source, body: { hours: 2 } }
+    await assert.rejects(
+      runIdempotent(ctx.prisma, { ...options, hash: hashRequest(other), legacyHash: legacyHashRequest(other) }, write),
+      { code: 'IDEMPOTENCY_KEY_REUSED' },
+    )
+  })
 
   it('portée par action : la même clé sert à deux actions différentes', async () => {
     const key = 'nexus:run-8:partagee'

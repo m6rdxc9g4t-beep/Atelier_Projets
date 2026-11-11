@@ -162,13 +162,24 @@ function appendLog(logFile, text) {
   }
 }
 
-/** Le journal ne grossit pas sans fin : au-delà de 2 Mo, il devient mise-a-jour.1.log (une génération gardée). */
+/** Un journal ne grossit pas sans fin : au-delà de `maxBytes` (2 Mo), « x.log » devient « x.1.log » (une génération gardée). */
 function rotateLog(logFile, maxBytes = LOG_MAX_BYTES) {
   try {
     if (fs.statSync(logFile).size > maxBytes) fs.renameSync(logFile, logFile.replace(/(\.log)?$/, '.1.log'))
   } catch {
     /* pas encore de journal */
   }
+}
+
+/**
+ * Verrou d'instance unique, puis rotation du journal de l'application : dans cet ordre. Un second lancement
+ * (raccourci, sélecteur de la suite, `--mise-a-jour-seulement` d'install.ps1) qui n'obtient pas le verrou ne
+ * renomme jamais le journal où l'API de l'instance ouverte écrit encore. Renvoie vrai si le verrou est obtenu.
+ */
+function lockThenRotate(requestLock, logFile, maxBytes = LOG_MAX_BYTES) {
+  if (!requestLock()) return false
+  rotateLog(logFile, maxBytes)
+  return true
 }
 
 /** Commande npm [exécutable, ...arguments] : `npm` donné (chaîne ou tableau), sinon cherchée dans le PATH de `env`. */
@@ -450,6 +461,7 @@ module.exports = {
   recover,
   previousBuildUsable,
   rotateLog,
+  lockThenRotate,
   renameRetry,
   UpdateError,
   STEPS,

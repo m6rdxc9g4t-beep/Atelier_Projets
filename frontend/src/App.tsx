@@ -5,6 +5,7 @@ import { useEffect } from 'react'
 import { Dialogs } from './components/Dialogs.tsx'
 import { Sidebar, Toasts, TopBar } from './components/shell.tsx'
 import { Button, EmptyState, ErrorNotice, Spinner } from './components/ui.tsx'
+import { createFreshness, watchWindow } from './lib/freshness.ts'
 import { onThemePreferenceChange } from './lib/theme.ts'
 import { useApi } from './lib/use-api.ts'
 import { ApiError } from './services/client.ts'
@@ -30,6 +31,21 @@ export function App() {
   // Thème (SUITE.md §1.5) : atelier-theme.js pose data-theme + classe « dark » et suit l'OS en mode Système ;
   // le sélecteur reflète une préférence changée ailleurs dans la suite.
   useEffect(() => onThemePreferenceChange(syncTheme), [syncTheme])
+
+  // Données relues au retour sur la fenêtre : ce qu'une autre app a écrit entre-temps (workflow d'Atelier Nexus,
+  // envoi d'Atelier Tab, session Claude CLI, commit) apparaît sans attendre une action. Un dialogue ouvert garde
+  // sa saisie : la relecture attend sa fermeture.
+  useEffect(() => {
+    const freshness = createFreshness({ refresh: () => useApp.getState().refresh(), isBusy: () => useApp.getState().dialog !== null })
+    const unwatch = watchWindow(freshness)
+    const unsubscribe = useApp.subscribe((state, previous) => {
+      if (previous.dialog !== null && state.dialog === null) freshness.settled()
+    })
+    return () => {
+      unwatch()
+      unsubscribe()
+    }
+  }, [])
 
   // Aucun choix, ou projet absent de la liste : s'il vient d'être créé, la liste est relue ; s'il a été
   // supprimé (404), le premier projet de la liste est choisi.

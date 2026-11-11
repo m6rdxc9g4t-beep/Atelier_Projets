@@ -128,6 +128,23 @@ describe('analyse du dépôt Git local', () => {
     assert.equal((await api('GET', `/api/work-items/${late.id}`)).body.commits[0].keyword, 'task')
   })
 
+  it('retire un lien que le message du commit ne justifie pas', async () => {
+    // Lien laissé par l'ancienne détection : une couleur « #15aabf » lue comme l'élément #15.
+    const commit = await ctx.prisma.gitCommit.findFirstOrThrow({
+      where: { projectId, message: 'chore: initial commit' },
+    })
+    await ctx.prisma.gitCommitLink.create({ data: { commitId: commit.id, workItemId: a, keyword: null } })
+    assert.equal((await api('GET', `/api/work-items/${a}`)).body.commits.length, 3)
+
+    const scan = (await api('POST', `/api/projects/${projectId}/git/scan`)).body
+    assert.deepEqual([scan.commitsCreated, scan.linksCreated, scan.commitsRemoved], [0, 0, 0])
+    const commits = (await api('GET', `/api/work-items/${a}`)).body.commits
+    assert.deepEqual(
+      commits.map((linked: { message: string }) => linked.message.split('\n')[0]),
+      [`fix: crash on empty cart bug #${b} ref #${a}`, `feat(auth): login form feature #${a}`],
+    )
+  })
+
   it('ne rattache pas un #ID d’un autre projet', async () => {
     const other = await project('Autre boutique', { localRepoPath: repo.dir }, [])
     const scan = (await api('POST', `/api/projects/${other.projectId}/git/scan`)).body
@@ -148,7 +165,11 @@ describe('analyse du dépôt Git local', () => {
       const notGit = await api('POST', `/api/projects/${bare.projectId}/git/scan`)
       assert.equal(notGit.status, 400)
       assert.match(notGit.body.message, /racine d’un dépôt Git/)
-      await api('PATCH', `/api/projects/${bare.projectId}`, { localRepoPath: 'relatif/depot' })
+      // Un chemin relatif est refusé à l'enregistrement ; une valeur ancienne en base l'est encore à l'analyse.
+      const relative = await api('PATCH', `/api/projects/${bare.projectId}`, { localRepoPath: 'relatif/depot' })
+      assert.equal(relative.status, 400)
+      assert.match(relative.body.message, /chemin complet du dossier/)
+      await ctx.prisma.project.update({ where: { id: bare.projectId }, data: { localRepoPath: 'relatif/depot' } })
       assert.match((await api('POST', `/api/projects/${bare.projectId}/git/scan`)).body.message, /non absolu/)
       await api('PATCH', `/api/projects/${bare.projectId}`, { localRepoPath: path.join(plain, 'absent') })
       assert.match((await api('POST', `/api/projects/${bare.projectId}/git/scan`)).body.message, /introuvable/)

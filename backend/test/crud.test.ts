@@ -1,5 +1,7 @@
 // Tests d'intégration CRUD sur une base vierge : tout est créé via l'API.
 import assert from 'node:assert/strict'
+import { homedir } from 'node:os'
+import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { addLogEntry } from '../src/services/work-items.ts'
 import { call, createTestContext, type TestContext } from './helpers/test-app.ts'
@@ -61,6 +63,13 @@ describe('projets', () => {
 
     const linked = await api('PATCH', `/api/projects/${created.body.id}`, { localRepoPath: '/Users/francois/dev/atelier' })
     assert.equal(linked.body.localRepoPath, '/Users/francois/dev/atelier')
+    // Chemin tel qu'on le saisit : « ~ » développé, guillemets et barre finale retirés ; relatif refusé tout de suite.
+    const tilde = await api('PATCH', `/api/projects/${created.body.id}`, { localRepoPath: ' "~/dev/atelier/" ' })
+    assert.equal(tilde.body.localRepoPath, path.join(homedir(), 'dev', 'atelier'))
+    const relative = await api('PATCH', `/api/projects/${created.body.id}`, { localRepoPath: 'dev/atelier' })
+    assert.deepEqual([relative.status, relative.body.code], [400, 'BAD_REQUEST'])
+    assert.match(relative.body.message, /chemin complet du dossier/)
+    assert.equal((await api('POST', '/api/projects', { name: 'Relatif', localRepoPath: './x' })).status, 400)
     const unlinked = await api('PATCH', `/api/projects/${created.body.id}`, {
       localRepoPath: null,
       githubOwner: null,
@@ -82,6 +91,11 @@ describe('projets', () => {
     const unknown = await api('POST', '/api/projects', { name: 'X', budget: 3 })
     assert.equal(unknown.status, 400)
     assert.equal(unknown.body.code, 'VALIDATION_ERROR')
+    // Messages de validation en français, avec le nom du champ (plus de « body/… must … »).
+    assert.equal(unknown.body.message, 'Champ inconnu : « budget ».')
+    assert.equal((await api('POST', '/api/projects', { name: '   ' })).body.message, 'Nom : ne peut pas être vide.')
+    assert.equal((await api('POST', '/api/projects', { name: 'X', hoursPerDay: 30 })).body.message, '« 1 jour = X heures » : 24 au plus.')
+    assert.equal((await api('GET', '/api/work-items/1?hoursPerDay=0')).body.message, '« 1 jour = X heures » : doit être supérieur à 0.')
 
     const halfGithub = await api('POST', '/api/projects', { name: 'X', githubOwner: 'francois' })
     assert.equal(halfGithub.status, 400)
@@ -144,6 +158,28 @@ describe('hiérarchie et éléments', () => {
     assert.equal(tooMuch.status, 400)
     const badType = await api('POST', `/api/stories/${storyId}/work-items`, { type: 'EPIC', title: 'X' })
     assert.equal(badType.status, 400)
+  })
+
+  it('convertit une estimation en jours avec la surcharge « 1 jour = X heures » de la vue', async () => {
+    const { storyId } = await scaffold('Vue à 7 heures')
+    const created = await api('POST', `/api/stories/${storyId}/work-items?hoursPerDay=7`, { type: 'TASK', title: 'Maquette', estimatedDays: 3 })
+    assert.equal(created.status, 201)
+    assert.deepEqual(created.body.estimate, { hours: 21, days: 3 })
+
+    // Fiche affichée avec la vue à 7 h : réenregistrer la valeur lue ne change pas les heures stockées.
+    const item = (await api('POST', `/api/stories/${storyId}/work-items`, { type: 'TASK', title: 'Intégration', estimatedHours: 24 })).body
+    const shown = (await api('GET', `/api/work-items/${item.id}?hoursPerDay=7`)).body.estimate
+    assert.equal(shown.days, 3.4286)
+    const saved = await api('PATCH', `/api/work-items/${item.id}?hoursPerDay=7`, { estimatedDays: shown.days })
+    assert.deepEqual(saved.body.estimate, { hours: 24, days: 3.4286 })
+    assert.equal((await api('GET', `/api/work-items/${item.id}`)).body.estimate.hours, 24)
+
+    const typed = await api('PATCH', `/api/work-items/${item.id}?hoursPerDay=7`, { estimatedDays: 3 })
+    assert.deepEqual(typed.body.estimate, { hours: 21, days: 3 })
+    // Sans surcharge, la conversion du projet (8 h) reste la règle.
+    const plain = await api('PATCH', `/api/work-items/${item.id}`, { estimatedDays: 3 })
+    assert.deepEqual(plain.body.estimate, { hours: 24, days: 3 })
+    assert.equal((await api('PATCH', `/api/work-items/${item.id}?hoursPerDay=0`, { estimatedDays: 3 })).status, 400)
   })
 
   it('met à jour statut, avancement et estimation', async () => {

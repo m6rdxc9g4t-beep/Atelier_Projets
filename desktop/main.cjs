@@ -23,7 +23,7 @@ const { apiStatus, isUp, readApiAddress, startBackend } = require('./lib/backend
 const { ignoredMessage, sanitizeProcessEnv } = require('./lib/environment.cjs')
 const { findNode } = require('./lib/node-path.cjs')
 const { dataDirectory, logDirectory } = require('./lib/paths.cjs')
-const { prepare, UpdateError } = require('./lib/prepare.cjs')
+const { lockThenRotate, prepare, UpdateError } = require('./lib/prepare.cjs')
 const { openSuiteOrExternal } = require('./lib/suite-launch.cjs')
 const { startUiServer } = require('./lib/ui-server.cjs')
 
@@ -50,7 +50,18 @@ const LOG_DIR = logDirectory() ?? path.join(app.getPath('userData'), 'logs')
 const LOG_FILE = path.join(LOG_DIR, 'app.log')
 /** Journal des mises à jour (npm ci, sauvegarde et migrations, compilation) : docs/SUITE.md §8.2. */
 const UPDATE_LOG = path.join(LOG_DIR, 'mise-a-jour.log')
+/** Au-delà, app.log devient app.1.log au lancement (l'API y écrit deux lignes par requête). */
+const LOG_MAX_BYTES = 5 * 1024 * 1024
 fs.mkdirSync(LOG_DIR, { recursive: true })
+
+/**
+ * Verrou d'instance unique ; une fois obtenu, app.log est tourné, avant toute écriture et avant que l'API n'ouvre le
+ * fichier. Jamais plus tôt : un second lancement renommerait le journal de l'application déjà ouverte, dont l'API
+ * continuerait d'écrire dans app.1.log.
+ */
+function claimInstance() {
+  return lockThenRotate(() => app.requestSingleInstanceLock(), LOG_FILE, LOG_MAX_BYTES)
+}
 
 /** Chemin lisible (~ pour le dossier personnel sur macOS / Linux ; chemin complet sous Windows), pour les messages. */
 function displayPath(file) {
@@ -419,7 +430,7 @@ async function updateOnly() {
       /* pas de sortie standard (application graphique) */
     }
   }
-  if (!app.requestSingleInstanceLock()) {
+  if (!claimInstance()) {
     say('Atelier Projets est ouvert : la mise à jour se fera à son prochain lancement (le fermer pour la faire maintenant).')
     return app.exit(3)
   }
@@ -442,7 +453,7 @@ async function updateOnly() {
 
 if (UPDATE_ONLY) {
   void updateOnly()
-} else if (!app.requestSingleInstanceLock()) {
+} else if (!claimInstance()) {
   app.quit()
 } else {
   app.on('second-instance', (_event, argv) => {

@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -17,6 +18,7 @@ import { HealthCard } from '../components/HealthCard.tsx'
 import { Button, Card, Eyebrow, ErrorNotice, Spinner, TypeChip } from '../components/ui.tsx'
 import { days, parseDate, percent, shortDate, today } from '../lib/format.ts'
 import { levelCode, STATUS_LABEL, TYPE_LABEL } from '../lib/labels.ts'
+import { MILESTONE_STATE_LABEL, MILESTONE_STATE_STATUS, milestoneState } from '../lib/milestone.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
 import { applyTheme } from '../lib/theme.ts'
@@ -683,7 +685,7 @@ function Gantt({ tree, project }: { tree: ProjectTree; project: Project }) {
                 role="columnheader"
               >
                 <span>Hiérarchie</span>
-                <span>Budget</span>
+                <span className="gantt-budget">Budget</span>
               </div>
               <div className="relative h-14 shrink-0" style={{ width }} role="columnheader" aria-label="Calendrier">
                 {calendar.months.map((month) => (
@@ -835,10 +837,10 @@ function GanttRow(props: GanttRowProps) {
     >
       <div
         role="gridcell"
-        className={`sticky left-0 z-10 flex w-[var(--gantt-left)] shrink-0 items-center gap-2 border-r border-line pr-3 ${
+        className={`gantt-cell sticky left-0 z-10 flex w-[var(--gantt-left)] shrink-0 items-center gap-2 border-r border-line pr-3 ${
           isSelected ? 'bg-accent-row' : container ? 'bg-sunken group-hover:bg-hover' : 'bg-surface group-hover:bg-hover'
         }`}
-        style={{ paddingLeft: 12 + row.level * 18 }}
+        style={{ '--level': row.level } as CSSProperties}
       >
         {row.collapsible ? (
           <button
@@ -866,7 +868,8 @@ function GanttRow(props: GanttRowProps) {
               <span className="ds-ink font-semibold" data-type={row.item.type}>
                 {row.code}
               </span>{' '}
-              <span className="text-muted">{TYPE_LABEL[row.item.type]}:</span> {row.title}
+              <span className="gantt-type text-muted">{TYPE_LABEL[row.item.type]}: </span>
+              {row.title}
             </>
           ) : (
             <>
@@ -877,7 +880,8 @@ function GanttRow(props: GanttRowProps) {
             </>
           )}
         </button>
-        <span className="absolute right-16 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-line bg-surface p-0.5 shadow-overlay group-focus-within:flex group-hover:flex print:hidden!">
+        {/* Actions de la ligne : au survol ou au clavier ; au doigt (pas de survol), toujours affichées dans la ligne. */}
+        <span className="gantt-actions absolute top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-line bg-surface p-0.5 shadow-overlay group-focus-within:flex group-hover:flex pointer-coarse:static pointer-coarse:flex pointer-coarse:translate-y-0 pointer-coarse:border-0 pointer-coarse:bg-transparent pointer-coarse:p-0 pointer-coarse:shadow-none print:hidden!">
           {row.breakdown && (
             <RowAction label="Générer les sous-tâches (IA)" onClick={() => row.breakdown && openDialog(row.breakdown)}>
               <Sparkles className="size-3.5" />
@@ -889,12 +893,13 @@ function GanttRow(props: GanttRowProps) {
             </RowAction>
           )}
           {row.edit && (
-            <RowAction label={`Modifier ${row.code}`} onClick={() => row.edit && openDialog(row.edit)}>
+            // Au doigt, toucher le titre ouvre déjà la modification : le crayon laisse sa place au titre.
+            <RowAction label={`Modifier ${row.code}`} className="pointer-coarse:hidden" onClick={() => row.edit && openDialog(row.edit)}>
               <Pencil className="size-3.5" />
             </RowAction>
           )}
         </span>
-        <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">
+        <span className="gantt-budget w-14 shrink-0 text-right text-xs tabular-nums text-muted">
           {row.kind === 'MILESTONE' ? '0.0 j' : estimate ? days(estimate) : '—'}
         </span>
       </div>
@@ -906,11 +911,11 @@ function GanttRow(props: GanttRowProps) {
   )
 }
 
-function RowAction({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+function RowAction({ label, onClick, children, className }: { label: string; onClick: () => void; children: ReactNode; className?: string }) {
   return (
     <button
       type="button"
-      className="grid size-6 place-items-center rounded-md text-muted hover:bg-elevated hover:text-fg"
+      className={`grid size-6 place-items-center rounded-md text-muted hover:bg-elevated hover:text-fg pointer-coarse:size-7 ${className ?? ''}`}
       aria-label={label}
       title={label}
       onClick={onClick}
@@ -927,6 +932,8 @@ function Bar({ row, calendar, geometry, dragging, critical, faded, conflict, onO
   if (row.kind === 'MILESTONE' && row.milestone) {
     const date = geometry?.start ?? row.milestone.date
     const left = dayIndex(calendar.start, parseDate(date)) * calendar.ppd + calendar.ppd / 2
+    // État selon la date affichée (celle du glissement en cours) : un jalon dépassé sans être atteint est en retard.
+    const state = milestoneState({ date, reached: row.milestone.reached }, today())
     return (
       <button
         type="button"
@@ -939,8 +946,8 @@ function Bar({ row, calendar, geometry, dragging, critical, faded, conflict, onO
       >
         <span className="ds-diamond size-4!" data-reached={row.milestone.reached} aria-hidden />
         <span className="font-medium">{shortDate(date)}</span>
-        <span className="ds-ink" data-status={row.milestone.reached ? 'CLOSED' : 'OPEN'}>
-          {row.milestone.reached ? '· Atteint' : '· À venir'}
+        <span className="ds-ink" data-status={MILESTONE_STATE_STATUS[state]}>
+          · {MILESTONE_STATE_LABEL[state]}
         </span>
       </button>
     )

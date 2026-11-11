@@ -31,7 +31,7 @@ function RefRow({ dependency, onRemove, busy }: { dependency: DependencyRef; onR
   return (
     <li className="flex items-center gap-2 px-3 py-2 text-sm">
       <span className="ds-dot shrink-0" data-status={dependency.status} title={STATUS_LABEL[dependency.status]} aria-label={STATUS_LABEL[dependency.status]} />
-      <button type="button" className="min-w-0 flex-1 truncate text-left hover:underline" onClick={() => openWorkItem(dependency.id)} title={dependency.title}>
+      <button type="button" className="min-w-0 flex-1 truncate text-left hover:underline pointer-coarse:-my-2 pointer-coarse:min-h-10" onClick={() => openWorkItem(dependency.id)} title={dependency.title}>
         <span className="ds-ink font-semibold" data-type={dependency.type}>
           #{dependency.id}
         </span>{' '}

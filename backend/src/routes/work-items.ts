@@ -68,11 +68,13 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags,
         summary: 'Créer un élément (FEATURE, TASK ou BUG) dans une story',
         params: StoryParams,
+        querystring: ReportQuery,
         body: WorkItemCreateSchema,
         response: { 201: WorkItemDetailSchema, ...errorResponses(400, 404) },
       },
     },
-    async (request, reply) => reply.code(201).send(await createWorkItem(app.prisma, request.params.storyId, request.body, app.settings.now())),
+    async (request, reply) =>
+      reply.code(201).send(await createWorkItem(app.prisma, request.params.storyId, request.body, app.settings.now(), request.query)),
   )
 
   app.post(
@@ -110,11 +112,12 @@ export const workItemRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags,
         summary: 'Modifier un élément (statut, estimation, textes…) ou le déplacer vers une autre story',
         params: WorkItemParams,
+        querystring: ReportQuery,
         body: WorkItemUpdateSchema,
         response: { 200: WorkItemDetailSchema, ...errorResponses(400, 404) },
       },
     },
-    async (request) => updateWorkItem(app.prisma, request.params.workItemId, request.body, app.settings.now()),
+    async (request) => updateWorkItem(app.prisma, request.params.workItemId, request.body, app.settings.now(), request.query),
   )
 
   app.delete(

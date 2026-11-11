@@ -174,17 +174,68 @@
   }
 }
 
+/* Au doigt (charte de la suite, Atelier_Deploy/DESIGN.md) : toute cible fait au moins 40 px, et le texte d'un
+   champ est à 16 px — en dessous, Safari sur iPhone zoome la page dès qu'on touche le champ. Les composants du
+   design system gardent leur densité avec une souris. Les lignes du Gantt (36 px, géométrie du diagramme)
+   gardent leurs boutons compacts. */
+@media (pointer: coarse) {
+  .ds-btn:not(.gantt .ds-btn) {
+    min-block-size: 2.5rem;
+  }
+  .ds-btn[data-icon-only]:not(.gantt .ds-btn) {
+    inline-size: 2.5rem;
+  }
+  .ds-seg > button {
+    block-size: 2.5rem;
+    min-inline-size: 2.5rem;
+  }
+  .ds-tab,
+  .ds-input,
+  .ds-select {
+    min-block-size: 2.5rem;
+  }
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+}
+
 /* Largeur de la colonne « Hiérarchie » du Gantt (colonne figée à gauche), selon la place disponible
    pour le diagramme (fiche élément ouverte ou non) : requête de conteneur sur la carte du Gantt. */
 .gantt-card {
   container-type: inline-size;
 }
 .gantt {
-  --gantt-left: 13rem;
+  --gantt-left: 14.5rem;
+  --gantt-indent: 10px;
+}
+/* Retrait d'une ligne selon son niveau (--level, posé par la ligne). */
+.gantt-cell {
+  padding-left: calc(12px + var(--level, 0) * var(--gantt-indent));
+}
+/* Carte étroite (téléphone) : la colonne figée ne garde que la hiérarchie — retraits serrés, ni budget ni
+   nom du type (la pastille de couleur le dit déjà) — pour que le titre reste lisible. */
+.gantt-budget,
+.gantt-type {
+  display: none;
+}
+.gantt-actions {
+  right: 0.75rem;
 }
 @container (min-width: 30rem) {
   .gantt {
     --gantt-left: 17rem;
+    --gantt-indent: 18px;
+  }
+  .gantt-budget {
+    display: block;
+  }
+  .gantt-type {
+    display: inline;
+  }
+  .gantt-actions {
+    right: 4rem;
   }
 }
 @container (min-width: 42rem) {
@@ -195,6 +246,20 @@
 @container (min-width: 64rem) {
   .gantt {
     --gantt-left: 26rem;
+  }
+}
+/* Au doigt, les actions d'une ligne restent affichées dans la colonne (pas de survol) : sur une carte de moins
+   de 42rem (tablette en portrait), la colonne garde la disposition serrée du téléphone, sinon le titre d'une
+   story n'a plus la place de son code. */
+@media (pointer: coarse) {
+  @container (min-width: 30rem) and (max-width: 41.99rem) {
+    .gantt {
+      --gantt-indent: 10px;
+    }
+    .gantt-budget,
+    .gantt-type {
+      display: none;
+    }
   }
 }
 
@@ -302,8 +367,15 @@
   }
   html[data-printing="gantt"] .gantt {
     --gantt-left: var(--print-left, 21rem);
+    --gantt-indent: 18px;
     max-height: none;
     overflow: visible;
+  }
+  html[data-printing="gantt"] .gantt-budget {
+    display: block;
+  }
+  html[data-printing="gantt"] .gantt-type {
+    display: inline;
   }
   html[data-printing="gantt"] .gantt-content {
     zoom: var(--print-scale, 1);

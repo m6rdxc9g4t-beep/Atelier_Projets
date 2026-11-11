@@ -87,12 +87,13 @@ export const workItemService = {
     unwrap(http.GET('/api/projects/{projectId}/work-items', { params: { path: { projectId }, query } })),
   get: (workItemId: number, query: ViewOptions = {}) =>
     unwrap(http.GET('/api/work-items/{workItemId}', { params: { path: { workItemId }, query } })),
-  create: (storyId: number, body: WorkItemInput) =>
-    unwrap(http.POST('/api/stories/{storyId}/work-items', { params: { path: { storyId } }, body })),
+  /** query.hoursPerDay : conversion affichée par la vue, appliquée à une estimation saisie en jours. */
+  create: (storyId: number, body: WorkItemInput, query: ViewOptions = {}) =>
+    unwrap(http.POST('/api/stories/{storyId}/work-items', { params: { path: { storyId }, query }, body })),
   createMany: (storyId: number, items: WorkItemInput[]) =>
     unwrap(http.POST('/api/stories/{storyId}/work-items/batch', { params: { path: { storyId } }, body: { items } })),
-  update: (workItemId: number, body: WorkItemUpdate) =>
-    unwrap(http.PATCH('/api/work-items/{workItemId}', { params: { path: { workItemId } }, body })),
+  update: (workItemId: number, body: WorkItemUpdate, query: ViewOptions = {}) =>
+    unwrap(http.PATCH('/api/work-items/{workItemId}', { params: { path: { workItemId }, query }, body })),
   remove: (workItemId: number) =>
     unwrap(http.DELETE('/api/work-items/{workItemId}', { params: { path: { workItemId } } })),
   appendLog: (workItemId: number, body: LogEntryInput) =>
