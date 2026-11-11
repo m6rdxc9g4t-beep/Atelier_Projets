@@ -3,11 +3,14 @@
 //
 // Pour Projets, une histoire apporte un projet complet (phases, epics, stories, éléments, temps passés, jalons) et la
 // tâche de suivi née de l'alerte de Viz, comme la crée le workflow Nexus « Alerte Viz → tâche de suivi Projets ».
+// L'histoire ne porte ni date de début, ni avancement, ni budget : planItem et projectFrame les déduisent
+// (estimation, temps passé, échéances, jalons) pour que le Gantt et la santé du budget aient quelque chose à montrer.
 // Tout passe par les services existants (événements du nœud Atelier compris). Le projet créé est noté dans
 // AppSetting (clé « exemplesSuite ») : retirer l'exemple supprime ce projet, et lui seul.
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Db } from '../db/client.ts'
+import { isDone, isRejected, type WorkItemStatus } from '../domain/workflow.ts'
 import { badRequest, conflict, notFound } from '../http/errors.ts'
 import type { ExempleChargeDto, ExempleHistoireDto } from '../schemas/exemples.ts'
 import { createEpic, createPhase, createStory } from './hierarchy.ts'
@@ -22,7 +25,7 @@ const ID = /^[a-z0-9][a-z0-9-]{0,63}$/
 /** Une saisie de temps est bornée à 24 h : un temps passé plus long est réparti sur des journées de 7 h. */
 const HOURS_PER_ENTRY = 7
 
-interface Clock {
+export interface Clock {
   timeZone: string
   now: Date
 }
@@ -33,7 +36,7 @@ interface Etape {
   texte: string
 }
 
-interface Item {
+export interface Item {
   titre: string
   type: 'FEATURE' | 'TASK' | 'BUG'
   statut: string
@@ -110,7 +113,7 @@ export async function listExemples(prisma: Db, dir: string): Promise<ExempleHist
     } catch {
       continue
     }
-    const items = part.phases.flatMap((p) => p.epics.flatMap((e) => e.stories.flatMap((s) => s.items))).length
+    const items = allItems(part).length
     out.push({
       id: h.id,
       titre: h.titre,
@@ -155,7 +158,12 @@ export async function loadExemple(prisma: Db, dir: string, histoire: string, clo
     throw conflict(`Un projet « ${part.projet.nom} » existe déjà : renommez-le pour charger l'exemple`)
   }
 
-  const project = await createProject(prisma, { name: part.projet.nom, description: part.projet.description })
+  const jalons = part.jalons.map((j) => j.date)
+  const project = await createProject(prisma, {
+    name: part.projet.nom,
+    description: part.projet.description,
+    ...projectFrame(allItems(part).map((it) => ({ it, plan: planItem(it, clock) })), jalons),
+  })
   await writeState(prisma, { ...(await readState(prisma)), [histoire]: project.id })
   try {
     let storyAlerteId: number | null = null
@@ -191,25 +199,76 @@ export async function loadExemple(prisma: Db, dir: string, histoire: string, clo
   }
 }
 
+const allItems = (part: Part): Item[] => part.phases.flatMap((p) => p.epics.flatMap((e) => e.stories.flatMap((s) => s.items)))
+
+/** Ce que l'histoire ne dit pas et que Projets en déduit : saisies de temps, date de début, avancement. */
+export interface ItemPlan {
+  entries: { day: string; hours: number }[]
+  startDate: string | null
+  progress: number | null
+}
+
+/**
+ * Plan d'un élément. Temps passé : journées de 7 h au plus, jusqu'à l'échéance (ou aujourd'hui si elle est à venir).
+ * Début (seulement avec une échéance) : le plus ancien entre la première journée saisie et le premier des jours
+ * ouvrés que demande l'estimation avant l'échéance — sans lui, le Gantt n'a qu'une barre d'un jour.
+ * Avancement d'un élément commencé et non terminé : part du temps estimé déjà passée, par pas de 5, de 5 à 90 %.
+ */
+export function planItem(it: Item, clock: Clock): ItemPlan {
+  const entries: ItemPlan['entries'] = []
+  if (it.passe) {
+    const days = workDaysBefore(lastDay(it.echeance ? [it.echeance] : [], clock), Math.ceil(it.passe / HOURS_PER_ENTRY))
+    let left = it.passe
+    for (const day of days) {
+      const hours = Math.min(HOURS_PER_ENTRY, Math.round(left * 100) / 100)
+      if (hours <= 0) break
+      entries.push({ day, hours })
+      left -= hours
+    }
+  }
+
+  const starts: string[] = []
+  if (it.echeance) {
+    if (it.estime) starts.push(...workDaysBefore(new Date(`${it.echeance}T00:00:00Z`), Math.ceil(it.estime / HOURS_PER_ENTRY)).slice(0, 1))
+    if (entries[0]) starts.push(entries[0].day)
+  }
+  const startDate = starts.filter((day) => day <= (it.echeance ?? day)).sort()[0] ?? null
+
+  const status = it.statut as WorkItemStatus
+  const started = Boolean(it.passe && it.estime) && !isDone(status) && !isRejected(status)
+  const progress = started ? Math.min(90, Math.max(5, Math.round(((it.passe ?? 0) / (it.estime ?? 1)) * 20) * 5)) : null
+  return { entries, startDate, progress }
+}
+
+/** Budget (somme des estimations) et dates du projet (bornes des éléments et des jalons), absents sans données. */
+export function projectFrame(
+  items: { it: Item; plan: ItemPlan }[],
+  jalons: string[],
+): { budgetHours?: number; startDate?: string; dueDate?: string } {
+  const budgetHours = Math.round(items.reduce((sum, { it }) => sum + (it.estime ?? 0), 0) * 100) / 100
+  const ends = [...items.flatMap(({ it }) => (it.echeance ? [it.echeance] : [])), ...jalons].sort()
+  const starts = [...items.flatMap(({ plan }) => [plan.startDate, plan.entries[0]?.day].filter((day) => day != null)), ...ends].sort()
+  const [startDate, dueDate] = [starts[0], ends.at(-1)]
+  return {
+    ...(budgetHours > 0 && { budgetHours }),
+    ...(startDate !== undefined && dueDate !== undefined && startDate <= dueDate && { startDate, dueDate }),
+  }
+}
+
 async function createItem(prisma: Db, storyId: number, it: Item, clock: Clock): Promise<void> {
+  const plan = planItem(it, clock)
   const item = await createWorkItem(prisma, storyId, {
     type: it.type,
     title: it.titre,
     status: it.statut as never,
     priority: it.priorite,
     ...(it.estime ? { estimatedHours: it.estime } : {}),
+    ...(plan.startDate ? { startDate: plan.startDate } : {}),
     ...(it.echeance ? { dueDate: it.echeance } : {}),
+    ...(plan.progress !== null ? { progress: plan.progress } : {}),
   }, clock.now)
-  if (!it.passe) return
-  // Temps passé réparti en journées de 7 h au plus, jusqu'à l'échéance (ou aujourd'hui si elle est à venir).
-  const parts = Math.ceil(it.passe / HOURS_PER_ENTRY)
-  const days = workDaysBefore(lastDay(it.echeance ? [it.echeance] : [], clock), parts)
-  let left = it.passe
-  for (const day of days) {
-    const hours = Math.min(HOURS_PER_ENTRY, Math.round(left * 100) / 100)
-    if (hours <= 0) break
+  for (const { day, hours } of plan.entries) {
     await createTimeEntry(prisma, item.id, { hours, spentOn: day, comment: 'Exemple de la suite' }, clock)
-    left -= hours
   }
 }
 
