@@ -3,8 +3,9 @@ import { BarChart3, Flag } from 'lucide-react'
 import { useState } from 'react'
 import { HealthCard } from '../components/HealthCard.tsx'
 import { Card, Eyebrow, ErrorNotice, ProgressBar, Spinner, StatusBadge, TypeChip } from '../components/ui.tsx'
-import { days, longDate, percent } from '../lib/format.ts'
+import { days, longDate, percent, today } from '../lib/format.ts'
 import { levelCode, STATUS_CODE, STATUS_LABEL, TYPE_LABEL, WORK_ITEM_TYPES } from '../lib/labels.ts'
+import { MILESTONE_STATE_LABEL, MILESTONE_STATE_STATUS, milestoneState } from '../lib/milestone.ts'
 import { useApi } from '../lib/use-api.ts'
 import { reportService } from '../services/api.ts'
 import type { Dashboard, Milestone, Project, ProjectTree } from '../services/types.ts'
@@ -232,6 +233,7 @@ function Milestones({ tree }: { tree: ProjectTree }) {
     (a, b) => a.date.localeCompare(b.date) || a.id - b.id,
   )
   const openDialog = useApp((state) => state.openDialog)
+  const now = today()
   return (
     <Card className="p-4">
       <Eyebrow className="mb-4">
@@ -243,22 +245,26 @@ function Milestones({ tree }: { tree: ProjectTree }) {
         <p className="text-muted">Aucun jalon.</p>
       ) : (
         <ul className="space-y-1">
-          {milestones.map((milestone) => (
-            <li key={milestone.id}>
-              <button
-                type="button"
-                className="flex h-8 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-hover"
-                onClick={() => openDialog({ kind: 'editMilestone', id: milestone.id })}
-              >
-                <span className="ds-diamond" data-reached={milestone.reached} aria-hidden />
-                <span className="min-w-0 flex-1 truncate">{milestone.title}</span>
-                <span className="shrink-0 text-xs text-muted">{longDate(milestone.date)}</span>
-                <span className="w-16 shrink-0 text-right text-xs" data-status={milestone.reached ? 'CLOSED' : 'OPEN'}>
-                  <span className="ds-ink">{milestone.reached ? 'Atteint' : 'À venir'}</span>
-                </span>
-              </button>
-            </li>
-          ))}
+          {milestones.map((milestone) => {
+            // Date passée sans être atteint : « En retard », seul état coloré comme une anomalie.
+            const state = milestoneState(milestone, now)
+            return (
+              <li key={milestone.id}>
+                <button
+                  type="button"
+                  className="flex h-8 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-hover"
+                  onClick={() => openDialog({ kind: 'editMilestone', id: milestone.id })}
+                >
+                  <span className="ds-diamond" data-reached={milestone.reached} aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{milestone.title}</span>
+                  <span className="shrink-0 text-xs text-muted">{longDate(milestone.date)}</span>
+                  <span className={`w-16 shrink-0 text-right text-xs ${state === 'late' ? 'font-medium' : ''}`} data-status={MILESTONE_STATE_STATUS[state]}>
+                    <span className="ds-ink">{MILESTONE_STATE_LABEL[state]}</span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </Card>

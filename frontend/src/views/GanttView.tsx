@@ -18,6 +18,7 @@ import { HealthCard } from '../components/HealthCard.tsx'
 import { Button, Card, Eyebrow, ErrorNotice, Spinner, TypeChip } from '../components/ui.tsx'
 import { days, parseDate, percent, shortDate, today } from '../lib/format.ts'
 import { levelCode, STATUS_LABEL, TYPE_LABEL } from '../lib/labels.ts'
+import { MILESTONE_STATE_LABEL, MILESTONE_STATE_STATUS, milestoneState } from '../lib/milestone.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
 import { applyTheme } from '../lib/theme.ts'
@@ -931,6 +932,8 @@ function Bar({ row, calendar, geometry, dragging, critical, faded, conflict, onO
   if (row.kind === 'MILESTONE' && row.milestone) {
     const date = geometry?.start ?? row.milestone.date
     const left = dayIndex(calendar.start, parseDate(date)) * calendar.ppd + calendar.ppd / 2
+    // État selon la date affichée (celle du glissement en cours) : un jalon dépassé sans être atteint est en retard.
+    const state = milestoneState({ date, reached: row.milestone.reached }, today())
     return (
       <button
         type="button"
@@ -943,8 +946,8 @@ function Bar({ row, calendar, geometry, dragging, critical, faded, conflict, onO
       >
         <span className="ds-diamond size-4!" data-reached={row.milestone.reached} aria-hidden />
         <span className="font-medium">{shortDate(date)}</span>
-        <span className="ds-ink" data-status={row.milestone.reached ? 'CLOSED' : 'OPEN'}>
-          {row.milestone.reached ? '· Atteint' : '· À venir'}
+        <span className="ds-ink" data-status={MILESTONE_STATE_STATUS[state]}>
+          · {MILESTONE_STATE_LABEL[state]}
         </span>
       </button>
     )
