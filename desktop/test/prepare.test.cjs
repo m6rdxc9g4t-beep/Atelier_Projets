@@ -306,4 +306,23 @@ describe('journal', () => {
     assert.equal(fs.existsSync(file), false)
     assert.equal(fs.readFileSync(path.join(root, 'rotation', 'mise-a-jour.1.log'), 'utf8').length, 100)
   })
+
+  it('tourne aussi app.log, en remplaçant la génération précédente, sans erreur si le journal manque', () => {
+    const dir = path.join(root, 'rotation-app')
+    const file = path.join(dir, 'app.log')
+    fs.mkdirSync(dir, { recursive: true })
+    rotateLog(file, 50)
+    fs.writeFileSync(path.join(dir, 'app.1.log'), 'ancien')
+    fs.writeFileSync(file, 'y'.repeat(80))
+    rotateLog(file, 50)
+    assert.deepEqual(fs.readdirSync(dir), ['app.1.log'])
+    assert.equal(fs.readFileSync(path.join(dir, 'app.1.log'), 'utf8'), 'y'.repeat(80))
+  })
+
+  it('l’application de bureau tourne app.log avant d’y écrire', () => {
+    const main = fs.readFileSync(path.join(__dirname, '..', 'main.cjs'), 'utf8')
+    const rotation = main.indexOf('rotateLog(LOG_FILE')
+    assert.ok(rotation > 0, 'rotateLog(LOG_FILE…) attendu dans main.cjs')
+    assert.ok(rotation < main.indexOf('function log('), 'la rotation précède toute écriture du journal')
+  })
 })

@@ -23,7 +23,7 @@ const { apiStatus, isUp, readApiAddress, startBackend } = require('./lib/backend
 const { ignoredMessage, sanitizeProcessEnv } = require('./lib/environment.cjs')
 const { findNode } = require('./lib/node-path.cjs')
 const { dataDirectory, logDirectory } = require('./lib/paths.cjs')
-const { prepare, UpdateError } = require('./lib/prepare.cjs')
+const { prepare, rotateLog, UpdateError } = require('./lib/prepare.cjs')
 const { openSuiteOrExternal } = require('./lib/suite-launch.cjs')
 const { startUiServer } = require('./lib/ui-server.cjs')
 
@@ -50,7 +50,11 @@ const LOG_DIR = logDirectory() ?? path.join(app.getPath('userData'), 'logs')
 const LOG_FILE = path.join(LOG_DIR, 'app.log')
 /** Journal des mises à jour (npm ci, sauvegarde et migrations, compilation) : docs/SUITE.md §8.2. */
 const UPDATE_LOG = path.join(LOG_DIR, 'mise-a-jour.log')
+/** Au-delà, app.log devient app.1.log au lancement (l'API y écrit deux lignes par requête). */
+const LOG_MAX_BYTES = 5 * 1024 * 1024
 fs.mkdirSync(LOG_DIR, { recursive: true })
+// Avant toute écriture, et avant que l'API n'ouvre le fichier : un journal renommé pendant l'écriture serait perdu de vue.
+rotateLog(LOG_FILE, LOG_MAX_BYTES)
 
 /** Chemin lisible (~ pour le dossier personnel sur macOS / Linux ; chemin complet sous Windows), pour les messages. */
 function displayPath(file) {

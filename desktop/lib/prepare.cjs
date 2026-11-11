@@ -162,7 +162,7 @@ function appendLog(logFile, text) {
   }
 }
 
-/** Le journal ne grossit pas sans fin : au-delà de 2 Mo, il devient mise-a-jour.1.log (une génération gardée). */
+/** Un journal ne grossit pas sans fin : au-delà de `maxBytes` (2 Mo), « x.log » devient « x.1.log » (une génération gardée). */
 function rotateLog(logFile, maxBytes = LOG_MAX_BYTES) {
   try {
     if (fs.statSync(logFile).size > maxBytes) fs.renameSync(logFile, logFile.replace(/(\.log)?$/, '.1.log'))
