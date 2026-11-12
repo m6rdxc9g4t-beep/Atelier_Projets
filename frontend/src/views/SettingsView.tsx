@@ -2,7 +2,6 @@
 // post-commit) et dépôt GitHub (synchronisation des Pull Requests).
 import { DatabaseBackup, Download, FileUp, FolderGit2, GitPullRequest, LayoutGrid, RefreshCw, Save, Trash2, Webhook } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { SuiteExamples } from '../components/SuiteExamples.tsx'
 import { Button, Card, Eyebrow, Field } from '../components/ui.tsx'
 import { dateTime, parseNumber } from '../lib/format.ts'
 import { withGithubInput } from '../lib/github.ts'
@@ -145,7 +144,6 @@ export function SettingsView({ project }: { project: Project }) {
         <GitCard project={project} />
         <GitHubCard project={project} />
         <SuiteCard project={project} />
-        <SuiteExamples />
         <BackupCard />
         <DeleteProject project={project} />
       </div>

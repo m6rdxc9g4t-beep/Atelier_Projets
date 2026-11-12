@@ -27,6 +27,7 @@ export type DialogRequest =
   | { kind: 'claude'; workItemId: number }
   | { kind: 'linkRepo'; workItemId: number | null }
   | { kind: 'importTab' }
+  | { kind: 'examples' }
   | { kind: 'deleteProject'; projectId: number }
   | { kind: 'deletePhase'; projectId: number; phaseId: number }
 

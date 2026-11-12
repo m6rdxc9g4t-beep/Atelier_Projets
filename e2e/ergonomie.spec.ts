@@ -2,7 +2,7 @@
 // (téléphone et tablette : Gantt lisible, cibles de 40 px sur les quatre vues).
 import path from 'node:path'
 import type { Locator, Page } from '@playwright/test'
-import { api, createScenario, expect, openProject, test } from './helpers.ts'
+import { api, createScenario, expect, openProject, overflowX, test, tooSmall } from './helpers.ts'
 
 const FIXTURE = path.resolve('backend', 'test', 'fixtures', 'atelier-tab-planning.json')
 
@@ -111,29 +111,6 @@ const VIEWS: { tab: string; ready: (page: Page) => Locator }[] = [
   { tab: 'Tableau des temps', ready: (page) => page.getByLabel('Filtrer par epic') },
   { tab: 'Paramètres du projet', ready: (page) => page.getByText('Sauvegardes de la base').first() },
 ]
-
-/**
- * Cibles de moins de 40 px de haut et champs de moins de 16 px (Safari sur iPhone zoome en dessous), hors des
- * lignes du Gantt (36 px, géométrie du diagramme) et de la marque commune (copie de la suite).
- */
-function tooSmall(page: Page): Promise<string[]> {
-  return page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('button, select, input, textarea, a[href]')]
-      .filter((element) => !element.closest('.gantt, .atelier-brand'))
-      .flatMap((element) => {
-        const box = element.getBoundingClientRect()
-        if (box.width === 0 || box.height === 0) return []
-        const field = element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement || (element instanceof HTMLInputElement && !['checkbox', 'radio', 'range', 'file'].includes(element.type))
-        const small = box.height < 39.5 || (field && Number.parseFloat(getComputedStyle(element).fontSize) < 16)
-        return small ? [`${Math.round(box.width)}×${Math.round(box.height)} ${element.getAttribute('aria-label') ?? element.textContent?.trim().slice(0, 30) ?? element.tagName}`] : []
-      }),
-  )
-}
-
-/** Débordement horizontal de la page, en pixels (0 : rien ne dépasse de l'écran). */
-function overflowX(page: Page): Promise<number> {
-  return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-}
 
 // Téléphone, tablette en portrait (barre latérale + Gantt étroit) et en paysage (arborescence des projets affichée).
 // « story » : largeur minimale du titre d'une story, qui porte deux actions toujours affichées au doigt — son code

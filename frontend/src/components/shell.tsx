@@ -1,7 +1,9 @@
 // Cadre de l'application, à la forme du portail de la suite (charte v2 « Linear », Atelier_Deploy/DESIGN.md) :
-// barre latérale (marque, sélecteur de la suite, projet, vues, thème), barre haute de 44 px (titre de la vue,
-// chronomètre, IA), notifications. Sous 768 px, la barre latérale devient un bandeau et les vues une rangée de pastilles.
+// barre latérale (marque, sélecteur de la suite, projet, vues, exemples de la suite, thème), barre haute de 44 px
+// (titre de la vue, chronomètre, IA), notifications. Sous 768 px, la barre latérale devient un bandeau et les vues
+// une rangée de pastilles.
 import {
+  BookOpen,
   Bot,
   CalendarRange,
   Check,
@@ -118,8 +120,9 @@ function AiButton() {
 /**
  * Barre latérale (≥ 768 px : colonne de 232 px, ou 52 px repliée ; en dessous : bandeau en haut).
  * Haut : marque (« À propos »), sélecteur de la suite ; puis vues du projet courant, arborescence des projets
- * (Projets › Phases, comme la barre d'Atelier Tab) ; pied : thème. Repliée ou sur téléphone, l'arborescence
- * laisse la place au menu déroulant des projets.
+ * (Projets › Phases, comme la barre d'Atelier Tab) ; pied : « Exemples de la suite », documentation de l'API, thème.
+ * Repliée ou sur téléphone, l'arborescence laisse la place au menu déroulant des projets ; sur téléphone, où le
+ * pied ne garde que le thème, ce menu porte aussi « Exemples de la suite ».
  */
 export function Sidebar({ projects, project }: { projects: Project[]; project: Project | undefined }) {
   const { railExpanded, openDialog } = useAppState((state) => ({ railExpanded: state.railExpanded, openDialog: state.openDialog }))
@@ -169,20 +172,37 @@ export function Sidebar({ projects, project }: { projects: Project[]; project: P
       )}
 
       <div className={`order-2 flex items-center gap-1 md:order-none md:mt-2 md:flex-col md:items-stretch md:gap-1.5 md:pt-2 ${collapsed ? 'md:items-center' : ''}`}>
-        <a
-          className={`${NAV_ITEM} hidden md:flex`}
-          href="/api/docs"
-          target="_blank"
-          rel="noreferrer"
-          title={collapsed ? 'Documentation de l’API' : undefined}
-        >
-          <CircleHelp aria-hidden />
-          {collapsed ? <span className="sr-only">Documentation de l’API</span> : <span className="truncate">Documentation API</span>}
-        </a>
+        <div className="hidden md:flex md:flex-col md:gap-px md:self-stretch">
+          <button
+            type="button"
+            className={NAV_ITEM}
+            aria-haspopup="dialog"
+            title={collapsed ? EXAMPLES_LABEL : undefined}
+            onClick={(event) => openExamples(event.currentTarget)}
+          >
+            <BookOpen aria-hidden />
+            <span className={collapsed ? 'sr-only' : 'truncate'}>{EXAMPLES_LABEL}</span>
+          </button>
+          <a className={NAV_ITEM} href="/api/docs" target="_blank" rel="noreferrer" title={collapsed ? 'Documentation de l’API' : undefined}>
+            <CircleHelp aria-hidden />
+            {collapsed ? <span className="sr-only">Documentation de l’API</span> : <span className="truncate">Documentation API</span>}
+          </a>
+        </div>
         <ThemeSwitch vertical={collapsed} />
       </div>
     </div>
   )
+}
+
+const EXAMPLES_LABEL = 'Exemples de la suite'
+
+/**
+ * Ouvre la fenêtre « Exemples de la suite ». Le focus est d'abord posé sur `trigger` : la fenêtre le lui rend à sa
+ * fermeture, même quand le clic ne l'a pas focalisé (Safari) ou qu'il vient d'une entrée de menu qui disparaît.
+ */
+function openExamples(trigger: HTMLElement | null) {
+  trigger?.focus()
+  useApp.getState().openDialog({ kind: 'examples' })
 }
 
 /** Entrée de navigation : 30 px (40 px au doigt), icône 16 px discrète, libellé 13 px en 500 ; pastille bordée sur téléphone. */
@@ -301,6 +321,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
   const [open, setOpen] = useState(false)
   const { setProject, openDialog } = useAppState((state) => ({ setProject: state.setProject, openDialog: state.openDialog }))
   const root = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -325,6 +346,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
   return (
     <div className={`relative min-w-0 ${compact ? '' : 'w-full'}`} ref={root}>
       <button
+        ref={trigger}
         type="button"
         className={`flex h-8 pointer-coarse:h-10 w-full min-w-0 items-center gap-2 rounded-md border border-line bg-surface pl-2 pr-1.5 text-left text-sm font-medium transition-colors hover:bg-hover ${
           compact ? 'md:size-8 md:justify-center md:p-0' : ''
@@ -386,6 +408,19 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
             >
               <FileUp className="size-4 text-faint" aria-hidden />
               Importer depuis Atelier Tab…
+            </button>
+            {/* Téléphone seulement : à partir de 768 px, l'entrée est au pied de la barre latérale. */}
+            <button
+              type="button"
+              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover pointer-coarse:h-10 md:hidden"
+              aria-haspopup="dialog"
+              onClick={() => {
+                setOpen(false)
+                openExamples(trigger.current)
+              }}
+            >
+              <BookOpen className="size-4 text-faint" aria-hidden />
+              {EXAMPLES_LABEL}…
             </button>
             {project && (
               <button
