@@ -121,6 +121,7 @@ function AiButton() {
  * Barre latérale (≥ 768 px : colonne de 232 px, ou 52 px repliée ; en dessous : bandeau en haut).
  * Haut : marque (« À propos »), sélecteur de la suite ; puis vues du projet courant, arborescence des projets
  * (Projets › Phases, comme la barre d'Atelier Tab) ; pied : « Exemples de la suite », documentation de l'API, thème.
+ * Quand la hauteur manque (téléphone en paysage), seuls l'en-tête et le thème restent fixes : le reste défile dans la barre.
  * Repliée ou sur téléphone, l'arborescence laisse la place au menu déroulant des projets ; sur téléphone, où le
  * pied ne garde que le thème, ce menu porte aussi « Exemples de la suite ».
  */
@@ -149,30 +150,36 @@ export function Sidebar({ projects, project }: { projects: Project[]; project: P
         </div>
       </header>
 
-      <nav
-        aria-label="Navigation principale"
-        className={`order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-col ${collapsed ? 'md:flex-1' : 'md:flex-none'} md:gap-px md:overflow-x-visible md:overflow-y-auto md:px-0`}
-      >
-        <ViewTabs collapsed={collapsed} />
-        <button
-          type="button"
-          className={`${NAV_ITEM} hidden md:flex`}
-          title={collapsed ? 'Ajouter une phase' : undefined}
-          onClick={() => openDialog({ kind: 'phase' })}
+      {/* Entre l'en-tête et le thème, tout défile ensemble quand la hauteur manque (téléphone tenu en paysage) : le
+          pied ne sort pas de l'écran et ne se pose pas sur l'arborescence, qui garde son en-tête et trois lignes.
+          La zone va jusqu'aux bords de la barre (anneaux de focus entiers) et sert de repère (relative) aux libellés
+          hors écran de ses entrées (sr-only, en position absolue), qui allongeraient sinon la page. Sur téléphone,
+          display: contents laisse la navigation se ranger dans le bandeau. */}
+      <div className="contents md:relative md:-mx-2 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:overflow-x-hidden md:px-2 md:pb-1 md:[scrollbar-width:thin]">
+        <nav
+          aria-label="Navigation principale"
+          className="order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-none md:flex-col md:gap-px md:overflow-visible md:px-0"
         >
-          <Plus aria-hidden />
-          {collapsed ? <span className="sr-only">Ajouter une phase</span> : <span className="truncate">Nouvelle phase</span>}
-        </button>
-      </nav>
+          <ViewTabs collapsed={collapsed} />
+          <button
+            type="button"
+            className={`${NAV_ITEM} hidden md:flex`}
+            title={collapsed ? 'Ajouter une phase' : undefined}
+            onClick={() => openDialog({ kind: 'phase' })}
+          >
+            <Plus aria-hidden />
+            {collapsed ? <span className="sr-only">Ajouter une phase</span> : <span className="truncate">Nouvelle phase</span>}
+          </button>
+        </nav>
 
-      {!collapsed && (
-        <div className="hidden md:mt-4 md:flex md:min-h-0 md:flex-1 md:flex-col">
-          <ProjectTree projects={projects} current={project} />
-        </div>
-      )}
+        {!collapsed && (
+          <div className="hidden md:mt-4 md:flex md:min-h-[128px] md:flex-1 md:flex-col md:pointer-coarse:min-h-[168px]">
+            <ProjectTree projects={projects} current={project} />
+          </div>
+        )}
 
-      <div className={`order-2 flex items-center gap-1 md:order-none md:mt-2 md:flex-col md:items-stretch md:gap-1.5 md:pt-2 ${collapsed ? 'md:items-center' : ''}`}>
-        <div className="hidden md:flex md:flex-col md:gap-px md:self-stretch">
+        {/* Poussé en bas par l'arborescence (dépliée) ou par la marge automatique (repliée). */}
+        <div className="hidden md:mt-auto md:flex md:shrink-0 md:flex-col md:gap-px md:pt-4">
           <button
             type="button"
             className={NAV_ITEM}
@@ -188,6 +195,9 @@ export function Sidebar({ projects, project }: { projects: Project[]; project: P
             {collapsed ? <span className="sr-only">Documentation de l’API</span> : <span className="truncate">Documentation API</span>}
           </a>
         </div>
+      </div>
+
+      <div className={`order-2 flex shrink-0 items-center gap-1 md:order-none md:mt-0.5 md:flex-col md:items-stretch ${collapsed ? 'md:items-center' : ''}`}>
         <ThemeSwitch vertical={collapsed} />
       </div>
     </div>

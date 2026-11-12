@@ -116,6 +116,11 @@ export function overflowX(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 }
 
+/** Défilement vertical de la page elle-même, en pixels (0 : tout tient dans la hauteur de l'écran). */
+export function overflowY(page: Page): Promise<number> {
+  return page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)
+}
+
 /** Test qui échoue aussi sur une erreur JavaScript ou une erreur de la console du navigateur. */
 export const test = base.extend<{ consoleGuard: void }>({
   consoleGuard: [
