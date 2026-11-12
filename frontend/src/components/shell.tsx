@@ -148,7 +148,7 @@ export function Sidebar({ projects, project }: { projects: Project[]; project: P
 
       <nav
         aria-label="Navigation principale"
-        className={`order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-none md:flex-col ${collapsed ? 'md:flex-1' : ''} md:gap-px md:overflow-x-visible md:overflow-y-auto md:px-0`}
+        className={`order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-col ${collapsed ? 'md:flex-1' : 'md:flex-none'} md:gap-px md:overflow-x-visible md:overflow-y-auto md:px-0`}
       >
         <ViewTabs collapsed={collapsed} />
         <button
