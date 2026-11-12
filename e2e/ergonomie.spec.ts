@@ -1,8 +1,9 @@
 // Ergonomie : focus des fenêtres, saisies conservées en cas d'erreur ou de fermeture rapide, interface au doigt
-// (téléphone et tablette : Gantt lisible, cibles de 40 px sur les quatre vues).
+// (téléphone et tablette : Gantt lisible, cibles de 40 px sur les quatre vues ; téléphone en paysage : barre latérale
+// qui tient dans la hauteur).
 import path from 'node:path'
 import type { Locator, Page } from '@playwright/test'
-import { api, createScenario, expect, openProject, test } from './helpers.ts'
+import { api, createScenario, expect, openProject, overflowX, overflowY, test, tooSmall } from './helpers.ts'
 
 const FIXTURE = path.resolve('backend', 'test', 'fixtures', 'atelier-tab-planning.json')
 
@@ -112,29 +113,6 @@ const VIEWS: { tab: string; ready: (page: Page) => Locator }[] = [
   { tab: 'Paramètres du projet', ready: (page) => page.getByText('Sauvegardes de la base').first() },
 ]
 
-/**
- * Cibles de moins de 40 px de haut et champs de moins de 16 px (Safari sur iPhone zoome en dessous), hors des
- * lignes du Gantt (36 px, géométrie du diagramme) et de la marque commune (copie de la suite).
- */
-function tooSmall(page: Page): Promise<string[]> {
-  return page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('button, select, input, textarea, a[href]')]
-      .filter((element) => !element.closest('.gantt, .atelier-brand'))
-      .flatMap((element) => {
-        const box = element.getBoundingClientRect()
-        if (box.width === 0 || box.height === 0) return []
-        const field = element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement || (element instanceof HTMLInputElement && !['checkbox', 'radio', 'range', 'file'].includes(element.type))
-        const small = box.height < 39.5 || (field && Number.parseFloat(getComputedStyle(element).fontSize) < 16)
-        return small ? [`${Math.round(box.width)}×${Math.round(box.height)} ${element.getAttribute('aria-label') ?? element.textContent?.trim().slice(0, 30) ?? element.tagName}`] : []
-      }),
-  )
-}
-
-/** Débordement horizontal de la page, en pixels (0 : rien ne dépasse de l'écran). */
-function overflowX(page: Page): Promise<number> {
-  return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-}
-
 // Téléphone, tablette en portrait (barre latérale + Gantt étroit) et en paysage (arborescence des projets affichée).
 // « story » : largeur minimale du titre d'une story, qui porte deux actions toujours affichées au doigt — son code
 // seul au téléphone (colonne de 232 px), code et titre sur une tablette.
@@ -214,3 +192,65 @@ for (const screen of TOUCH_SCREENS) {
     }
   })
 }
+
+// Téléphone tenu en paysage : assez large pour la barre en colonne (≥ 768 px), mais 390 px de haut. Seuls l'en-tête
+// et le thème restent fixes ; vues, arborescence et entrées du pied défilent dans la barre, sans jamais se recouvrir.
+test.describe('sur téléphone tactile en paysage', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })
+
+  for (const rail of ['dépliée', 'repliée'] as const) {
+    test(`barre ${rail} : la page ne défile pas, le thème reste affiché, vues et pied atteignables sans recouvrement`, async ({ page, request }) => {
+      const s = await createScenario(request, 'Paysage')
+      await openProject(page, s.projectId)
+      if (rail === 'repliée') await page.getByRole('button', { name: 'Afficher ou masquer les libellés du menu' }).tap()
+      const examples = page.getByRole('button', { name: 'Exemples de la suite', exact: true })
+      await expect(examples).toBeAttached()
+      const box = async (target: Locator) => (await target.boundingBox())!
+
+      // La page ne gagne aucun défilement vertical et le sélecteur de thème reste entier à l'écran.
+      expect(await overflowY(page)).toBe(0)
+      const theme = await box(page.getByRole('group', { name: 'Thème' }))
+      expect(theme.y).toBeGreaterThan(0)
+      expect(theme.y + theme.height).toBeLessThanOrEqual(page.viewportSize()!.height)
+
+      // L'arborescence garde son en-tête et trois lignes, et les entrées du pied passent dessous, jamais dessus.
+      if (rail === 'dépliée') {
+        const tree = page.getByRole('region', { name: 'Projets' })
+        expect((await box(tree)).height).toBeGreaterThanOrEqual(160)
+        const heading = await box(tree.getByRole('heading', { name: 'Projets' }))
+        expect(heading.y + heading.height).toBeLessThanOrEqual((await box(examples)).y)
+      }
+
+      // Chaque entrée s'amène à l'écran en faisant défiler la barre : entière (40 px), au-dessus du thème, et
+      // réellement affichée (rien ne la rogne ni ne la couvre : elle répond au doigt de son bord haut à son bord bas).
+      const entries = [
+        ...['Tableau de bord', 'Gantt & Avancement du projet', 'Tableau des temps', 'Paramètres du projet'].map((name) => page.getByRole('tab', { name, exact: true })),
+        examples,
+        page.getByRole('link', { name: /^Documentation/ }),
+      ]
+      for (const entry of entries) {
+        await entry.scrollIntoViewIfNeeded()
+        const shown = await box(entry)
+        expect(shown.height, await entry.textContent() ?? '').toBeGreaterThanOrEqual(39.5)
+        expect(shown.y, await entry.textContent() ?? '').toBeGreaterThanOrEqual(0)
+        expect(shown.y + shown.height, await entry.textContent() ?? '').toBeLessThanOrEqual(theme.y)
+        const reached = await entry.evaluate((element) => {
+          const { left, top, width, height } = element.getBoundingClientRect()
+          return [2, height / 2, height - 2].map((dy) => element.contains(document.elementFromPoint(left + width / 2, top + dy)))
+        })
+        expect(reached, await entry.textContent() ?? '').toEqual([true, true, true])
+      }
+      expect(await overflowY(page)).toBe(0)
+      expect(await overflowX(page)).toBe(0)
+      expect(await tooSmall(page)).toEqual([])
+
+      // L'entrée amenée à l'écran ouvre bien la fenêtre, qui lui rend le focus.
+      await examples.tap()
+      const dialog = page.getByRole('dialog', { name: 'Exemples de la suite' })
+      await expect(dialog.getByLabel('Histoire d’exemple')).toBeVisible()
+      await dialog.getByRole('button', { name: 'Fermer' }).tap()
+      await expect(dialog).toBeHidden()
+      await expect(examples).toBeFocused()
+    })
+  }
+})

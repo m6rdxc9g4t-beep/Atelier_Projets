@@ -1,7 +1,9 @@
 // Cadre de l'application, à la forme du portail de la suite (charte v2 « Linear », Atelier_Deploy/DESIGN.md) :
-// barre latérale (marque, sélecteur de la suite, projet, vues, thème), barre haute de 44 px (titre de la vue,
-// chronomètre, IA), notifications. Sous 768 px, la barre latérale devient un bandeau et les vues une rangée de pastilles.
+// barre latérale (marque, sélecteur de la suite, projet, vues, exemples de la suite, thème), barre haute de 44 px
+// (titre de la vue, chronomètre, IA), notifications. Sous 768 px, la barre latérale devient un bandeau et les vues
+// une rangée de pastilles.
 import {
+  BookOpen,
   Bot,
   CalendarRange,
   Check,
@@ -118,8 +120,10 @@ function AiButton() {
 /**
  * Barre latérale (≥ 768 px : colonne de 232 px, ou 52 px repliée ; en dessous : bandeau en haut).
  * Haut : marque (« À propos »), sélecteur de la suite ; puis vues du projet courant, arborescence des projets
- * (Projets › Phases, comme la barre d'Atelier Tab) ; pied : thème. Repliée ou sur téléphone, l'arborescence
- * laisse la place au menu déroulant des projets.
+ * (Projets › Phases, comme la barre d'Atelier Tab) ; pied : « Exemples de la suite », documentation de l'API, thème.
+ * Quand la hauteur manque (téléphone en paysage), seuls l'en-tête et le thème restent fixes : le reste défile dans la barre.
+ * Repliée ou sur téléphone, l'arborescence laisse la place au menu déroulant des projets ; sur téléphone, où le
+ * pied ne garde que le thème, ce menu porte aussi « Exemples de la suite ».
  */
 export function Sidebar({ projects, project }: { projects: Project[]; project: Project | undefined }) {
   const { railExpanded, openDialog } = useAppState((state) => ({ railExpanded: state.railExpanded, openDialog: state.openDialog }))
@@ -146,43 +150,69 @@ export function Sidebar({ projects, project }: { projects: Project[]; project: P
         </div>
       </header>
 
-      <nav
-        aria-label="Navigation principale"
-        className={`order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-none md:flex-col ${collapsed ? 'md:flex-1' : ''} md:gap-px md:overflow-x-visible md:overflow-y-auto md:px-0`}
-      >
-        <ViewTabs collapsed={collapsed} />
-        <button
-          type="button"
-          className={`${NAV_ITEM} hidden md:flex`}
-          title={collapsed ? 'Ajouter une phase' : undefined}
-          onClick={() => openDialog({ kind: 'phase' })}
+      {/* Entre l'en-tête et le thème, tout défile ensemble quand la hauteur manque (téléphone tenu en paysage) : le
+          pied ne sort pas de l'écran et ne se pose pas sur l'arborescence, qui garde son en-tête et trois lignes.
+          La zone va jusqu'aux bords de la barre (anneaux de focus entiers) et sert de repère (relative) aux libellés
+          hors écran de ses entrées (sr-only, en position absolue), qui allongeraient sinon la page. Sur téléphone,
+          display: contents laisse la navigation se ranger dans le bandeau. */}
+      <div className="contents md:relative md:-mx-2 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:overflow-x-hidden md:px-2 md:pb-1 md:[scrollbar-width:thin]">
+        <nav
+          aria-label="Navigation principale"
+          className="order-4 -mx-3.5 flex w-[calc(100%+1.75rem)] min-w-0 gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] md:order-none md:mx-0 md:mt-3 md:w-auto md:flex-none md:flex-col md:gap-px md:overflow-visible md:px-0"
         >
-          <Plus aria-hidden />
-          {collapsed ? <span className="sr-only">Ajouter une phase</span> : <span className="truncate">Nouvelle phase</span>}
-        </button>
-      </nav>
+          <ViewTabs collapsed={collapsed} />
+          <button
+            type="button"
+            className={`${NAV_ITEM} hidden md:flex`}
+            title={collapsed ? 'Ajouter une phase' : undefined}
+            onClick={() => openDialog({ kind: 'phase' })}
+          >
+            <Plus aria-hidden />
+            {collapsed ? <span className="sr-only">Ajouter une phase</span> : <span className="truncate">Nouvelle phase</span>}
+          </button>
+        </nav>
 
-      {!collapsed && (
-        <div className="hidden md:mt-4 md:flex md:min-h-0 md:flex-1 md:flex-col">
-          <ProjectTree projects={projects} current={project} />
+        {!collapsed && (
+          <div className="hidden md:mt-4 md:flex md:min-h-[128px] md:flex-1 md:flex-col md:pointer-coarse:min-h-[168px]">
+            <ProjectTree projects={projects} current={project} />
+          </div>
+        )}
+
+        {/* Poussé en bas par l'arborescence (dépliée) ou par la marge automatique (repliée). */}
+        <div className="hidden md:mt-auto md:flex md:shrink-0 md:flex-col md:gap-px md:pt-4">
+          <button
+            type="button"
+            className={NAV_ITEM}
+            aria-haspopup="dialog"
+            title={collapsed ? EXAMPLES_LABEL : undefined}
+            onClick={(event) => openExamples(event.currentTarget)}
+          >
+            <BookOpen aria-hidden />
+            <span className={collapsed ? 'sr-only' : 'truncate'}>{EXAMPLES_LABEL}</span>
+          </button>
+          <a className={NAV_ITEM} href="/api/docs" target="_blank" rel="noreferrer" title={collapsed ? 'Documentation de l’API' : undefined}>
+            <CircleHelp aria-hidden />
+            {collapsed ? <span className="sr-only">Documentation de l’API</span> : <span className="truncate">Documentation API</span>}
+          </a>
         </div>
-      )}
+      </div>
 
-      <div className={`order-2 flex items-center gap-1 md:order-none md:mt-2 md:flex-col md:items-stretch md:gap-1.5 md:pt-2 ${collapsed ? 'md:items-center' : ''}`}>
-        <a
-          className={`${NAV_ITEM} hidden md:flex`}
-          href="/api/docs"
-          target="_blank"
-          rel="noreferrer"
-          title={collapsed ? 'Documentation de l’API' : undefined}
-        >
-          <CircleHelp aria-hidden />
-          {collapsed ? <span className="sr-only">Documentation de l’API</span> : <span className="truncate">Documentation API</span>}
-        </a>
+      <div className={`order-2 flex shrink-0 items-center gap-1 md:order-none md:mt-0.5 md:flex-col md:items-stretch ${collapsed ? 'md:items-center' : ''}`}>
         <ThemeSwitch vertical={collapsed} />
       </div>
     </div>
   )
+}
+
+const EXAMPLES_LABEL = 'Exemples de la suite'
+
+/**
+ * Ouvre la fenêtre « Exemples de la suite ». Le focus est d'abord posé sur `trigger` : la fenêtre le lui rend à sa
+ * fermeture, même quand le clic ne l'a pas focalisé (Safari) ou qu'il vient d'une entrée de menu qui disparaît.
+ */
+function openExamples(trigger: HTMLElement | null) {
+  trigger?.focus()
+  useApp.getState().openDialog({ kind: 'examples' })
 }
 
 /** Entrée de navigation : 30 px (40 px au doigt), icône 16 px discrète, libellé 13 px en 500 ; pastille bordée sur téléphone. */
@@ -301,6 +331,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
   const [open, setOpen] = useState(false)
   const { setProject, openDialog } = useAppState((state) => ({ setProject: state.setProject, openDialog: state.openDialog }))
   const root = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -325,6 +356,7 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
   return (
     <div className={`relative min-w-0 ${compact ? '' : 'w-full'}`} ref={root}>
       <button
+        ref={trigger}
         type="button"
         className={`flex h-8 pointer-coarse:h-10 w-full min-w-0 items-center gap-2 rounded-md border border-line bg-surface pl-2 pr-1.5 text-left text-sm font-medium transition-colors hover:bg-hover ${
           compact ? 'md:size-8 md:justify-center md:p-0' : ''
@@ -386,6 +418,19 @@ function ProjectSwitcher({ projects, project, compact }: { projects: Project[]; 
             >
               <FileUp className="size-4 text-faint" aria-hidden />
               Importer depuis Atelier Tab…
+            </button>
+            {/* Téléphone seulement : à partir de 768 px, l'entrée est au pied de la barre latérale. */}
+            <button
+              type="button"
+              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-hover pointer-coarse:h-10 md:hidden"
+              aria-haspopup="dialog"
+              onClick={() => {
+                setOpen(false)
+                openExamples(trigger.current)
+              }}
+            >
+              <BookOpen className="size-4 text-faint" aria-hidden />
+              {EXAMPLES_LABEL}…
             </button>
             {project && (
               <button

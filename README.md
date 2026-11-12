@@ -149,7 +149,7 @@ Ces deux thèmes sont la base commune de la suite, **crème** en clair et **bleu
 ([`docs/SUITE.md`](./docs/SUITE.md) §1.7, règles complètes dans `Atelier_Deploy/DESIGN.md`) garde cette structure, commune à toute
 la suite, et réserve la couleur signature d'Atelier Projets, **vert olive `#568100`** (`data-atelier-app="projets"` sur `<html>`), à ce qui
 porte un sens : bouton principal plein, sélection, focus, liens, icône de l'app. Plat au repos (traits de 1 px, pas de halo ni d'ombre sur
-les cartes ; cartes de chiffres arrondies à 12 px, `.ds-kpi`), police Inter embarquée à 13 px, coquille du portail : barre latérale de 232 px (marque, vues, arborescence **Projets › Phases** sur le modèle d'Atelier Tab — clic : ouvrir, double-clic : renommer, au survol : supprimer ou ajouter une phase, avec confirmation qui détaille ce qui sera supprimé —, thème ; repliée ou sur téléphone, menu déroulant des projets) et barre haute de 44 px (projet / vue).
+les cartes ; cartes de chiffres arrondies à 12 px, `.ds-kpi`), police Inter embarquée à 13 px, coquille du portail : barre latérale de 232 px (marque, vues, arborescence **Projets › Phases** sur le modèle d'Atelier Tab — clic : ouvrir, double-clic : renommer, au survol : supprimer ou ajouter une phase, avec confirmation qui détaille ce qui sera supprimé — ; au pied : « Exemples de la suite », documentation de l'API, thème — quand la hauteur manque (téléphone tenu en paysage), seuls l'en-tête et le thème restent fixes, le reste défile dans la barre ; repliée ou sur téléphone, menu déroulant des projets, qui porte « Exemples de la suite » au téléphone) et barre haute de 44 px (projet / vue).
 Les jetons `--atelier-*` de `design-system/brand/atelier-brand.css` sont branchés sur les variables `--app-*` de `tokens/ui.css`.
 La couleur signature ne remplace aucune couleur de type ou de statut (Gantt, badges, histogramme inchangés).
 
@@ -526,6 +526,14 @@ L'icône grille à gauche du nom de l'application ouvre le menu des applications
 - **En marche / arrêtée** : à chaque ouverture du menu, `GET <app>/api/health` (Viz : http://127.0.0.1:8000/api/health), délai de 1,5 s, sans bloquer le menu. L'application courante (Projets) est toujours « en marche », sans être sondée. Atelier Tab n'a pas d'API de données mais expose une route de santé : `http://127.0.0.1:4175/api/health` (app de bureau, aperçu) et `http://127.0.0.1:5175/api/health` (dev) sont sondées en parallèle, Tab est « en marche » si l'une répond.
 - **Atelier Cuisine** (stock, repas, courses et budget du foyer) : app en ligne, `https://atelier-cuisine-iota.vercel.app` (PWA, données Supabase). Pas d'API locale : jamais sondée, marquée « En ligne ». Dans l'app de bureau, `setWindowOpenHandler` → `desktop/lib/suite-launch.cjs` reconnaît cette adresse exacte (https) et ouvre l'app Mac installée (`open -b fr.ateliercuisine.app`), sinon le navigateur par défaut.
 - **Pourquoi `no-cors`** : l'API de Viz est sur une autre origine et n'autorise pas forcément CORS ; un `fetch` classique serait bloqué par le navigateur et Viz paraîtrait arrêtée. La sonde utilise donc `mode: 'no-cors'` : une réponse (opaque, statut illisible) signifie « en marche », une erreur réseau ou le délai dépassé « arrêtée ». Limite : une API qui répondrait 500 apparaît « en marche ». Une erreur `ERR_CONNECTION_REFUSED` dans la console du navigateur est normale quand Viz est arrêtée.
+
+### Exemples de la suite
+
+Des histoires fictives communes à toute la suite (`exemples-suite/`, généré par Atelier_Deploy, format `atelier-exemples/1`) : ici, le projet complet de l'histoire (phases, epics, stories, éléments, temps passés, jalons) et la tâche née de l'alerte d'Atelier Viz.
+
+- **Où** : « Exemples de la suite » au pied de la barre latérale, comme dans Atelier Tab (icône seule, avec info-bulle, quand la barre est repliée ; au téléphone, dans le menu déroulant des projets). L'entrée ouvre une fenêtre : choisir une histoire, **Charger l'exemple** (son projet apparaît dans la barre latérale et devient le projet courant), **Ouvrir le projet**, **Retirer l'exemple** (seul le projet créé par l'exemple est supprimé). Le focus revient à l'entrée quand la fenêtre se ferme.
+- **Premier lancement** : tant qu'il n'y a aucun projet, l'écran d'accueil propose la même carte, à côté de « Nouveau projet » et de l'import Atelier Tab.
+- **API** : `GET /api/exemples-suite`, `POST` et `DELETE /api/exemples-suite/:histoire` ; dossier lu : `EXEMPLES_DIR` (défaut : `exemples-suite/` du dépôt).
 
 ### Import depuis Atelier Tab (DataFlow v2.1.0)
 

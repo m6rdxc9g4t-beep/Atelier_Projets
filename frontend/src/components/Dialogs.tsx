@@ -11,6 +11,7 @@ import { useApp, type DialogRequest } from '../store/app.ts'
 import { AiPanel, BreakdownDialog, ClaudeDialog, LinkRepoDialog } from './AiDialogs.tsx'
 import { DeleteDialog } from './DeleteDialog.tsx'
 import { ImportTabDialog } from './ImportTabDialog.tsx'
+import { SuiteExamplesDialog } from './SuiteExamples.tsx'
 import { Button, Field, Modal, TypeChip } from './ui.tsx'
 import { withGithubInput } from '../lib/github.ts'
 
@@ -19,6 +20,7 @@ export function Dialogs({ project, projects }: { project: Project | undefined; p
   if (!dialog) return null
   if (dialog.kind === 'project') return <ProjectDialog />
   if (dialog.kind === 'importTab') return <ImportTabDialog projects={projects} current={project} />
+  if (dialog.kind === 'examples') return <SuiteExamplesDialog />
   if (dialog.kind === 'ai') return <AiPanel project={project} />
   if (dialog.kind === 'breakdown') return <BreakdownDialog request={dialog} />
   if (dialog.kind === 'claude') return <ClaudeDialog request={dialog} />

@@ -93,6 +93,34 @@ export async function expectToast(page: Page, text: RegExp) {
   await expect(page.getByRole('status').filter({ hasText: text }).first()).toBeVisible()
 }
 
+/**
+ * Cibles de moins de 40 px de haut et champs de moins de 16 px (Safari sur iPhone zoome en dessous), hors des
+ * lignes du Gantt (36 px, géométrie du diagramme) et de la marque commune (copie de la suite).
+ */
+export function tooSmall(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('button, select, input, textarea, a[href]')]
+      .filter((element) => !element.closest('.gantt, .atelier-brand'))
+      .flatMap((element) => {
+        const box = element.getBoundingClientRect()
+        if (box.width === 0 || box.height === 0) return []
+        const field = element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement || (element instanceof HTMLInputElement && !['checkbox', 'radio', 'range', 'file'].includes(element.type))
+        const small = box.height < 39.5 || (field && Number.parseFloat(getComputedStyle(element).fontSize) < 16)
+        return small ? [`${Math.round(box.width)}×${Math.round(box.height)} ${element.getAttribute('aria-label') ?? element.textContent?.trim().slice(0, 30) ?? element.tagName}`] : []
+      }),
+  )
+}
+
+/** Débordement horizontal de la page, en pixels (0 : rien ne dépasse de l'écran). */
+export function overflowX(page: Page): Promise<number> {
+  return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+}
+
+/** Défilement vertical de la page elle-même, en pixels (0 : tout tient dans la hauteur de l'écran). */
+export function overflowY(page: Page): Promise<number> {
+  return page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)
+}
+
 /** Test qui échoue aussi sur une erreur JavaScript ou une erreur de la console du navigateur. */
 export const test = base.extend<{ consoleGuard: void }>({
   consoleGuard: [
