@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { initialTarget, trapTarget } from '../lib/focus.ts'
 import { clampPercent } from '../lib/format.ts'
 import { PRIORITY_LABEL, STATUS_LABEL, TYPE_LABEL } from '../lib/labels.ts'
 import type { Priority, WorkItemStatus, WorkItemType } from '../services/types.ts'
@@ -234,8 +235,11 @@ export function Modal({
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
-    const first = panel.current?.querySelector<HTMLElement>('input, select, textarea, button:not([data-close])')
-    first?.focus()
+    // Contenu encore en chargement (rien à focaliser) : « Fermer », pour que le focus entre quand même dans la fenêtre.
+    initialTarget(
+      panel.current?.querySelector<HTMLElement>('input, select, textarea, button:not([data-close])'),
+      panel.current?.querySelector<HTMLElement>('button[data-close]'),
+    )?.focus()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -245,14 +249,11 @@ export function Modal({
       const focusable = [...panel.current.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]')].filter(
         (element) => !element.hasAttribute('disabled'),
       )
-      const [head, tail] = [focusable[0], focusable[focusable.length - 1]]
-      if (event.shiftKey && document.activeElement === head) {
-        event.preventDefault()
-        tail?.focus()
-      } else if (!event.shiftKey && document.activeElement === tail) {
-        event.preventDefault()
-        head?.focus()
-      }
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      const target = trapTarget(focusable, active, panel.current.contains(active), event.shiftKey)
+      if (!target) return
+      event.preventDefault()
+      target.focus()
     }
     document.addEventListener('keydown', onKey)
     return () => {
