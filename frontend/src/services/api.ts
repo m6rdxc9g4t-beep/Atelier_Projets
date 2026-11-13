@@ -112,7 +112,9 @@ export const settingsService = {
 
 export const aiService = {
   /** refresh : revérifie tout de suite la connexion de Claude (sinon cache de 60 s côté serveur). */
-  status: (refresh = false) => unwrap(http.GET('/api/ai/status', { params: { query: refresh ? { refresh } : {} } })),
+  /** refresh : revérifie la connexion de Claude ; retryToken : redonne sa chance à un jeton refusé (« Revérifier le jeton »). */
+  status: (refresh = false, retryToken = false) =>
+    unwrap(http.GET('/api/ai/status', { params: { query: { ...(refresh && { refresh }), ...(retryToken && { retryToken }) } } })),
   // signal : annule la génération (dialogue fermé, « Régénérer ») ; le backend interrompt alors Ollama.
   breakdown: (body: BreakdownInput, signal?: AbortSignal) => unwrap(http.POST('/api/ai/breakdown-story', { body, signal })),
   summarize: (body: SummarizeInput, signal?: AbortSignal) => unwrap(http.POST('/api/ai/summarize-commits', { body, signal })),

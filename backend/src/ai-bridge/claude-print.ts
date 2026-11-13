@@ -124,8 +124,12 @@ export interface ClaudeEngine {
   readonly timeoutMs: number
   /** Accès à Claude : session `claude` (cli) ou forfait par jeton (token), connu sans lancer la CLI. */
   readonly access: ClaudeAccess
-  /** Exécutable + `claude auth status`, en cache 60 s (refresh : relecture, au plus toutes les 10 s). */
-  status(options?: { refresh?: boolean }): Promise<ClaudeEngineStatus>
+  /**
+   * Exécutable + `claude auth status`, en cache 60 s (refresh : relecture, au plus toutes les 10 s). Mode jeton :
+   * un jeton refusé le reste malgré `refresh` (ouverture du panneau, « Actualiser ») ; seul `retryToken`
+   * (« Revérifier le jeton ») lui redonne sa chance.
+   */
+  status(options?: { refresh?: boolean; retryToken?: boolean }): Promise<ClaudeEngineStatus>
   /** Réponse texte (champ `result`). */
   chat(request: ClaudeRequest): Promise<string>
   /** Réponse contrainte par un schéma JSON (--json-schema) : texte JSON de `structured_output`. */
@@ -329,7 +333,7 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
   const privateHome = options.privateHome
   if (token && !privateHome) throw new Error('Mode jeton : dossier privé de la CLI (privateHome) manquant')
   let cached: { at: number; value: Promise<ClaudeEngineStatus> } | null = null
-  /** Mode jeton : jeton refusé par Claude ; Claude reste indisponible (Auto → Ollama) jusqu'à une revérification. */
+  /** Mode jeton : jeton refusé par Claude ; Claude reste indisponible (Auto → Ollama) jusqu'à « Revérifier le jeton » ou une réponse réussie. */
   let refused = false
 
   /** Lance la CLI dans un dossier temporaire vide, supprimé ensuite. */
@@ -438,11 +442,15 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
   return {
     timeoutMs,
     access: token ? 'token' : 'cli',
-    status({ refresh = false } = {}) {
+    status({ refresh = false, retryToken = false } = {}) {
+      // « Revérifier le jeton » (demande explicite) : un jeton refusé retente sa chance (refus passager). Une simple
+      // relecture (`refresh` : ouverture du panneau, « Actualiser ») le laisse refusé : Auto reste sur Ollama.
+      if (retryToken && token && refused) {
+        refused = false
+        cached = null
+      }
       const age = cached === null ? Infinity : now() - cached.at
       if (cached === null || age >= CLAUDE_STATUS_TTL_MS || (refresh && age >= CLAUDE_STATUS_REFRESH_MIN_MS)) {
-        // Revérification demandée : un jeton refusé retente sa chance (jeton remplacé et serveur relancé, ou refus passager).
-        if (refresh) refused = false
         cached = { at: now(), value: readStatus() }
       }
       return cached.value

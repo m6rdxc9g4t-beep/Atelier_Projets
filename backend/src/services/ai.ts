@@ -77,20 +77,20 @@ function ollamaFailure(error: unknown): never {
 }
 
 /** Moteur Claude utilisable : en ligne, CLI installée et connectée (la connexion n'est pas vérifiée hors ligne). */
-async function claudeEngineState(prisma: Db, settings: AiSettings, refresh = false) {
+async function claudeEngineState(prisma: Db, settings: AiSettings, options: { refresh?: boolean; retryToken?: boolean } = {}) {
   const online = await isOnline(prisma)
   if (!online) return { online, engine: null }
-  return { online, engine: await settings.claudeEngine.status({ refresh }) }
+  return { online, engine: await settings.claudeEngine.status(options) }
 }
 
-export async function getAiStatus(prisma: Db, settings: AiSettings, options: { refresh?: boolean } = {}): Promise<AiStatusDto> {
+export async function getAiStatus(prisma: Db, settings: AiSettings, options: { refresh?: boolean; retryToken?: boolean } = {}): Promise<AiStatusDto> {
   const [models, launcher, { online, engine }] = await Promise.all([
     settings.ollama.listModels().then(
       (list) => ({ list, error: null }),
       (error: unknown) => ({ list: [], error: error instanceof Error ? error.message : String(error) }),
     ),
     settings.claude.status(),
-    claudeEngineState(prisma, settings, options.refresh),
+    claudeEngineState(prisma, settings, { refresh: options.refresh, retryToken: options.retryToken }),
   ])
   const installed = engine ? engine.installed : launcher.available
   const available = engine?.available === true

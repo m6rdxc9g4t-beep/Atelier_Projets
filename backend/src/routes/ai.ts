@@ -50,7 +50,7 @@ export const aiRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 200: AiStatusSchema },
       },
     },
-    async (request) => getAiStatus(app.prisma, app.settings.ai, { refresh: request.query.refresh === true }),
+    async (request) => getAiStatus(app.prisma, app.settings.ai, { refresh: request.query.refresh === true, retryToken: request.query.retryToken === true }),
   )
 
   app.post(

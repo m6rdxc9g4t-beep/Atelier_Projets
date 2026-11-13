@@ -67,6 +67,9 @@ export type AiStatusDto = Static<typeof AiStatusSchema>
 
 export const AiStatusQuery = Type.Object({
   refresh: Type.Optional(Type.Boolean({ description: 'Revérifier la connexion de Claude (sinon cache de 60 s) ; au plus une revérification forcée toutes les 10 s' })),
+  retryToken: Type.Optional(
+    Type.Boolean({ description: 'Mode jeton : redonner sa chance à un jeton refusé (« Revérifier le jeton ») ; `refresh` seul le laisse refusé' }),
+  ),
 })
 
 export const BreakdownRequestSchema = StrictObject({

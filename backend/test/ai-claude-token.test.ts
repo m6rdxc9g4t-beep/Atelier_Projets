@@ -140,7 +140,7 @@ describe('moteur Claude en mode jeton', () => {
     assert.equal(env.ANTHROPIC_API_KEY, undefined)
   })
 
-  it('jeton refusé : message en français, jamais le jeton ; Claude indisponible jusqu’à une revérification', async () => {
+  it('jeton refusé : message en français, jamais le jeton ; Claude indisponible jusqu’à « Revérifier le jeton »', async () => {
     let clock = 1_000_000
     const { runner } = scriptedRunner([
       { stdout: result({ is_error: true, result: `API Error: 401 · Invalid bearer token ${SECRET} · Please run /login` }), code: 1 },
@@ -160,7 +160,10 @@ describe('moteur Claude en mode jeton', () => {
     clock += 60_000
     assert.equal((await engine.status()).available, false, 'le cache expiré ne suffit pas : il faut revérifier')
     clock += 10_000 // revérification forcée : au plus toutes les 10 s
-    assert.equal((await engine.status({ refresh: true })).available, true, '« Revérifier » redonne sa chance au jeton')
+    const reread = await engine.status({ refresh: true })
+    assert.equal(reread.available, false, 'une relecture (ouverture du panneau, « Actualiser ») laisse le jeton refusé')
+    assert.equal(reread.error, TOKEN_REFUSED_MESSAGE)
+    assert.equal((await engine.status({ retryToken: true })).available, true, '« Revérifier le jeton » redonne sa chance au jeton')
     await assert.rejects(engine.chat(ask), (error) => error instanceof ClaudeError && error.kind === 'auth' && !error.message.includes(SECRET))
   })
 
@@ -221,10 +224,18 @@ describe('routes de l’IA en mode jeton', () => {
   const { runner, calls } = scriptedRunner(replies)
   let ctx: TestContext
   let storyId = 0
+  let clock = 1_000_000
   const api = <T = any>(method: 'GET' | 'POST' | 'PATCH', url: string, payload?: unknown) => call<T>(ctx.app, method, url, payload)
 
   before(async () => {
-    const claudeEngine = createClaudeEngine({ command: executable, runner, env: baseEnv(), token: new ClaudeToken(SECRET), privateHome: path.join(dir, 'home-routes') })
+    const claudeEngine = createClaudeEngine({
+      command: executable,
+      runner,
+      env: baseEnv(),
+      token: new ClaudeToken(SECRET),
+      privateHome: path.join(dir, 'home-routes'),
+      now: () => clock,
+    })
     ctx = await createTestContext({ seed: true, ai: { ollama: new SilentOllama(), claude: new NoLauncher(), claudeEngine, model: 'qwen2.5-coder', maxDiffChars: 4000 } })
     const tree = (await api('GET', `/api/projects/${ctx.demoProjectId}/tree`)).body
     for (const phase of tree.phases) for (const epic of phase.epics) for (const story of epic.stories) if (story.title === 'Auth') storyId = story.id
@@ -270,7 +281,20 @@ describe('routes de l’IA en mode jeton', () => {
     const after = await api('GET', '/api/ai/status')
     assert.equal(after.body.claude.available, false)
     assert.equal(after.body.auto, 'ollama', 'jeton refusé : Auto passe par Ollama')
+    // Ouverture du panneau IA (et « Actualiser ») : relecture forcée, le refus reste affiché.
+    clock += 10_000 // au-delà de l'intervalle minimal entre deux revérifications forcées
+    const panel = await api('GET', '/api/ai/status?refresh=true')
+    assert.equal(panel.body.claude.available, false)
+    assert.equal(panel.body.claude.error, TOKEN_REFUSED_MESSAGE)
+    assert.equal(panel.body.auto, 'ollama', 'le panneau ouvert ne remet pas Claude dans Auto')
+    const launches = calls.length
+    assert.equal((await api('POST', '/api/ai/breakdown-story', { storyId })).body.engine, 'ollama')
+    assert.equal(calls.length, launches, 'Auto ne relance pas un jeton refusé')
+    // « Revérifier le jeton » : seule demande qui lui redonne sa chance.
+    const retried = await api('GET', '/api/ai/status?retryToken=true')
+    assert.equal(retried.body.claude.available, true)
+    assert.equal(retried.body.auto, 'claude')
 
-    for (const body of [status.body, answer.body, limit.body, refused.body, after.body]) assert.ok(!JSON.stringify(body).includes(SECRET))
+    for (const body of [status.body, answer.body, limit.body, refused.body, after.body, panel.body, retried.body]) assert.ok(!JSON.stringify(body).includes(SECRET))
   })
 })

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { AiStatus } from '../services/types.ts'
-import { answeringEngine, effectiveChoice, restoreAiPreferences, safeEngineChoice, safeOllamaModel } from './engine.ts'
+import { answeringEngine, canRetryToken, createLatestGate, effectiveChoice, restoreAiPreferences, safeEngineChoice, safeOllamaModel } from './engine.ts'
 
 function status(onlineMode: boolean, claudeAvailable: boolean): AiStatus {
   return {
@@ -54,5 +54,29 @@ describe('préférences IA relues du stockage local', () => {
     assert.deepEqual(restoreAiPreferences('claude'), defaults)
     assert.equal(safeEngineChoice('CLAUDE'), 'auto')
     assert.equal(safeOllamaModel('  '), null)
+  })
+})
+
+describe('« Revérifier le jeton » (mode jeton du forfait)', () => {
+  const tokenStatus = (onlineMode: boolean, available: boolean, access: 'token' | 'cli' = 'token', installed = true) =>
+    ({ onlineMode, auto: 'ollama', claude: { access, installed, available, error: available ? null : 'Jeton refusé' } }) as unknown as AiStatus
+
+  it('proposé seulement en ligne, en mode jeton, CLI présente et Claude indisponible (jeton refusé)', () => {
+    assert.equal(canRetryToken(tokenStatus(true, false)), true)
+    assert.equal(canRetryToken(tokenStatus(true, true)), false, 'jeton accepté')
+    assert.equal(canRetryToken(tokenStatus(false, false)), false, 'hors ligne : rien n’est relancé')
+    assert.equal(canRetryToken(tokenStatus(true, false, 'cli')), false, 'session de la CLI : « Actualiser » suffit')
+    assert.equal(canRetryToken(tokenStatus(true, false, 'token', false)), false, 'CLI absente : le jeton n’y est pour rien')
+    assert.equal(canRetryToken(null), false)
+  })
+})
+
+describe('lectures concurrentes de l’état des moteurs', () => {
+  it('une réponse plus ancienne, arrivée après la dernière demandée, est ignorée', () => {
+    const gate = createLatestGate()
+    const panel = gate.begin() // ouverture du panneau
+    const retry = gate.begin() // « Revérifier le jeton »
+    assert.equal(gate.isLatest(retry), true)
+    assert.equal(gate.isLatest(panel), false, 'l’ancienne lecture n’écrase pas la revérification')
   })
 })
