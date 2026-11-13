@@ -39,6 +39,9 @@ export const AiStatusSchema = Type.Object(
       ),
     }),
     claude: Type.Object({
+      access: Type.Union([Type.Literal('cli'), Type.Literal('token')], {
+        description: 'Accès à Claude : cli (session « claude auth login » de la machine) ou token (forfait, par jeton CLAUDE_OAUTH_TOKEN ; le jeton n’est jamais renvoyé)',
+      }),
       available: Type.Boolean({ description: 'Moteur Claude utilisable maintenant : en ligne, CLI installée et connectée' }),
       installed: Type.Boolean({ description: 'CLI trouvée (CLAUDE_CLI, PATH, ~/.local/bin, /opt/homebrew/bin, /usr/local/bin)' }),
       loggedIn: Nullable(Type.Boolean({ description: '« claude auth status » (null : non vérifié, hors ligne ou CLI absente)' })),

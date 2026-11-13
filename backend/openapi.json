@@ -14181,6 +14181,7 @@
                     "claude": {
                       "type": "object",
                       "required": [
+                        "access",
                         "available",
                         "installed",
                         "loggedIn",
@@ -14197,6 +14198,23 @@
                         "terminalApp"
                       ],
                       "properties": {
+                        "access": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "cli"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "token"
+                              ]
+                            }
+                          ],
+                          "description": "Accès à Claude : cli (session « claude auth login » de la machine) ou token (forfait, par jeton CLAUDE_OAUTH_TOKEN ; le jeton n’est jamais renvoyé)"
+                        },
                         "available": {
                           "type": "boolean",
                           "description": "Moteur Claude utilisable maintenant : en ligne, CLI installée et connectée"
@@ -14590,6 +14608,37 @@
               }
             }
           },
+          "429": {
+            "description": "Limite du forfait Claude atteinte (mode jeton, CLAUDE_LIMIT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Limite du forfait Claude atteinte (mode jeton, CLAUDE_LIMIT)"
+                }
+              }
+            }
+          },
           "502": {
             "description": "Ollama injoignable, Claude indisponible, modèle absent ou réponse inexploitable",
             "content": {
@@ -14871,6 +14920,37 @@
                     }
                   },
                   "description": "Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite du forfait Claude atteinte (mode jeton, CLAUDE_LIMIT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "statusCode",
+                    "error",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "Limite du forfait Claude atteinte (mode jeton, CLAUDE_LIMIT)"
                 }
               }
             }

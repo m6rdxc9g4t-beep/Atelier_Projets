@@ -108,6 +108,7 @@ export async function getAiStatus(prisma: Db, settings: AiSettings, options: { r
       models: models.list,
     },
     claude: {
+      access: settings.claudeEngine.access,
       available,
       installed,
       loggedIn: engine?.loggedIn ?? null,
@@ -162,6 +163,8 @@ async function resolveEngine(
 function claudeFailure(error: unknown): never {
   if (error instanceof ClaudeError) {
     if (error.kind === 'timeout') throw new HttpError(504, 'AI_TIMEOUT', error.message)
+    // Limite du forfait (mode jeton) : 429, le message dit d'attendre ou de choisir Ollama.
+    if (error.kind === 'limit') throw new HttpError(429, 'CLAUDE_LIMIT', error.message)
     const code = error.kind === 'cancelled' ? 'AI_CANCELLED' : error.kind === 'failed' ? 'AI_ERROR' : 'CLAUDE_UNAVAILABLE'
     throw badGateway(code, error.message)
   }

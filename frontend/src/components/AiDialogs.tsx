@@ -294,14 +294,17 @@ function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: 
       </h3>
       <p className="break-all font-mono text-xs text-muted">{claude.command}</p>
       <p className="text-sm text-muted">
-        Claude répond par la CLI Claude Code de cette machine (votre abonnement), lancée isolée : sans outil, sans fichier, sans
-        historique, dans un dossier vide. Délai maximal : {Math.round(claude.timeoutMs / 1000)} s.
+        {claude.access === 'token'
+          ? 'Claude répond par la CLI Claude Code du serveur, avec votre forfait Claude (jeton du serveur, jamais affiché), lancée isolée : sans outil, sans fichier, sans historique, dans un dossier vide. Le forfait est partagé entre les applications de la suite.'
+          : 'Claude répond par la CLI Claude Code de cette machine (votre abonnement), lancée isolée : sans outil, sans fichier, sans historique, dans un dossier vide.'}{' '}
+        Délai maximal : {Math.round(claude.timeoutMs / 1000)} s.
       </p>
       {claude.error && (
         <p className="rounded-md bg-sunken p-3 text-sm" data-status={status.onlineMode ? 'BLOCKED' : undefined}>
           <span className={status.onlineMode ? 'ds-ink' : 'text-muted'}>{claude.error}</span>
         </p>
       )}
+      {claude.access === 'token' && claude.available && <p className="text-sm text-muted">Forfait Claude, par jeton.</p>}
       {claude.loggedIn && (
         <p className="text-sm text-muted">
           CLI connectée{claude.authMethod ? ` (${claude.authMethod})` : ''}
