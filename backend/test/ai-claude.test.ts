@@ -390,7 +390,7 @@ describe('moteur Claude : appel isolé de la CLI', () => {
     const first = await engine.status()
     assert.deepEqual(
       { ...first, checkedAt: undefined },
-      { installed: true, executable, loggedIn: true, authMethod: 'claude.ai', available: true, error: null, warning: null, checkedAt: undefined },
+      { access: 'cli', installed: true, executable, loggedIn: true, authMethod: 'claude.ai', available: true, error: null, warning: null, checkedAt: undefined },
     )
     assert.deepEqual(calls[0]?.args, ['auth', 'status'])
     assert.equal(calls[0]?.options.input, null)
@@ -518,7 +518,9 @@ class FakeOllama implements OllamaClient {
 
 class FakeClaudeEngine implements ClaudeEngine {
   readonly timeoutMs = 180_000
+  readonly access = 'cli'
   state: ClaudeEngineStatus = {
+    access: 'cli',
     installed: true,
     executable: '/Users/moi/.local/bin/claude',
     loggedIn: true,

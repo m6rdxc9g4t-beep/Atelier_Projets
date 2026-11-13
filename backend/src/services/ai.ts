@@ -77,20 +77,20 @@ function ollamaFailure(error: unknown): never {
 }
 
 /** Moteur Claude utilisable : en ligne, CLI installée et connectée (la connexion n'est pas vérifiée hors ligne). */
-async function claudeEngineState(prisma: Db, settings: AiSettings, refresh = false) {
+async function claudeEngineState(prisma: Db, settings: AiSettings, options: { refresh?: boolean; retryToken?: boolean } = {}) {
   const online = await isOnline(prisma)
   if (!online) return { online, engine: null }
-  return { online, engine: await settings.claudeEngine.status({ refresh }) }
+  return { online, engine: await settings.claudeEngine.status(options) }
 }
 
-export async function getAiStatus(prisma: Db, settings: AiSettings, options: { refresh?: boolean } = {}): Promise<AiStatusDto> {
+export async function getAiStatus(prisma: Db, settings: AiSettings, options: { refresh?: boolean; retryToken?: boolean } = {}): Promise<AiStatusDto> {
   const [models, launcher, { online, engine }] = await Promise.all([
     settings.ollama.listModels().then(
       (list) => ({ list, error: null }),
       (error: unknown) => ({ list: [], error: error instanceof Error ? error.message : String(error) }),
     ),
     settings.claude.status(),
-    claudeEngineState(prisma, settings, options.refresh),
+    claudeEngineState(prisma, settings, { refresh: options.refresh, retryToken: options.retryToken }),
   ])
   const installed = engine ? engine.installed : launcher.available
   const available = engine?.available === true
@@ -108,6 +108,7 @@ export async function getAiStatus(prisma: Db, settings: AiSettings, options: { r
       models: models.list,
     },
     claude: {
+      access: settings.claudeEngine.access,
       available,
       installed,
       loggedIn: engine?.loggedIn ?? null,
@@ -162,6 +163,8 @@ async function resolveEngine(
 function claudeFailure(error: unknown): never {
   if (error instanceof ClaudeError) {
     if (error.kind === 'timeout') throw new HttpError(504, 'AI_TIMEOUT', error.message)
+    // Limite du forfait (mode jeton) : 429, le message dit d'attendre ou de choisir Ollama.
+    if (error.kind === 'limit') throw new HttpError(429, 'CLAUDE_LIMIT', error.message)
     const code = error.kind === 'cancelled' ? 'AI_CANCELLED' : error.kind === 'failed' ? 'AI_ERROR' : 'CLAUDE_UNAVAILABLE'
     throw badGateway(code, error.message)
   }

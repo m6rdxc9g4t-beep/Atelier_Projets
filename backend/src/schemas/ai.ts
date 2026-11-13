@@ -39,6 +39,9 @@ export const AiStatusSchema = Type.Object(
       ),
     }),
     claude: Type.Object({
+      access: Type.Union([Type.Literal('cli'), Type.Literal('token')], {
+        description: 'Accès à Claude : cli (session « claude auth login » de la machine) ou token (forfait, par jeton CLAUDE_OAUTH_TOKEN ; le jeton n’est jamais renvoyé)',
+      }),
       available: Type.Boolean({ description: 'Moteur Claude utilisable maintenant : en ligne, CLI installée et connectée' }),
       installed: Type.Boolean({ description: 'CLI trouvée (CLAUDE_CLI, PATH, ~/.local/bin, /opt/homebrew/bin, /usr/local/bin)' }),
       loggedIn: Nullable(Type.Boolean({ description: '« claude auth status » (null : non vérifié, hors ligne ou CLI absente)' })),
@@ -64,6 +67,9 @@ export type AiStatusDto = Static<typeof AiStatusSchema>
 
 export const AiStatusQuery = Type.Object({
   refresh: Type.Optional(Type.Boolean({ description: 'Revérifier la connexion de Claude (sinon cache de 60 s) ; au plus une revérification forcée toutes les 10 s' })),
+  retryToken: Type.Optional(
+    Type.Boolean({ description: 'Mode jeton : redonner sa chance à un jeton refusé (« Revérifier le jeton ») ; `refresh` seul le laisse refusé' }),
+  ),
 })
 
 export const BreakdownRequestSchema = StrictObject({

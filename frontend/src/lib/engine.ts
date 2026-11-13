@@ -22,6 +22,16 @@ export function claudeBlockedReason(status: AiStatus | null): string | null {
 }
 
 /**
+ * Mode jeton (serveur personnel) : « Revérifier le jeton » est proposé quand, en ligne, la CLI est là mais Claude
+ * est indisponible (jeton refusé). Ouvrir le panneau ou « Actualiser » ne le relance pas : seul ce bouton le fait.
+ */
+export function canRetryToken(status: AiStatus | null): boolean {
+  if (!status || !status.onlineMode) return false
+  const { claude } = status
+  return claude.access === 'token' && claude.installed && !claude.available
+}
+
+/**
  * Choix effectif (comme Atelier Viz et Atelier Tab) : « Claude » retombe sur « Auto » **hors ligne seulement**.
  * En ligne, un Claude explicitement choisi mais indisponible reste « Claude » : la requête part telle quelle et
  * le serveur répond une erreur claire (502 CLAUDE_UNAVAILABLE) au lieu de répondre en silence par Ollama.
@@ -84,4 +94,13 @@ export function ollamaReady(status: AiStatus | null, aiModel: string | null): bo
 /** Nombre lisible : 24000 → « 24 000 ». */
 export function formatChars(value: number): string {
   return new Intl.NumberFormat('fr-FR').format(value)
+}
+
+/**
+ * Lectures concurrentes de l'état des moteurs : seule la dernière demandée compte. Sans cela, la relecture lancée à
+ * l'ouverture du panneau, arrivée après « Revérifier le jeton », remettrait l'ancien état (jeton refusé) à l'écran.
+ */
+export function createLatestGate(): { begin: () => number; isLatest: (id: number) => boolean } {
+  let latest = 0
+  return { begin: () => ++latest, isLatest: (id) => id === latest }
 }

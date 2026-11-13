@@ -10,6 +10,13 @@
 // standard, jamais dans les arguments (visibles par `ps`). Sortie JSON (`--output-format json`),
 // structurée par `--json-schema` quand une forme est imposée. L'exécutant est injectable (tests).
 // Distinct de claude-cli.ts, qui ouvre une session interactive dans un terminal.
+//
+// Mode jeton (décision de l'utilisateur : « je veux que Claude forfait cli soit actif car c'est personnel ça sera mon
+// forfait Claude ») : sur un serveur sans session `claude`, la même CLI, avec exactement les mêmes drapeaux,
+// s'authentifie par le jeton de `claude setup-token` (CLAUDE_OAUTH_TOKEN, lu une fois : claude-token.ts). Seuls écarts :
+// CLAUDE_CODE_OAUTH_TOKEN dans l'environnement de la CLI, HOME / CLAUDE_CONFIG_DIR vers un dossier privé sous le
+// dossier de données (claude-forfait/, aucune session d'utilisateur lue). Disponibilité : exécutable + jeton, sans
+// `claude auth status`.
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -25,6 +32,7 @@ import {
   type ClaudeLaunch,
 } from './claude-cli.ts'
 import type { ChatMessage } from './ollama.ts'
+import { CLAUDE_CLI_TOKEN_ENV, CLAUDE_TOKEN_ENV, ensurePrivateHome, scrubToken, type ClaudeToken } from './claude-token.ts'
 
 /** Modèles proposés (alias de la CLI). Sonnet par défaut. */
 export const CLAUDE_MODELS = ['sonnet', 'opus', 'haiku'] as const
@@ -70,10 +78,11 @@ export type ClaudeRunner = (executable: string, args: readonly string[], options
  * - auth : CLI non connectée ;
  * - timeout : délai dépassé ;
  * - cancelled : génération abandonnée par l'appelant ;
+ * - limit : limite du forfait atteinte (mode jeton) ;
  * - failed : autre erreur (réponse illisible, erreur renvoyée par Claude).
  */
 export class ClaudeError extends Error {
-  readonly kind: 'missing' | 'auth' | 'timeout' | 'cancelled' | 'failed'
+  readonly kind: 'missing' | 'auth' | 'timeout' | 'cancelled' | 'limit' | 'failed'
 
   constructor(kind: ClaudeError['kind'], message: string) {
     super(message)
@@ -82,7 +91,12 @@ export class ClaudeError extends Error {
   }
 }
 
+/** Accès à Claude : session `claude` de l'utilisateur (cli) ou forfait par jeton (token). */
+export type ClaudeAccess = 'cli' | 'token'
+
 export interface ClaudeEngineStatus {
+  /** Accès utilisé (jamais le jeton lui-même). */
+  access: ClaudeAccess
   /** Exécutable trouvé. */
   installed: boolean
   executable: string | null
@@ -108,8 +122,14 @@ export interface ClaudeRequest {
 
 export interface ClaudeEngine {
   readonly timeoutMs: number
-  /** Exécutable + `claude auth status`, en cache 60 s (refresh : relecture, au plus toutes les 10 s). */
-  status(options?: { refresh?: boolean }): Promise<ClaudeEngineStatus>
+  /** Accès à Claude : session `claude` (cli) ou forfait par jeton (token), connu sans lancer la CLI. */
+  readonly access: ClaudeAccess
+  /**
+   * Exécutable + `claude auth status`, en cache 60 s (refresh : relecture, au plus toutes les 10 s). Mode jeton :
+   * un jeton refusé le reste malgré `refresh` (ouverture du panneau, « Actualiser ») ; seul `retryToken`
+   * (« Revérifier le jeton ») lui redonne sa chance.
+   */
+  status(options?: { refresh?: boolean; retryToken?: boolean }): Promise<ClaudeEngineStatus>
   /** Réponse texte (champ `result`). */
   chat(request: ClaudeRequest): Promise<string>
   /** Réponse contrainte par un schéma JSON (--json-schema) : texte JSON de `structured_output`. */
@@ -127,6 +147,10 @@ export interface ClaudeEngineOptions {
   /** Environnement de base transmis à la CLI (défaut : process.env), nettoyé par claudeEnvironment(). */
   env?: NodeJS.ProcessEnv
   now?: () => number
+  /** Mode jeton : jeton du forfait (captureClaudeToken), transmis à la CLI seule ; null = session `claude`. */
+  token?: ClaudeToken | null
+  /** Mode jeton : dossier privé de la CLI (HOME), sous le dossier de données (claudePrivateHome). */
+  privateHome?: string
 }
 
 const DEFAULT_SYSTEM_PROMPT = 'Tu es l’assistant d’Atelier Projets, un gestionnaire de projets agiles. Réponds en français.'
@@ -287,6 +311,16 @@ function notFoundMessage(command: string): string {
   return isRelativeCommand(command) ? relativeCommandMessage(command) : NOT_FOUND_MESSAGE
 }
 const LOGIN_MESSAGE = 'Claude CLI non connectée : lancer « claude auth login » dans un terminal'
+/** Mode jeton : état affiché (jamais le jeton lui-même). */
+export const TOKEN_ACCESS_LABEL = 'Forfait Claude, par jeton'
+/** Mode jeton : CLI absente du serveur. */
+export const TOKEN_NO_CLI_MESSAGE = `Le jeton du forfait Claude est fourni (${CLAUDE_TOKEN_ENV}), mais le programme « claude » (Claude Code) est absent de ce serveur : l’installer dans l’image, ou indiquer son chemin absolu (CLAUDE_CLI)`
+/** Mode jeton : jeton refusé par Claude (invalide, révoqué ou expiré). */
+export const TOKEN_REFUSED_MESSAGE = `Le jeton du forfait Claude est refusé ou expiré : refais « claude setup-token » sur ton ordinateur et mets à jour le jeton du serveur (${CLAUDE_TOKEN_ENV}), puis redémarre Atelier Projets`
+/** Mots d'un refus d'authentification (session absente, jeton invalide ou expiré). */
+const AUTH_PATTERN = /log ?in|authenticat|api key|credential|oauth|invalid[\w ]{0,20}token|token[\w ]{0,20}(?:expired|revoked|invalid)|expired|unauthori[sz]ed|\b401\b/i
+/** Mots d'une limite d'utilisation du forfait ou d'un service saturé (testés avant le refus : « /login » peut y figurer). */
+const LIMIT_PATTERN = /usage limit|rate limit|limit reached|hit your limit|limit will reset|quota|overloaded|\b429\b/i
 
 export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEngine {
   const command = options.command?.trim() || 'claude'
@@ -295,13 +329,25 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
   const timeoutMs = options.timeoutMs ?? DEFAULT_CLAUDE_TIMEOUT_MS
   const runner = options.runner ?? spawnRunner
   const now = options.now ?? Date.now
+  const token = options.token ?? null
+  const privateHome = options.privateHome
+  if (token && !privateHome) throw new Error('Mode jeton : dossier privé de la CLI (privateHome) manquant')
   let cached: { at: number; value: Promise<ClaudeEngineStatus> } | null = null
+  /** Mode jeton : jeton refusé par Claude ; Claude reste indisponible (Auto → Ollama) jusqu'à « Revérifier le jeton » ou une réponse réussie. */
+  let refused = false
 
   /** Lance la CLI dans un dossier temporaire vide, supprimé ensuite. */
   async function run(launch: ClaudeLaunch, args: readonly string[], input: string | null, limitMs: number, signal?: AbortSignal): Promise<RunResult> {
     const cwd = await mkdtemp(path.join(tmpdir(), 'atelier-projets-claude-'))
     try {
       const env = claudeEnvironment(options.env ?? process.env, launch.executable)
+      if (token) {
+        // Mode jeton : dossier privé (aucune session d'utilisateur lue), jeton dans l'environnement de la CLI seulement.
+        const home = privateHome as string
+        env.HOME = home
+        env.CLAUDE_CONFIG_DIR = await ensurePrivateHome(home)
+        env[CLAUDE_CLI_TOKEN_ENV] = token.reveal()
+      }
       return await runner(launch.executable, [...launch.args, ...args], { input, cwd, env, timeoutMs: limitMs, signal })
     } finally {
       await rm(cwd, { recursive: true, force: true }).catch(() => undefined)
@@ -311,10 +357,15 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
   async function readStatus(): Promise<ClaudeEngineStatus> {
     const checkedAt = new Date(now()).toISOString()
     const executable = await findClaudeExecutable(command, searchPath, fallbackDirs)
-    const base = { executable, checkedAt, warning: null }
-    if (executable === null) return { ...base, installed: false, loggedIn: null, authMethod: null, available: false, error: notFoundMessage(command) }
+    const base = { access: token ? ('token' as const) : ('cli' as const), executable, checkedAt, warning: null }
+    if (executable === null) {
+      const error = token && !isRelativeCommand(command) ? TOKEN_NO_CLI_MESSAGE : notFoundMessage(command)
+      return { ...base, installed: false, loggedIn: null, authMethod: null, available: false, error }
+    }
     const launch = resolveClaudeLaunch(executable, { searchPath })
     if (launch === null) return { ...base, installed: true, loggedIn: null, authMethod: null, available: false, error: unresolvedCmdMessage(executable) }
+    // Mode jeton : exécutable + jeton suffisent (pas de « claude auth status », qui lirait une session absente).
+    if (token) return { ...base, installed: true, loggedIn: null, authMethod: null, available: !refused, error: refused ? TOKEN_REFUSED_MESSAGE : null }
     let info: { loggedIn?: unknown; authMethod?: unknown }
     try {
       const result = await run(launch, ['auth', 'status'], null, 15_000)
@@ -345,7 +396,7 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
 
   async function ask(request: ClaudeRequest, schema?: Record<string, unknown>): Promise<Record<string, unknown>> {
     const executable = await findClaudeExecutable(command, searchPath, fallbackDirs)
-    if (executable === null) throw new ClaudeError('missing', notFoundMessage(command))
+    if (executable === null) throw new ClaudeError('missing', token && !isRelativeCommand(command) ? TOKEN_NO_CLI_MESSAGE : notFoundMessage(command))
     const launch = resolveClaudeLaunch(executable, { searchPath })
     if (launch === null) throw new ClaudeError('missing', unresolvedCmdMessage(executable))
     const { system, prompt } = formatConversation(request.messages)
@@ -354,22 +405,50 @@ export function createClaudeEngine(options: ClaudeEngineOptions = {}): ClaudeEng
     const result = await run(launch, args, prompt, timeoutMs, request.signal)
     const payload = parseResult(result.stdout)
     if (payload === null) {
-      let detail = (result.stderr || result.stdout).trim().slice(0, 300)
+      let detail = scrubToken((result.stderr || result.stdout).trim(), token).slice(0, 300)
+      const failure = token && detail ? tokenFailure(detail) : null
+      if (failure) throw failure
       if (/unknown option/i.test(detail)) detail += ' — mettre la CLI à jour : « claude update »'
       throw new ClaudeError('failed', `Réponse illisible de Claude CLI${detail ? ` : ${detail}` : ''}`)
     }
     if (payload.is_error === true || result.code !== 0) {
-      const detail = typeof payload.result === 'string' && payload.result.trim() !== '' ? payload.result.trim().slice(0, 300) : 'erreur inconnue'
+      const detail =
+        typeof payload.result === 'string' && payload.result.trim() !== '' ? scrubToken(payload.result.trim(), token).slice(0, 300) : 'erreur inconnue'
+      if (token) throw tokenFailure(detail) ?? new ClaudeError('failed', `Erreur de Claude : ${detail}`)
       const auth = /log ?in|authenticat|api key|credential/i.test(detail)
       if (auth) cached = null
       throw new ClaudeError(auth ? 'auth' : 'failed', auth ? `${LOGIN_MESSAGE} (${detail})` : `Erreur de Claude : ${detail}`)
     }
+    if (token) refused = false
     return payload
+  }
+
+  /** Mode jeton : limite du forfait (d'abord) ou jeton refusé, dits en français ; null sinon. `detail` est déjà sans jeton. */
+  function tokenFailure(detail: string): ClaudeError | null {
+    if (LIMIT_PATTERN.test(detail)) {
+      return new ClaudeError(
+        'limit',
+        `Limite du forfait Claude atteinte (ou service saturé) — Claude Code répond : « ${detail.slice(0, 200)} ». Le forfait est partagé entre les applications de la suite : réessaie plus tard, ou choisis Ollama en attendant`,
+      )
+    }
+    if (AUTH_PATTERN.test(detail)) {
+      refused = true
+      cached = null
+      return new ClaudeError('auth', TOKEN_REFUSED_MESSAGE)
+    }
+    return null
   }
 
   return {
     timeoutMs,
-    status({ refresh = false } = {}) {
+    access: token ? 'token' : 'cli',
+    status({ refresh = false, retryToken = false } = {}) {
+      // « Revérifier le jeton » (demande explicite) : un jeton refusé retente sa chance (refus passager). Une simple
+      // relecture (`refresh` : ouverture du panneau, « Actualiser ») le laisse refusé : Auto reste sur Ollama.
+      if (retryToken && token && refused) {
+        refused = false
+        cached = null
+      }
       const age = cached === null ? Infinity : now() - cached.at
       if (cached === null || age >= CLAUDE_STATUS_TTL_MS || (refresh && age >= CLAUDE_STATUS_REFRESH_MIN_MS)) {
         cached = { at: now(), value: readStatus() }

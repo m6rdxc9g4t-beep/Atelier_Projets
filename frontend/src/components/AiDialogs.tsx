@@ -2,7 +2,7 @@
 // élément. Les propositions de l'IA ne sont enregistrées qu'après validation.
 import { Bot, Check, ClipboardCopy, Cloud, Cpu, HardDrive, RefreshCw, Sparkles, SquareTerminal, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { CLAUDE_MODEL_LABEL, engineResultLabel, formatChars } from '../lib/engine.ts'
+import { CLAUDE_MODEL_LABEL, canRetryToken, engineResultLabel, formatChars } from '../lib/engine.ts'
 import { TYPE_LABEL } from '../lib/labels.ts'
 import { useAction } from '../lib/use-action.ts'
 import { useApi } from '../lib/use-api.ts'
@@ -285,6 +285,7 @@ function claudeBadge(status: AiStatus): { ok: boolean; label: string } {
 function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: Engine; project: Project | undefined }) {
   const { claude } = status
   const badge = claudeBadge(status)
+  const { retryToken, loading } = useAiState((state) => ({ retryToken: state.retryToken, loading: state.loading }))
   return (
     <section className="space-y-3 border-t border-line pt-5" aria-label="Claude">
       <h3 className="flex flex-wrap items-center gap-2 font-semibold">
@@ -294,14 +295,25 @@ function ClaudeSection({ status, engine, project }: { status: AiStatus; engine: 
       </h3>
       <p className="break-all font-mono text-xs text-muted">{claude.command}</p>
       <p className="text-sm text-muted">
-        Claude répond par la CLI Claude Code de cette machine (votre abonnement), lancée isolée : sans outil, sans fichier, sans
-        historique, dans un dossier vide. Délai maximal : {Math.round(claude.timeoutMs / 1000)} s.
+        {claude.access === 'token'
+          ? 'Claude répond par la CLI Claude Code du serveur, avec votre forfait Claude (jeton du serveur, jamais affiché), lancée isolée : sans outil, sans fichier, sans historique, dans un dossier vide. Le forfait est partagé entre les applications de la suite.'
+          : 'Claude répond par la CLI Claude Code de cette machine (votre abonnement), lancée isolée : sans outil, sans fichier, sans historique, dans un dossier vide.'}{' '}
+        Délai maximal : {Math.round(claude.timeoutMs / 1000)} s.
       </p>
       {claude.error && (
         <p className="rounded-md bg-sunken p-3 text-sm" data-status={status.onlineMode ? 'BLOCKED' : undefined}>
           <span className={status.onlineMode ? 'ds-ink' : 'text-muted'}>{claude.error}</span>
         </p>
       )}
+      {canRetryToken(status) && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" icon={<RefreshCw className="size-4" />} busy={loading} onClick={() => void retryToken()}>
+            Revérifier le jeton
+          </Button>
+          <span className="text-xs text-muted">Après un refus passager, redonne sa chance au jeton (« Actualiser » ne le relance pas).</span>
+        </div>
+      )}
+      {claude.access === 'token' && claude.available && <p className="text-sm text-muted">Forfait Claude, par jeton.</p>}
       {claude.loggedIn && (
         <p className="text-sm text-muted">
           CLI connectée{claude.authMethod ? ` (${claude.authMethod})` : ''}

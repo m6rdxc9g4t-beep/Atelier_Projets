@@ -23,6 +23,7 @@ const tags = ['IA locale & Claude CLI']
 const gatewayError = {
   403: Type.Object(ErrorSchema.properties, { description: 'Claude demandé en mode hors ligne (CLAUDE_OFFLINE)' }),
   502: Type.Object(ErrorSchema.properties, { description: 'Ollama injoignable, Claude indisponible, modèle absent ou réponse inexploitable' }),
+  429: Type.Object(ErrorSchema.properties, { description: 'Limite du forfait Claude atteinte (mode jeton, CLAUDE_LIMIT)' }),
   504: Type.Object(ErrorSchema.properties, { description: 'Claude n’a pas répondu dans le délai (CLAUDE_TIMEOUT_MS)' }),
 }
 
@@ -49,7 +50,7 @@ export const aiRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 200: AiStatusSchema },
       },
     },
-    async (request) => getAiStatus(app.prisma, app.settings.ai, { refresh: request.query.refresh === true }),
+    async (request) => getAiStatus(app.prisma, app.settings.ai, { refresh: request.query.refresh === true, retryToken: request.query.retryToken === true }),
   )
 
   app.post(
